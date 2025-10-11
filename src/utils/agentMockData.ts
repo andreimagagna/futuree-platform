@@ -1,0 +1,160 @@
+import { Lead, Message } from '@/types/Agent';
+
+export const mockLeads: Lead[] = [
+  {
+    id: '1',
+    name: 'Carlos Silva',
+    company: 'TechCorp Brasil',
+    score: 85,
+    tags: ['Interesse Alto', 'Enterprise'],
+    status: 'active',
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    name: 'Maria Santos',
+    company: 'Innovate Solutions',
+    score: 72,
+    tags: ['Mid-Market', 'Qualificado'],
+    status: 'active',
+    updatedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+  },
+  {
+    id: '3',
+    name: 'João Oliveira',
+    company: 'StartupXYZ',
+    score: 45,
+    tags: ['Startup', 'Budget Limitado'],
+    status: 'manual',
+    updatedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+  },
+  {
+    id: '4',
+    name: 'Ana Paula Costa',
+    company: 'MegaRetail S.A.',
+    score: 91,
+    tags: ['Hot Lead', 'Decision Maker'],
+    status: 'active',
+    updatedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+  },
+  {
+    id: '5',
+    name: 'Roberto Ferreira',
+    company: 'CloudTech Consulting',
+    score: 68,
+    tags: ['Mid-Market', 'Em Negociação'],
+    status: 'active',
+    updatedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+  },
+];
+
+export const mockMessages: Record<string, Message[]> = {
+  '1': [
+    {
+      id: 'm1',
+      leadId: '1',
+      text: 'Olá, gostaria de saber mais sobre suas soluções de CRM.',
+      fromMe: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
+    },
+    {
+      id: 'm2',
+      leadId: '1',
+      text: 'Olá Carlos! Fico feliz em ajudar. Nosso CRM oferece automação completa de vendas, gestão de pipeline e relatórios em tempo real. Qual é o principal desafio da TechCorp hoje?',
+      fromMe: true,
+      createdAt: new Date(Date.now() - 1000 * 60 * 9).toISOString(),
+    },
+    {
+      id: 'm3',
+      leadId: '1',
+      text: 'Precisamos melhorar a conversão do nosso funil. Hoje perdemos muitos leads no meio do processo.',
+      fromMe: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
+    },
+    {
+      id: 'm4',
+      leadId: '1',
+      text: 'Entendo perfeitamente! Nossa solução tem um sistema de alertas inteligentes que notifica sua equipe quando um lead está esfriando. Além disso, oferecemos análise preditiva para identificar quais leads têm maior probabilidade de conversão. Posso agendar uma demo para amanhã?',
+      fromMe: true,
+      createdAt: new Date(Date.now() - 1000 * 60 * 7).toISOString(),
+    },
+    {
+      id: 'm5',
+      leadId: '1',
+      text: 'Sim, tenho interesse! Qual horário você tem disponível?',
+      fromMe: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+    },
+  ],
+  '2': [
+    {
+      id: 'm6',
+      leadId: '2',
+      text: 'Vi sua apresentação sobre automação de vendas. Como funciona a integração com outras ferramentas?',
+      fromMe: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    },
+    {
+      id: 'm7',
+      leadId: '2',
+      text: 'Olá Maria! Temos integrações nativas com Zapier, HubSpot, Salesforce e mais de 50 ferramentas. Você já usa alguma dessas na Innovate Solutions?',
+      fromMe: true,
+      createdAt: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
+    },
+  ],
+  '3': [
+    {
+      id: 'm8',
+      leadId: '3',
+      text: 'Qual é o ticket médio para startups?',
+      fromMe: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    },
+    {
+      id: 'm9',
+      leadId: '3',
+      text: 'Oi João! Para startups temos planos especiais a partir de R$ 297/mês com todos os recursos básicos. Quer que eu envie mais detalhes?',
+      fromMe: true,
+      createdAt: new Date(Date.now() - 1000 * 60 * 29).toISOString(),
+    },
+  ],
+  '4': [
+    {
+      id: 'm10',
+      leadId: '4',
+      text: 'Preciso de uma solução URGENTE! Nosso sistema atual está fora do ar há 2 dias.',
+      fromMe: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    },
+    {
+      id: 'm11',
+      leadId: '4',
+      text: 'Ana Paula, entendo a urgência! Posso colocar você em contato direto com nosso time de onboarding express. Conseguimos implementar em 48h. Qual seu telefone para ligar agora?',
+      fromMe: true,
+      createdAt: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
+    },
+    {
+      id: 'm12',
+      leadId: '4',
+      text: '(11) 98765-4321. Pode ligar agora!',
+      fromMe: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
+    },
+  ],
+  '5': [
+    {
+      id: 'm13',
+      leadId: '5',
+      text: 'Vocês oferecem treinamento para a equipe?',
+      fromMe: false,
+      createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    },
+    {
+      id: 'm14',
+      leadId: '5',
+      text: 'Sim Roberto! Temos treinamento completo incluído: 2 sessões ao vivo + documentação + suporte 24/7. Quantas pessoas da CloudTech precisariam do treinamento?',
+      fromMe: true,
+      createdAt: new Date(Date.now() - 1000 * 60 * 44).toISOString(),
+    },
+  ],
+};

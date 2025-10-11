@@ -5,11 +5,14 @@ export type TaskStatus = 'backlog' | 'in_progress' | 'review' | 'done';
 export type Priority = 'P1' | 'P2' | 'P3';
 export type DateRange = 'today' | 'this_week' | 'this_month' | 'custom';
 
+export type FunnelCategory = 'topo' | 'meio' | 'fundo' | 'vendas';
+
 export interface FunnelStage {
   id: string;
   name: string;
   color: string;
   order: number;
+  category?: FunnelCategory; // Categoria inteligente do funil
 }
 
 export interface Funnel {
@@ -236,11 +239,11 @@ const mockFunnels: Funnel[] = [
     name: 'Funil Padrão',
     isDefault: true,
     stages: [
-      { id: 'captured', name: 'Capturado', color: '#3B82F6', order: 0 },
-      { id: 'qualify', name: 'Qualificar', color: '#8B5CF6', order: 1 },
-      { id: 'contact', name: 'Contato', color: '#10B981', order: 2 },
-      { id: 'proposal', name: 'Proposta', color: '#F59E0B', order: 3 },
-      { id: 'closing', name: 'Fechamento', color: '#EC4899', order: 4 },
+      { id: 'captured', name: 'Capturado', color: 'hsl(var(--muted-foreground))', order: 0, category: 'topo' },
+      { id: 'qualify', name: 'Qualificar', color: 'hsl(var(--accent))', order: 1, category: 'meio' },
+      { id: 'contact', name: 'Contato', color: 'hsl(var(--primary))', order: 2, category: 'fundo' },
+      { id: 'proposal', name: 'Proposta', color: 'hsl(var(--warning))', order: 3, category: 'vendas' },
+      { id: 'closing', name: 'Fechamento', color: 'hsl(var(--success))', order: 4, category: 'vendas' },
     ],
   },
   {
@@ -248,12 +251,12 @@ const mockFunnels: Funnel[] = [
     name: 'Funil Enterprise',
     isDefault: false,
     stages: [
-      { id: 'lead', name: 'Lead', color: '#6366F1', order: 0 },
-      { id: 'discovery', name: 'Discovery', color: '#8B5CF6', order: 1 },
-      { id: 'demo', name: 'Demo', color: '#14B8A6', order: 2 },
-      { id: 'poc', name: 'POC', color: '#F59E0B', order: 3 },
-      { id: 'negotiation', name: 'Negociação', color: '#EF4444', order: 4 },
-      { id: 'closed', name: 'Fechado', color: '#10B981', order: 5 },
+      { id: 'lead', name: 'Lead', color: 'hsl(var(--muted-foreground))', order: 0, category: 'topo' },
+      { id: 'discovery', name: 'Discovery', color: 'hsl(var(--accent))', order: 1, category: 'meio' },
+      { id: 'demo', name: 'Demo', color: 'hsl(var(--info))', order: 2, category: 'meio' },
+      { id: 'poc', name: 'POC', color: 'hsl(var(--primary))', order: 3, category: 'fundo' },
+      { id: 'negotiation', name: 'Negociação', color: 'hsl(var(--warning))', order: 4, category: 'vendas' },
+      { id: 'closed', name: 'Fechado', color: 'hsl(var(--success))', order: 5, category: 'vendas' },
     ],
   },
 ];

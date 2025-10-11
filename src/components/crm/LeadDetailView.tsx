@@ -762,10 +762,11 @@ function renderCentralColumn(params: {
                     <SelectValue placeholder="Escolha o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                    <SelectItem value="E-mail">E-mail</SelectItem>
-                    <SelectItem value="Ligação">Ligação</SelectItem>
-                    <SelectItem value="Técnica">Técnica</SelectItem>
+                    <SelectItem value="Reunião">📅 Reunião</SelectItem>
+                    <SelectItem value="WhatsApp">💬 WhatsApp</SelectItem>
+                    <SelectItem value="E-mail">📧 E-mail</SelectItem>
+                    <SelectItem value="Ligação">📞 Ligação</SelectItem>
+                    <SelectItem value="Técnica">🔧 Técnica</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
@@ -1030,7 +1031,7 @@ function renderCentralColumn(params: {
                       {discountAmount > 0 && (
                         <div className="flex justify-between text-muted-foreground">
                           <span>Desconto ({product.discountType === 'percentage' ? `${product.discount}%` : `${currencySymbol} ${product.discount}`}):</span>
-                          <span className="text-red-600">- {currencySymbol} {discountAmount.toFixed(2)}</span>
+                          <span className="text-destructive">- {currencySymbol} {discountAmount.toFixed(2)}</span>
                         </div>
                       )}
                       {taxAmount > 0 && (
@@ -1294,7 +1295,7 @@ function renderProductsColumn(
                       {discountAmount > 0 && (
                         <div className="flex justify-between text-muted-foreground">
                           <span>Desconto ({product.discountType === 'percentage' ? `${product.discount}%` : `${currencySymbol} ${product.discount}`}):</span>
-                          <span className="text-red-600">- {currencySymbol} {discountAmount.toFixed(2)}</span>
+                          <span className="text-destructive">- {currencySymbol} {discountAmount.toFixed(2)}</span>
                         </div>
                       )}
                       {taxAmount > 0 && (
@@ -1406,10 +1407,11 @@ function renderMiddleColumn(params: {
                     <SelectValue placeholder="Escolha o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                    <SelectItem value="E-mail">E-mail</SelectItem>
-                    <SelectItem value="Ligação">Ligação</SelectItem>
-                    <SelectItem value="Técnica">Técnica</SelectItem>
+                    <SelectItem value="Reunião">📅 Reunião</SelectItem>
+                    <SelectItem value="WhatsApp">💬 WhatsApp</SelectItem>
+                    <SelectItem value="E-mail">📧 E-mail</SelectItem>
+                    <SelectItem value="Ligação">📞 Ligação</SelectItem>
+                    <SelectItem value="Técnica">🔧 Técnica</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
@@ -1609,9 +1611,9 @@ function renderSummaryColumn({
   const { updateLead } = useStore();
   
   const getScoreColor = (score: number) => {
-    if (score >= 75) return 'text-green-600 dark:text-green-400';
-    if (score >= 50) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
+    if (score >= 75) return 'text-success';
+    if (score >= 50) return 'text-warning';
+    return 'text-destructive';
   };
 
   const calculateBANTScore = (bant: BANTMethodology) => {
@@ -1654,7 +1656,7 @@ function renderSummaryColumn({
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <CheckCircle2 className="h-5 w-5 text-success" />
                 Qualificação BANT
               </CardTitle>
               <Badge variant="secondary" className={`${getScoreColor(lead.score)} font-bold`}>

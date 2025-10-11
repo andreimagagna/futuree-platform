@@ -1,7 +1,7 @@
-import { QualificationFunnel } from "@/components/QualificationFunnel";
+import { FunnelVisual } from "@/components/FunnelVisual";
 
 const Funnel = () => {
-  return <QualificationFunnel />;
+  return <FunnelVisual />;
 };
 
 export default Funnel;

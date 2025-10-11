@@ -9,6 +9,8 @@ import CRM from "./pages/CRM";
 import Tasks from "./pages/Tasks";
 import Funnel from "./pages/Funnel";
 import Reports from "./pages/Reports";
+import Agent from "./pages/Agent";
+import Guide from "./pages/Guide";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
@@ -31,6 +33,8 @@ const App = () => (
           <Route path="/tasks" element={<AppLayout currentView="tasks"><Tasks /></AppLayout>} />
           <Route path="/funnel" element={<AppLayout currentView="funnel"><Funnel /></AppLayout>} />
           <Route path="/reports" element={<AppLayout currentView="reports"><Reports /></AppLayout>} />
+          <Route path="/agent" element={<Agent />} />
+          <Route path="/guide" element={<Guide />} />
           
           {/* Marketing Solution */}
           <Route path="/marketing/campaigns" element={<AppLayout currentView="campaigns"><Campaigns /></AppLayout>} />

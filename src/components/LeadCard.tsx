@@ -14,11 +14,11 @@ interface LeadCardProps {
 }
 
 const stageColors: Record<string, string> = {
-  novo: "bg-blue-500",
-  contato: "bg-purple-500",
-  qualificado: "bg-green-500",
-  proposta: "bg-orange-500",
-  negociacao: "bg-yellow-500",
+  novo: "bg-accent",
+  contato: "bg-primary",
+  qualificado: "bg-success",
+  proposta: "bg-warning",
+  negociacao: "bg-warning",
 };
 
 export const LeadCard = ({

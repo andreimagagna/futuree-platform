@@ -12,9 +12,9 @@ import { cn } from "@/lib/utils";
 type CalendarView = "day" | "week" | "month";
 
 const priorityColors: Record<Priority, string> = {
-  P1: 'bg-red-500',
-  P2: 'bg-orange-500',
-  P3: 'bg-gray-500',
+  P1: 'bg-destructive',
+  P2: 'bg-warning',
+  P3: 'bg-muted-foreground',
 };
 
 export function TaskCalendar({ tasks }: { tasks: Task[] }) {
@@ -38,10 +38,6 @@ export function TaskCalendar({ tasks }: { tasks: Task[] }) {
     if (viewMode === "month") setCurrentDate(addMonths(currentDate, 1));
     else if (viewMode === "week") setCurrentDate(addWeeks(currentDate, 1));
     else setCurrentDate(addDays(currentDate, 1));
-  };
-
-  const handleToday = () => {
-    setCurrentDate(new Date());
   };
 
   const getHeaderText = () => {
@@ -382,10 +378,6 @@ export function TaskCalendar({ tasks }: { tasks: Task[] }) {
               <TabsTrigger value="month">Mês</TabsTrigger>
             </TabsList>
           </Tabs>
-          
-          <Button variant="outline" onClick={handleToday}>
-            Hoje
-          </Button>
           
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" onClick={handlePrev}>

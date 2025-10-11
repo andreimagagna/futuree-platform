@@ -14,9 +14,9 @@ interface TaskCardProps {
 }
 
 const priorityClasses = {
-  P1: "bg-red-500/10 text-red-600 border-red-500/20",
-  P2: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
-  P3: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  P1: "bg-destructive/10 text-destructive border-destructive/20",
+  P2: "bg-warning/10 text-warning border-warning/20",
+  P3: "bg-accent/10 text-accent border-accent/20",
 };
 
 export const TaskCard = ({ task }: TaskCardProps) => {

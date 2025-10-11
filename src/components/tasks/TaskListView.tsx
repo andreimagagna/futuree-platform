@@ -20,10 +20,10 @@ const priorityColors: Record<Priority, string> = {
 };
 
 const statusColors: Record<TaskStatus, string> = {
-  backlog: 'border-gray-300 text-gray-600 bg-gray-50',
-  in_progress: 'border-blue-300 text-blue-700 bg-blue-50',
-  review: 'border-orange-300 text-orange-700 bg-orange-50',
-  done: 'border-green-300 text-green-700 bg-green-50',
+  backlog: 'border-muted-foreground text-muted-foreground bg-muted',
+  in_progress: 'border-accent text-accent bg-accent/10',
+  review: 'border-warning text-warning bg-warning/10',
+  done: 'border-success text-success bg-success/10',
 };
 
 const statusLabels: Record<TaskStatus, string> = {
@@ -140,7 +140,7 @@ export function TaskListView({ tasks, onOpenTask }: TaskListViewProps) {
                           "flex items-center gap-1.5 text-sm font-medium",
                           dateInfo.overdue && "text-destructive",
                           dateInfo.today && "text-warning",
-                          dateInfo.tomorrow && "text-blue-600",
+                          dateInfo.tomorrow && "text-accent",
                           !dateInfo.overdue && !dateInfo.today && !dateInfo.tomorrow && "text-muted-foreground"
                         )}>
                           <Clock className="h-3.5 w-3.5" />
@@ -158,14 +158,14 @@ export function TaskListView({ tasks, onOpenTask }: TaskListViewProps) {
                           </Badge>
                         )}
                         {dateInfo.tomorrow && (
-                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600 border-blue-200">
+                          <Badge variant="outline" className="text-xs bg-accent/10 text-accent border-accent">
                             Amanhã
                           </Badge>
                         )}
                       </div>
                     ) : task.dueDate ? (
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <CheckSquare className="h-3 w-3 text-green-600" />
+                        <CheckSquare className="h-3 w-3 text-success" />
                         Concluída
                       </div>
                     ) : (

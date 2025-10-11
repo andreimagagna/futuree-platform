@@ -21,7 +21,7 @@ interface KPICardProps {
 
 const Trend = ({ direction, value }: { direction: 'up' | 'down' | 'neutral', value: string }) => {
   const Icon = direction === 'up' ? TrendingUp : TrendingDown;
-  const color = direction === 'up' ? 'text-emerald-500' : 'text-rose-500';
+  const color = direction === 'up' ? 'text-success' : 'text-destructive';
 
   if (direction === 'neutral') {
     return <p className="text-xs text-muted-foreground">--</p>;
@@ -98,14 +98,14 @@ export const KPICard = ({
                 >
                   <defs>
                     <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={trendDirection === 'up' ? '#10b981' : '#f43f5e'} stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor={trendDirection === 'up' ? '#10b981' : '#f43f5e'} stopOpacity={0}/>
+                      <stop offset="5%" stopColor={trendDirection === 'up' ? 'hsl(var(--success))' : 'hsl(var(--destructive))'} stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor={trendDirection === 'up' ? 'hsl(var(--success))' : 'hsl(var(--destructive))'} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <Area
                     type="monotone"
                     dataKey="value"
-                    stroke={trendDirection === 'up' ? '#10b981' : '#f43f5e'}
+                    stroke={trendDirection === 'up' ? 'hsl(var(--success))' : 'hsl(var(--destructive))'}
                     strokeWidth={2}
                     fill="url(#colorTrend)"
                   />

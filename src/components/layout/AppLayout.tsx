@@ -6,6 +6,7 @@ import { CreateDialog } from "@/components/dashboard/CreateDialog";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -17,6 +18,9 @@ export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProp
   const [createOpen, setCreateOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage<boolean>("ui.sidebarCollapsed", false);
   const navigate = useNavigate();
+
+  // Ativa atalhos de teclado para navegação rápida
+  useKeyboardShortcuts();
 
   const handleNavigate = (view: string) => {
     navigate(`/${view === 'dashboard' ? '' : view}`);

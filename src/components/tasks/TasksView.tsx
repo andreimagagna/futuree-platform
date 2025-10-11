@@ -38,17 +38,17 @@ const statusLabels: Record<TaskStatus, string> = {
 };
 
 const statusColors: Record<TaskStatus, string> = {
-  backlog: 'border-l-gray-400',
-  in_progress: 'border-l-blue-500',
-  review: 'border-l-orange-500',
-  done: 'border-l-green-500',
+  backlog: 'border-l-muted-foreground',
+  in_progress: 'border-l-accent',
+  review: 'border-l-warning',
+  done: 'border-l-success',
 };
 
 const columnColors: Record<TaskStatus, string> = {
-  backlog: 'bg-gray-100 dark:bg-gray-900',
-  in_progress: 'bg-blue-100 dark:bg-blue-950',
-  review: 'bg-orange-100 dark:bg-orange-950',
-  done: 'bg-green-100 dark:bg-green-950',
+  backlog: 'bg-muted',
+  in_progress: 'bg-accent/10',
+  review: 'bg-warning/10',
+  done: 'bg-success/10',
 };
 
 const priorityColors: Record<Priority, string> = {

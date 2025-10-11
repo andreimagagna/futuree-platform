@@ -8,33 +8,33 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Neutral Earthy Theme - Cinza, Marrom, Preto, Bege, Branco */
+    /* Neutral Earthy Theme - Cinza, Marrom Escuro, Preto, Bege, Branco */
     --background: 40 20% 97%;
-    --foreground: 0 0% 15%;
+    --foreground: 20 15% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 15%;
+    --card-foreground: 20 15% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 15%;
+    --popover-foreground: 20 15% 10%;
 
-    /* Primary - Warm Brown */
-    --primary: 25 40% 35%;
-    --primary-foreground: 40 20% 98%;
-    --primary-hover: 25 40% 30%;
-    --primary-light: 25 40% 95%;
+    /* Primary - Deep Rich Brown #53392D */
+    --primary: 18 30% 25%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 18 30% 20%;
+    --primary-light: 18 30% 96%;
 
     /* Secondary surfaces - Light Beige */
     --secondary: 40 15% 92%;
     --secondary-foreground: 0 0% 15%;
 
     --muted: 40 10% 94%;
-    --muted-foreground: 0 0% 45%;
+    --muted-foreground: 20 10% 40%;
 
-    /* Accent - Darker Gray-Brown */
-    --accent: 30 10% 45%;
-    --accent-foreground: 40 20% 98%;
-    --accent-light: 30 10% 90%;
+    /* Accent - Complementary to Primary */
+    --accent: 18 25% 30%;
+    --accent-foreground: 0 0% 100%;
+    --accent-light: 18 25% 92%;
 
     /* Status colors */
     --success: 140 30% 40%;
@@ -82,10 +82,11 @@ All colors MUST be HSL.
     --popover: 0 0% 14%;
     --popover-foreground: 40 20% 95%;
 
-    --primary: 25 35% 45%;
-    --primary-foreground: 40 20% 98%;
-    --primary-hover: 25 35% 40%;
-    --primary-light: 25 35% 20%;
+    /* Primary - Warm Beige no dark mode para contraste */
+    --primary: 35 40% 75%;
+    --primary-foreground: 20 15% 10%;
+    --primary-hover: 35 40% 80%;
+    --primary-light: 35 40% 25%;
 
     --secondary: 30 8% 18%;
     --secondary-foreground: 40 20% 95%;
@@ -93,25 +94,27 @@ All colors MUST be HSL.
     --muted: 30 8% 18%;
     --muted-foreground: 30 5% 60%;
 
-    --accent: 30 10% 50%;
-    --accent-foreground: 40 20% 98%;
-    --accent-light: 30 10% 22%;
+    /* Accent - Tom bege complementar no dark */
+    --accent: 35 35% 65%;
+    --accent-foreground: 20 15% 10%;
+    --accent-light: 35 35% 25%;
 
-    --success: 140 25% 45%;
-    --success-foreground: 0 0% 100%;
-    --success-light: 140 25% 20%;
+    /* Status colors - ajustados para dark mode */
+    --success: 140 35% 55%;
+    --success-foreground: 0 0% 10%;
+    --success-light: 140 35% 20%;
 
-    --warning: 35 55% 60%;
-    --warning-foreground: 0 0% 15%;
-    --warning-light: 35 55% 20%;
+    --warning: 35 70% 65%;
+    --warning-foreground: 0 0% 10%;
+    --warning-light: 35 70% 25%;
 
-    --destructive: 0 45% 50%;
-    --destructive-foreground: 0 0% 100%;
-    --destructive-light: 0 45% 20%;
+    --destructive: 0 55% 60%;
+    --destructive-foreground: 0 0% 10%;
+    --destructive-light: 0 55% 20%;
 
-    --info: 200 15% 50%;
-    --info-foreground: 0 0% 100%;
-    --info-light: 200 15% 20%;
+    --info: 200 25% 60%;
+    --info-foreground: 0 0% 10%;
+    --info-light: 200 25% 20%;
 
     --border: 30 8% 25%;
     --input: 30 8% 18%;

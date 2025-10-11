@@ -10,12 +10,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { User, LogOut, Settings, Bell, Search, Sparkles, Moon, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useToast } from "@/hooks/use-toast";
+import { useStore } from "@/store/useStore";
 
 interface TopbarProps {
   onOpenSearch: () => void;
@@ -24,9 +25,34 @@ interface TopbarProps {
 export const Topbar = ({ onOpenSearch }: TopbarProps) => {
   const [theme, setTheme] = useLocalStorage<string>("theme", "light");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [unreadCount] = useState(3); // Mock unread count
+  const { leads, tasks } = useStore();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Calcular notificações não lidas dinamicamente
+  const unreadCount = useMemo(() => {
+    const now = new Date();
+    let count = 0;
+
+    // Leads quentes sem contato
+    leads.forEach(lead => {
+      if (lead.score >= 80) {
+        const lastContact = lead.lastContact || lead.createdAt || now;
+        const daysSinceContact = Math.floor((now.getTime() - lastContact.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysSinceContact >= 3) count++;
+      }
+    });
+
+    // Tarefas de hoje ou atrasadas
+    tasks.forEach(task => {
+      if (task.dueDate && task.status !== 'done') {
+        const dueDate = new Date(task.dueDate);
+        if (dueDate <= now) count++;
+      }
+    });
+
+    return count;
+  }, [leads, tasks]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -69,19 +95,24 @@ export const Topbar = ({ onOpenSearch }: TopbarProps) => {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 h-[var(--topbar-height)] bg-card border-b z-40 shadow-sm">
+      <header className="fixed top-0 left-0 right-0 h-[var(--topbar-height)] bg-gradient-to-r from-card via-card/98 to-card border-b border-border/50 z-40 backdrop-blur-xl shadow-md">
         <div className="flex items-center justify-between h-full px-4 lg:px-6 gap-4 animate-fade-in">
           {/* Logo & Search */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent" />
-              <Sparkles className="h-5 w-5 text-white relative z-10" />
+            <div className="relative group">
+              {/* Light mode: fundo marrom, ícone branco */}
+              {/* Dark mode: fundo bege, ícone marrom */}
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary via-primary to-accent flex items-center justify-center shadow-lg ring-1 ring-primary/20 transition-all duration-300 group-hover:shadow-xl group-hover:scale-105">
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <Sparkles className="h-5 w-5 text-primary-foreground relative z-10 drop-shadow-sm animate-pulse" />
+              </div>
+              <div className="absolute inset-0 rounded-xl bg-primary/20 blur-xl opacity-0 group-hover:opacity-50 transition-opacity duration-300" />
             </div>
             <div className="hidden sm:block">
-              <h1 className="font-bold text-lg leading-none bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              <h1 className="font-bold text-lg leading-none text-primary tracking-tight">
                 Futuree AI
               </h1>
-              <p className="text-xs text-muted-foreground">Tríade Solutions</p>
+              <p className="text-xs text-muted-foreground font-medium">Tríade Solutions</p>
             </div>
           </div>
 
@@ -89,12 +120,12 @@ export const Topbar = ({ onOpenSearch }: TopbarProps) => {
           <div className="flex-1 flex justify-center items-center gap-4">
             <Button
               variant="outline"
-              className="w-full max-w-xs h-9 text-muted-foreground justify-start gap-2 hidden md:flex"
+              className="w-full max-w-xs h-9 text-muted-foreground justify-start gap-2 hidden md:flex border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200"
               onClick={onOpenSearch}
             >
               <Search className="h-4 w-4" />
               Busca global...
-              <Badge variant="secondary" className="ml-auto">⌘K</Badge>
+              <Badge variant="secondary" className="ml-auto bg-muted text-muted-foreground text-[10px]">⌘K</Badge>
             </Button>
             <Breadcrumbs className="ml-2" />
           </div>
@@ -105,6 +136,7 @@ export const Topbar = ({ onOpenSearch }: TopbarProps) => {
               variant="ghost"
               size="icon"
               aria-label="Toggle theme"
+              className="hover:bg-primary/10 hover:text-primary transition-colors"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             >
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -113,12 +145,12 @@ export const Topbar = ({ onOpenSearch }: TopbarProps) => {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="relative hidden sm:flex"
+              className="relative hidden sm:flex hover:bg-primary/10 hover:text-primary transition-colors"
               onClick={() => setNotificationsOpen(true)}
             >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-[10px] bg-destructive">
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] bg-destructive border-2 border-card animate-pulse">
                   {unreadCount}
                 </Badge>
               )}
@@ -126,13 +158,13 @@ export const Topbar = ({ onOpenSearch }: TopbarProps) => {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <Avatar className="h-7 w-7">
-                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                <Button variant="ghost" size="sm" className="gap-2 hover:bg-primary/10 transition-colors">
+                  <Avatar className="h-7 w-7 ring-2 ring-primary/20">
+                    <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-xs font-semibold">
                       VC
                     </AvatarFallback>
                   </Avatar>
-                  <span className="hidden md:inline text-sm">Vendedor</span>
+                  <span className="hidden md:inline text-sm font-medium">Vendedor</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 bg-popover">

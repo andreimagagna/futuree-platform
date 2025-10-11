@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2 } from "lucide-react";
+import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,18 @@ const solutions: SolutionGroup[] = [
         icon: BarChart4,
         path: "/reports",
       },
+      {
+        id: "agent",
+        label: "Agente Virtual",
+        icon: Bot,
+        path: "/agent",
+      },
+      {
+        id: "guide",
+        label: "Guia",
+        icon: BookOpen,
+        path: "/guide",
+      },
     ],
   },
   {
@@ -106,8 +118,8 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
     <aside
       className={cn(
         "fixed left-0 top-[var(--topbar-height)] bottom-0 z-20",
-        "bg-card border-r",
-        "transition-all duration-300 ease-in-out",
+        "bg-gradient-to-b from-card via-card to-muted/30 border-r border-border/50",
+        "transition-all duration-300 ease-in-out shadow-sm",
         collapsed ? "w-[var(--sidebar-collapsed-width)]" : "w-[var(--sidebar-width)]"
       )}
     >
@@ -118,7 +130,7 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
               key={solution.title} 
               className={cn(
                 "mb-8 px-3 relative",
-                isSolutionActive(solution) && "before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:bg-primary"
+                isSolutionActive(solution) && "before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-gradient-to-b before:from-primary before:to-accent before:rounded-r"
               )}
             >
               <div
@@ -128,18 +140,20 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
                   "group"
                 )}
               >
+                {/* Light mode: fundo marrom, ícone branco */}
+                {/* Dark mode: fundo bege, ícone marrom */}
                 <div className={cn(
-                  "p-2 rounded-lg",
+                  "p-2 rounded-xl transition-all duration-200 shadow-sm",
                   isSolutionActive(solution) 
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-muted text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 transition-colors"
+                    ? "bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-md ring-1 ring-primary/20" 
+                    : "bg-muted text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 group-hover:shadow"
                 )}>
                   <solution.icon className="w-5 h-5" />
                 </div>
                 {!collapsed && (
                   <div>
                     <span className={cn(
-                      "text-sm font-semibold tracking-wide",
+                      "text-sm font-semibold tracking-tight",
                       isSolutionActive(solution) ? "text-primary" : "text-muted-foreground"
                     )}>
                       {solution.title}
@@ -157,13 +171,14 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
                     key={item.id}
                     variant="ghost"
                     className={cn(
-                      "w-full justify-start py-2 px-3 h-auto",
+                      "w-full justify-start py-2 px-3 h-auto rounded-lg",
                       "transition-all duration-200",
                       "hover:bg-muted/80",
                       isActive(item.path) && [
-                        "bg-primary/10 text-primary",
-                        "hover:bg-primary/20",
+                        "bg-primary/10 text-primary shadow-sm",
+                        "hover:bg-primary/15",
                         "font-medium",
+                        "border-l-2 border-primary",
                       ],
                       !isActive(item.path) && "text-muted-foreground hover:text-foreground"
                     )}
@@ -171,7 +186,7 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className={cn(
-                        "w-4 h-4",
+                        "w-4 h-4 transition-colors",
                         isActive(item.path) ? "text-primary" : "text-muted-foreground"
                       )} />
                       {!collapsed && (
@@ -185,21 +200,24 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
           ))}
         </ScrollArea>
 
-        <div className="p-2 border-t">
+        <div className="p-2 border-t border-border/50">
           <Button
             variant="ghost"
-            className={cn("w-full justify-start", collapsed ? "px-2" : "px-3")}
+            className={cn(
+              "w-full justify-start rounded-lg hover:bg-muted/80 transition-colors", 
+              collapsed ? "px-2" : "px-3"
+            )}
             onClick={() => onViewChange("settings")}
           >
-            <Settings className="w-5 h-5" />
-            {!collapsed && <span className="ml-3 text-sm">Configurações</span>}
+            <Settings className="w-5 h-5 text-muted-foreground" />
+            {!collapsed && <span className="ml-3 text-sm text-muted-foreground">Configurações</span>}
           </Button>
         </div>
 
         <Button
           variant="ghost"
           size="icon"
-          className="absolute -right-3 top-3 h-6 w-6 rounded-full border bg-background shadow-sm"
+          className="absolute -right-3 top-3 h-6 w-6 rounded-full border border-border bg-card shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200"
           onClick={onToggleCollapse}
         >
           {collapsed ? (
