@@ -33,6 +33,11 @@ export interface Product {
   name: string;
   price: number;
   quantity: number;
+  currency: 'BRL' | 'USD'; // Moeda
+  priceType: 'fixed' | 'percentage'; // Tipo de preço (fixo ou percentual)
+  discount: number; // Desconto (valor absoluto ou %)
+  discountType: 'fixed' | 'percentage'; // Tipo de desconto
+  taxRate: number; // Taxa de imposto em %
 }
 
 export interface Lead {
@@ -62,6 +67,40 @@ export interface Lead {
   employeeCount?: string; // Número de funcionários
   dealValue?: number; // Valor do negócio
   products?: Product[]; // Produtos associados ao negócio
+  createdAt?: Date; // Data de criação do lead
+  expectedCloseDate?: Date; // Data de fechamento esperada
+}
+
+export type ActivityType = 'call' | 'email' | 'meeting' | 'note' | 'status_change' | 'comment';
+
+export interface TaskActivity {
+  id: string;
+  type: ActivityType;
+  content: string;
+  createdAt: Date;
+  createdBy: string;
+  metadata?: {
+    duration?: number; // em minutos
+    from?: string; // status anterior
+    to?: string; // status novo
+  };
+}
+
+export interface TaskComment {
+  id: string;
+  content: string;
+  createdAt: Date;
+  createdBy: string;
+}
+
+export interface TaskAttachment {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  uploadedAt: Date;
+  uploadedBy: string;
 }
 
 export interface Task {
@@ -77,6 +116,18 @@ export interface Task {
   tags: string[];
   description: string;
   checklist: { id: string; text: string; done: boolean }[];
+  createdAt: Date;
+  createdBy: string;
+  updatedAt?: Date;
+  completedAt?: Date;
+  activities: TaskActivity[];
+  comments: TaskComment[];
+  attachments: TaskAttachment[];
+  watchers: string[]; // Lista de usuários observando a tarefa
+  timeTracked?: number; // Tempo rastreado em minutos
+  estimatedTime?: number; // Tempo estimado em minutos
+  subtasks?: string[]; // IDs de subtarefas
+  parentTaskId?: string; // ID da tarefa pai
 }
 
 export interface Project {
@@ -130,6 +181,7 @@ interface StoreState {
   conversations: Conversation[];
   notes: Note[];
   funnels: Funnel[];
+  availableTags: string[]; // Global list of available tags
   
   // Gamification
   gameState: GameState;
@@ -150,6 +202,15 @@ interface StoreState {
   updateTask: (id: string, updates: Partial<Task>) => void;
   deleteTask: (id: string) => void;
   
+  // Task activities
+  addTaskActivity: (taskId: string, activity: TaskActivity) => void;
+  addTaskComment: (taskId: string, comment: TaskComment) => void;
+  addTaskAttachment: (taskId: string, attachment: TaskAttachment) => void;
+  deleteTaskComment: (taskId: string, commentId: string) => void;
+  addChecklistItem: (taskId: string, text: string) => void;
+  deleteChecklistItem: (taskId: string, itemId: string) => void;
+  toggleChecklistItem: (taskId: string, itemId: string) => void;
+  
   addNote: (note: Note) => void;
 
   addFunnel: (funnel: Funnel) => void;
@@ -158,6 +219,11 @@ interface StoreState {
   addStageToFunnel: (funnelId: string, stage: FunnelStage) => void;
   removeStageFromFunnel: (funnelId: string, stageId: string) => void;
   updateStageInFunnel: (funnelId: string, stageId: string, updates: Partial<FunnelStage>) => void;
+
+  // Tag management
+  addTag: (tag: string) => void;
+  updateTag: (oldTag: string, newTag: string) => void;
+  deleteTag: (tag: string) => void;
 
   toggleAgent: () => void;
   completeMission: (id: string) => void;
@@ -207,6 +273,7 @@ const mockLeads: Lead[] = [
     nextAction: new Date(Date.now() + 24 * 60 * 60 * 1000),
     tags: ['hot', 'enterprise'],
     notes: 'Cliente muito interessado em integração',
+    expectedCloseDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias
   },
   {
     id: '2',
@@ -222,10 +289,11 @@ const mockLeads: Lead[] = [
     nextAction: new Date(Date.now() + 2 * 60 * 60 * 1000),
     tags: ['hot', 'startup'],
     notes: 'Precisa de demo',
+    expectedCloseDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 dias
   },
   {
     id: '3',
-    name: 'Pedro Costa',
+  name: 'Carlos Souza',
     company: 'Digital Solutions',
     email: 'pedro@digital.com',
     whatsapp: '(11) 99999-0003',
@@ -236,6 +304,7 @@ const mockLeads: Lead[] = [
     lastContact: new Date(Date.now() - 24 * 60 * 60 * 1000),
     tags: ['warm'],
     notes: 'Aguardando orçamento',
+    expectedCloseDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 dias
   },
 ];
 
@@ -255,6 +324,22 @@ const mockTasks: Task[] = [
       { id: '1', text: 'Revisar preços', done: true },
       { id: '2', text: 'Adicionar casos de uso', done: false },
     ],
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+    createdBy: 'Você',
+    activities: [
+      {
+        id: 'a1',
+        type: 'note',
+        content: 'Cliente solicitou incluir ROI detalhado',
+        createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
+        createdBy: 'Você',
+      },
+    ],
+    comments: [],
+    attachments: [],
+    watchers: ['Você'],
+    timeTracked: 45,
+    estimatedTime: 120,
   },
   {
     id: '2',
@@ -268,6 +353,12 @@ const mockTasks: Task[] = [
     tags: ['demo'],
     description: 'Preparar ambiente de demonstração',
     checklist: [],
+    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+    createdBy: 'Você',
+    activities: [],
+    comments: [],
+    attachments: [],
+    watchers: ['Você'],
   },
   {
     id: '3',
@@ -280,6 +371,28 @@ const mockTasks: Task[] = [
     tags: ['follow-up'],
     description: 'Verificar se receberam a proposta',
     checklist: [],
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+    createdBy: 'Você',
+    activities: [
+      {
+        id: 'a2',
+        type: 'call',
+        content: 'Ligação realizada - cliente pediu mais 2 dias',
+        createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+        createdBy: 'Você',
+        metadata: { duration: 8 },
+      },
+    ],
+    comments: [
+      {
+        id: 'c1',
+        content: 'Lembrar de mencionar o desconto especial',
+        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+        createdBy: 'Você',
+      },
+    ],
+    attachments: [],
+    watchers: ['Você', 'Maria Silva'],
   },
 ];
 
@@ -307,6 +420,7 @@ export const useStore = create<StoreState>((set) => ({
   tasks: mockTasks,
   notes: mockNotes,
   funnels: mockFunnels,
+  availableTags: ['hot', 'warm', 'cold', 'enterprise', 'startup', 'proposta', 'urgente', 'demo', 'follow-up', 'vip'],
   projects: [
     { id: '1', name: 'Onboarding Q1', color: '#5B8DEF', leadIds: ['1', '2'] },
     { id: '2', name: 'Enterprise Deals', color: '#34C759', leadIds: ['3'] },
@@ -360,9 +474,54 @@ export const useStore = create<StoreState>((set) => ({
   
   addTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
   updateTask: (id, updates) => set((state) => ({
-    tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates, updatedAt: new Date() } : t)),
   })),
   deleteTask: (id) => set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) })),
+  
+  // Task activities
+  addTaskActivity: (taskId, activity) => set((state) => ({
+    tasks: state.tasks.map((t) => 
+      t.id === taskId ? { ...t, activities: [...t.activities, activity], updatedAt: new Date() } : t
+    ),
+  })),
+  addTaskComment: (taskId, comment) => set((state) => ({
+    tasks: state.tasks.map((t) => 
+      t.id === taskId ? { ...t, comments: [...t.comments, comment], updatedAt: new Date() } : t
+    ),
+  })),
+  addTaskAttachment: (taskId, attachment) => set((state) => ({
+    tasks: state.tasks.map((t) => 
+      t.id === taskId ? { ...t, attachments: [...t.attachments, attachment], updatedAt: new Date() } : t
+    ),
+  })),
+  deleteTaskComment: (taskId, commentId) => set((state) => ({
+    tasks: state.tasks.map((t) => 
+      t.id === taskId ? { ...t, comments: t.comments.filter((c) => c.id !== commentId), updatedAt: new Date() } : t
+    ),
+  })),
+  addChecklistItem: (taskId, text) => set((state) => ({
+    tasks: state.tasks.map((t) => 
+      t.id === taskId ? { 
+        ...t, 
+        checklist: [...t.checklist, { id: `ck-${Date.now()}`, text, done: false }],
+        updatedAt: new Date() 
+      } : t
+    ),
+  })),
+  deleteChecklistItem: (taskId, itemId) => set((state) => ({
+    tasks: state.tasks.map((t) => 
+      t.id === taskId ? { ...t, checklist: t.checklist.filter((c) => c.id !== itemId), updatedAt: new Date() } : t
+    ),
+  })),
+  toggleChecklistItem: (taskId, itemId) => set((state) => ({
+    tasks: state.tasks.map((t) => 
+      t.id === taskId ? { 
+        ...t, 
+        checklist: t.checklist.map((c) => c.id === itemId ? { ...c, done: !c.done } : c),
+        updatedAt: new Date() 
+      } : t
+    ),
+  })),
   
   addNote: (note) => set((state) => ({ notes: [note, ...state.notes] })),
 
@@ -390,6 +549,35 @@ export const useStore = create<StoreState>((set) => ({
         ? { ...f, stages: f.stages.map((s) => s.id === stageId ? { ...s, ...updates } : s) }
         : f
     ),
+  })),
+
+  // Tag management
+  addTag: (tag) => set((state) => ({
+    availableTags: state.availableTags.includes(tag) 
+      ? state.availableTags 
+      : [...state.availableTags, tag],
+  })),
+  updateTag: (oldTag, newTag) => set((state) => ({
+    availableTags: state.availableTags.map((t) => t === oldTag ? newTag : t),
+    leads: state.leads.map((l) => ({
+      ...l,
+      tags: l.tags.map((t) => t === oldTag ? newTag : t),
+    })),
+    tasks: state.tasks.map((t) => ({
+      ...t,
+      tags: t.tags.map((tag) => tag === oldTag ? newTag : tag),
+    })),
+  })),
+  deleteTag: (tag) => set((state) => ({
+    availableTags: state.availableTags.filter((t) => t !== tag),
+    leads: state.leads.map((l) => ({
+      ...l,
+      tags: l.tags.filter((t) => t !== tag),
+    })),
+    tasks: state.tasks.map((t) => ({
+      ...t,
+      tags: t.tags.filter((tg) => tg !== tag),
+    })),
   })),
 
   toggleAgent: () => set((state) => ({ agentActive: !state.agentActive })),

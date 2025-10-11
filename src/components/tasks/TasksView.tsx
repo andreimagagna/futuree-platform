@@ -1,10 +1,34 @@
-import { useStore, TaskStatus } from "@/store/useStore";
+import { useState, useMemo } from "react";
+import { useStore, TaskStatus, Task, Priority } from "@/store/useStore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { DndContext, DragEndEvent, closestCorners } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Clock, GripVertical } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { 
+  Clock, 
+  GripVertical, 
+  CalendarDays, 
+  LayoutGrid, 
+  Plus, 
+  List,
+  AlertCircle,
+  CheckSquare,
+  TrendingUp,
+  Calendar as CalendarIcon
+} from "lucide-react";
+import { differenceInDays, isPast, isToday } from "date-fns";
+import { TaskCalendar } from "./TaskCalendar";
+import { TaskForm } from "./TaskForm";
+import { TaskDetailDrawer } from "./TaskDetailDrawer";
+import { TaskListView } from "./TaskListView";
 
 const statusLabels: Record<TaskStatus, string> = {
   backlog: 'Backlog',
@@ -14,23 +38,31 @@ const statusLabels: Record<TaskStatus, string> = {
 };
 
 const statusColors: Record<TaskStatus, string> = {
-  backlog: 'border-muted',
-  in_progress: 'border-primary bg-primary/5',
-  review: 'border-warning bg-warning/5',
-  done: 'border-success bg-success/5',
+  backlog: 'border-l-gray-400',
+  in_progress: 'border-l-blue-500',
+  review: 'border-l-orange-500',
+  done: 'border-l-green-500',
 };
 
-const priorityColors = {
+const columnColors: Record<TaskStatus, string> = {
+  backlog: 'bg-gray-100 dark:bg-gray-900',
+  in_progress: 'bg-blue-100 dark:bg-blue-950',
+  review: 'bg-orange-100 dark:bg-orange-950',
+  done: 'bg-green-100 dark:bg-green-950',
+};
+
+const priorityColors: Record<Priority, string> = {
   P1: 'bg-destructive text-destructive-foreground',
   P2: 'bg-warning text-warning-foreground',
   P3: 'bg-muted text-muted-foreground',
 };
 
 interface TaskCardProps {
-  task: any;
+  task: Task;
+  onOpen: (task: Task) => void;
 }
 
-const TaskCard = ({ task }: TaskCardProps) => {
+const TaskCard = ({ task, onOpen }: TaskCardProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
@@ -41,38 +73,63 @@ const TaskCard = ({ task }: TaskCardProps) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const completedCount = task.checklist.filter((c) => c.done).length;
+  const totalCount = task.checklist.length;
+  const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+
+  const daysUntil = task.dueDate ? differenceInDays(new Date(task.dueDate), new Date()) : null;
+  const isOverdue = task.dueDate && isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate)) && task.status !== 'done';
+  const isDueToday = task.dueDate && isToday(new Date(task.dueDate));
+
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      <Card className={`cursor-grab active:cursor-grabbing hover:shadow-md transition-all ${statusColors[task.status]}`}>
-        <CardContent className="p-4">
+      <Card className={cn(
+        "cursor-grab active:cursor-grabbing hover:shadow-md transition-all border-l-4",
+        statusColors[task.status]
+      )}>
+        <CardContent className="p-3" onClick={() => onOpen(task)} role="button">
           <div className="flex items-start gap-2">
-            <div {...listeners} className="mt-1 cursor-grab">
+            <div {...listeners} className="mt-0.5 cursor-grab hover:bg-muted/50 rounded p-0.5">
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 space-y-2.5">
+              {/* Header */}
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-sm leading-tight">{task.title}</p>
+                <p className="font-semibold text-sm leading-tight flex-1">{task.title}</p>
                 <Badge className={priorityColors[task.priority]} variant="secondary">
                   {task.priority}
                 </Badge>
               </div>
-              {task.leadId && (
-                <p className="text-xs text-muted-foreground">Lead relacionado</p>
-              )}
+
+              {/* Data de vencimento */}
               {task.dueDate && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <div className={cn(
+                  "flex items-center gap-1.5 text-xs",
+                  isOverdue && "text-destructive font-medium",
+                  isDueToday && !isOverdue && "text-warning font-medium",
+                  !isOverdue && !isDueToday && "text-muted-foreground"
+                )}>
                   <Clock className="h-3 w-3" />
-                  {new Date(task.dueDate).toLocaleDateString('pt-BR')}
-                  {task.dueTime && ` às ${task.dueTime}`}
+                  <span>{new Date(task.dueDate).toLocaleDateString('pt-BR')}</span>
+                  {task.dueTime && <span>• {task.dueTime}</span>}
+                  {isOverdue && daysUntil !== null && (
+                    <Badge variant="destructive" className="ml-auto text-xs py-0 h-5">
+                      {Math.abs(daysUntil)}d atraso
+                    </Badge>
+                  )}
                 </div>
               )}
-              <div className="flex flex-wrap gap-1">
-                {task.tags.map((tag: string) => (
-                  <Badge key={tag} variant="outline" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
+
+              {/* Progresso do checklist */}
+              {totalCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="h-3 w-3 text-muted-foreground" />
+                  <Progress value={progress} className="h-1.5 flex-1" />
+                  <span className="text-xs text-muted-foreground font-medium">
+                    {completedCount}/{totalCount}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -82,7 +139,15 @@ const TaskCard = ({ task }: TaskCardProps) => {
 };
 
 export const TasksView = () => {
-  const { tasks, updateTask } = useStore();
+  const { tasks, updateTask, availableTags, addTask } = useStore();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
+  const [tagFilter, setTagFilter] = useState<string | "all">("all");
+  const [viewMode, setViewMode] = useState<"board" | "calendar" | "list">("board");
+  const [openNewTask, setOpenNewTask] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -97,43 +162,184 @@ export const TasksView = () => {
 
   const statuses: TaskStatus[] = ['backlog', 'in_progress', 'review', 'done'];
 
+  const filteredTasks: Task[] = useMemo(() => {
+    return tasks.filter((t: Task) => {
+      const matchesSearch = search
+        ? t.title.toLowerCase().includes(search.toLowerCase()) ||
+          t.description?.toLowerCase().includes(search.toLowerCase())
+        : true;
+      const matchesStatus = statusFilter === "all" ? true : t.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" ? true : t.priority === priorityFilter;
+      const matchesTag = tagFilter === "all" ? true : t.tags.includes(tagFilter as string);
+      return matchesSearch && matchesStatus && matchesPriority && matchesTag;
+    });
+  }, [tasks, search, statusFilter, priorityFilter, tagFilter]);
+
   return (
     <div className="space-y-4">
+      {/* Header & Toolbar */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Tarefas & Projetos</h2>
-          <p className="text-muted-foreground">Organize e acompanhe suas tarefas</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "board" | "calendar" | "list")}>
+            <TabsList>
+              <TabsTrigger value="board" className="gap-1">
+                <LayoutGrid className="h-4 w-4" /> Board
+              </TabsTrigger>
+              <TabsTrigger value="list" className="gap-1">
+                <List className="h-4 w-4" /> Lista
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="gap-1">
+                <CalendarDays className="h-4 w-4" /> Calendário
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button onClick={() => setOpenNewTask(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Nova Tarefa
+          </Button>
         </div>
       </div>
 
-      <DndContext collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statuses.map((status) => {
-            const statusTasks = tasks.filter((t) => t.status === status);
-            
-            return (
-              <div key={status} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">{statusLabels[status]}</h3>
-                  <Badge variant="secondary">{statusTasks.length}</Badge>
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="Buscar por título ou descrição..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full md:w-[320px]"
+        />
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as TaskStatus | "all")}>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos status</SelectItem>
+            {statuses.map((s) => (
+              <SelectItem key={s} value={s}>{statusLabels[s]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as Priority | "all")}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="P1">P1</SelectItem>
+            <SelectItem value="P2">P2</SelectItem>
+            <SelectItem value="P3">P3</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={tagFilter} onValueChange={(v) => setTagFilter(v as string | "all")}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Tag" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas tags</SelectItem>
+            {availableTags.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {viewMode === "board" ? (
+        <DndContext collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {statuses.map((status) => {
+              const statusTasks = filteredTasks.filter((t) => t.status === status);
+              const totalChecklist = statusTasks.reduce((sum, t) => sum + t.checklist.length, 0);
+              const completedChecklist = statusTasks.reduce((sum, t) => sum + t.checklist.filter(c => c.done).length, 0);
+              
+              return (
+                <div key={status} className="space-y-3">
+                  <Card className={cn("border-2", columnColors[status])}>
+                    <CardContent className="p-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-bold text-sm">{statusLabels[status]}</h3>
+                          <Badge variant="secondary" className="font-semibold">
+                            {statusTasks.length}
+                          </Badge>
+                        </div>
+                        {totalChecklist > 0 && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>Progresso total</span>
+                              <span className="font-medium">
+                                {completedChecklist}/{totalChecklist}
+                              </span>
+                            </div>
+                            <Progress 
+                              value={(completedChecklist / totalChecklist) * 100} 
+                              className="h-1.5"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <SortableContext
+                    id={status}
+                    items={statusTasks.map((t) => t.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3 min-h-[400px] p-3 rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/5">
+                      {statusTasks.length === 0 ? (
+                        <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+                          Arraste tarefas aqui
+                        </div>
+                      ) : (
+                        statusTasks.map((task) => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            onOpen={(t) => {
+                              setSelectedTask(t);
+                              setDetailOpen(true);
+                            }}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </SortableContext>
                 </div>
-                
-                <SortableContext
-                  id={status}
-                  items={statusTasks.map((t) => t.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed">
-                    {statusTasks.map((task) => (
-                      <TaskCard key={task.id} task={task} />
-                    ))}
-                  </div>
-                </SortableContext>
-              </div>
-            );
-          })}
-        </div>
-      </DndContext>
+              );
+            })}
+          </div>
+        </DndContext>
+      ) : viewMode === "list" ? (
+        <TaskListView 
+          tasks={filteredTasks} 
+          onOpenTask={(t) => {
+            setSelectedTask(t);
+            setDetailOpen(true);
+          }}
+        />
+      ) : (
+        <TaskCalendar tasks={filteredTasks} />
+      )}
+
+      {/* New Task Dialog */}
+      <Dialog open={openNewTask} onOpenChange={setOpenNewTask}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Nova Tarefa</DialogTitle>
+          </DialogHeader>
+          <TaskForm
+            onSubmit={(task) => {
+              addTask(task);
+              setOpenNewTask(false);
+            }}
+            onCancel={() => setOpenNewTask(false)}
+          />
+        </DialogContent>
+      </Dialog>
+      {selectedTask && (
+        <TaskDetailDrawer
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          task={selectedTask}
+          onUpdate={(updates) => updateTask(selectedTask.id, updates)}
+        />
+      )}
     </div>
   );
 };

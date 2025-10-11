@@ -32,7 +32,7 @@ const mockQualifiedLeads: QualifiedLead[] = [
   },
   {
     id: "3",
-    name: "Pedro Costa",
+  name: "Carlos Souza",
     company: "Digital Solutions",
     score: 74,
     stage: "Média Qualificação",

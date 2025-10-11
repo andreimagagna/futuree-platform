@@ -14,7 +14,7 @@ interface Lead {
 const mockLeads: Lead[] = [
   { id: '1', name: 'João Silva', company: 'Tech Corp', stage: 'Qualificar', owner: 'Você', score: 85, nextAction: 'Ligar hoje 15h' },
   { id: '2', name: 'Maria Santos', company: 'Innovation Labs', stage: 'Contato', owner: 'Você', score: 72, nextAction: 'Email follow-up' },
-  { id: '3', name: 'Pedro Costa', company: 'Digital Solutions', stage: 'Proposta', owner: 'Equipe', score: 90, nextAction: 'Apresentar proposta' },
+  { id: '3', name: 'Carlos Souza', company: 'Digital Solutions', stage: 'Proposta', owner: 'Equipe', score: 90, nextAction: 'Apresentar proposta' },
   { id: '4', name: 'Ana Oliveira', company: 'StartupXYZ', stage: 'Capturado', owner: 'Você', score: 65, nextAction: 'Primeira qualificação' },
 ];
 

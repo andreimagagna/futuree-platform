@@ -47,7 +47,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
-import { formatDistanceToNow } from "date-fns";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Calendar } from "@/components/ui/calendar";
+import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   Plus, 
@@ -63,6 +65,11 @@ import {
   Target,
   Clock,
   CheckCircle2,
+  ChevronDown,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  CalendarIcon,
 } from "lucide-react";
 
 export const KanbanBoard = () => {
@@ -79,6 +86,10 @@ export const KanbanBoard = () => {
     addStageToFunnel,
     removeStageFromFunnel,
     updateStageInFunnel,
+    availableTags,
+    addTag,
+    updateTag,
+    deleteTag,
   } = useStore();
   
   const [search, setSearch] = useState('');
@@ -95,9 +106,14 @@ export const KanbanBoard = () => {
   const [editingStageName, setEditingStageName] = useState('');
   const [editingStageColor, setEditingStageColor] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'funnel' | 'stage', id: string, funnelId?: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'funnel' | 'stage' | 'tag', id: string, funnelId?: string } | null>(null);
   const [editingLeadTags, setEditingLeadTags] = useState<string | null>(null);
   const [newTag, setNewTag] = useState('');
+  
+  // Tag management states
+  const [newTagName, setNewTagName] = useState('');
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editingTagName, setEditingTagName] = useState('');
   
   // New Lead Form State
   const [newLeadForm, setNewLeadForm] = useState({
@@ -108,6 +124,8 @@ export const KanbanBoard = () => {
     source: 'Website',
     owner: 'Vendedor',
     notes: '',
+    dealValue: '',
+    expectedCloseDate: null as Date | null,
   });
   
   // BANT Qualification State
@@ -126,6 +144,17 @@ export const KanbanBoard = () => {
   const [scoreFilter, setScoreFilter] = useState<{ min?: number; max?: number }>({});
   const [dealValueFilter, setDealValueFilter] = useState<{ min?: number; max?: number }>({});
   
+  // Collapsible states for filter sections
+  const [tagsOpen, setTagsOpen] = useState(true);
+  const [sourceOpen, setSourceOpen] = useState(true);
+  const [ownerOpen, setOwnerOpen] = useState(true);
+  const [scoreOpen, setScoreOpen] = useState(true);
+  const [dealValueOpen, setDealValueOpen] = useState(true);
+  
+  // Sort state
+  type SortOption = 'none' | 'date-asc' | 'date-desc' | 'value-asc' | 'value-desc' | 'score-asc' | 'score-desc';
+  const [sortBy, setSortBy] = useState<SortOption>('none');
+  
   const navigate = useNavigate();
 
   const activeFunnel = funnels.find((f) => f.id === activeFunnelId) || funnels[0];
@@ -134,6 +163,36 @@ export const KanbanBoard = () => {
   const allTags = Array.from(new Set(leads.flatMap(l => l.tags)));
   const allSources = Array.from(new Set(leads.map(l => l.source)));
   const allOwners = Array.from(new Set(leads.map(l => l.owner)));
+  
+  // Sort function
+  const sortLeads = (leadsToSort: Lead[]): Lead[] => {
+    const sorted = [...leadsToSort];
+    
+    switch (sortBy) {
+      case 'date-asc':
+        return sorted.sort((a, b) => 
+          (a.lastContact?.getTime() || 0) - (b.lastContact?.getTime() || 0)
+        );
+      case 'date-desc':
+        return sorted.sort((a, b) => 
+          (b.lastContact?.getTime() || 0) - (a.lastContact?.getTime() || 0)
+        );
+      case 'value-asc':
+        return sorted.sort((a, b) => 
+          (a.dealValue || 0) - (b.dealValue || 0)
+        );
+      case 'value-desc':
+        return sorted.sort((a, b) => 
+          (b.dealValue || 0) - (a.dealValue || 0)
+        );
+      case 'score-asc':
+        return sorted.sort((a, b) => a.score - b.score);
+      case 'score-desc':
+        return sorted.sort((a, b) => b.score - a.score);
+      default:
+        return sorted;
+    }
+  };
   
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch = 
@@ -215,10 +274,15 @@ export const KanbanBoard = () => {
   };
 
   const getLeadsForStage = (stageId: string) => {
+    let stageLeads: Lead[];
     if (activeFunnelId === 'default') {
-      return filteredLeads.filter((l) => l.stage === stageId);
+      stageLeads = filteredLeads.filter((l) => l.stage === stageId);
+    } else {
+      stageLeads = filteredLeads.filter((l) => l.customStageId === stageId);
     }
-    return filteredLeads.filter((l) => l.customStageId === stageId);
+    
+    // Apply sorting
+    return sortLeads(stageLeads);
   };
 
   const handleCreateFunnel = () => {
@@ -285,7 +349,7 @@ export const KanbanBoard = () => {
     setEditingStageColor('');
   };
 
-  const handleDeleteClick = (type: 'funnel' | 'stage', id: string, funnelId?: string) => {
+  const handleDeleteClick = (type: 'funnel' | 'stage' | 'tag', id: string, funnelId?: string) => {
     setDeleteTarget({ type, id, funnelId });
     setDeleteConfirmOpen(true);
   };
@@ -297,10 +361,33 @@ export const KanbanBoard = () => {
       deleteFunnel(deleteTarget.id);
     } else if (deleteTarget.type === 'stage' && deleteTarget.funnelId) {
       removeStageFromFunnel(deleteTarget.funnelId, deleteTarget.id);
+    } else if (deleteTarget.type === 'tag') {
+      deleteTag(deleteTarget.id);
     }
     
     setDeleteConfirmOpen(false);
     setDeleteTarget(null);
+  };
+
+  // Tag management functions
+  const handleCreateTag = () => {
+    if (!newTagName.trim()) return;
+    addTag(newTagName.trim());
+    setNewTagName('');
+  };
+
+  const handleEditTag = (tag: string) => {
+    setEditingTag(tag);
+    setEditingTagName(tag);
+  };
+
+  const handleSaveTagEdit = () => {
+    if (!editingTag || !editingTagName.trim()) return;
+    if (editingTag !== editingTagName.trim()) {
+      updateTag(editingTag, editingTagName.trim());
+    }
+    setEditingTag(null);
+    setEditingTagName('');
   };
 
   const handleAddTag = (leadId: string) => {
@@ -343,6 +430,8 @@ export const KanbanBoard = () => {
       tags: [],
       lastContact: new Date(),
       notes: newLeadForm.notes,
+      dealValue: newLeadForm.dealValue ? Number(newLeadForm.dealValue) : undefined,
+      expectedCloseDate: newLeadForm.expectedCloseDate || undefined,
     };
     
     addLead(newLead);
@@ -356,6 +445,8 @@ export const KanbanBoard = () => {
       source: 'Website',
       owner: 'Vendedor',
       notes: '',
+      dealValue: '',
+      expectedCloseDate: null,
     });
     
     // Salvar ID do lead criado e abrir qualificação BANT
@@ -430,7 +521,6 @@ export const KanbanBoard = () => {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="font-display text-2xl font-bold">CRM</h2>
           <Select value={activeFunnelId} onValueChange={setActiveFunnel}>
             <SelectTrigger className="w-[220px] border-dashed">
               <SelectValue />
@@ -467,7 +557,7 @@ export const KanbanBoard = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-80" align="end">
-              <div className="p-2 space-y-4">
+              <div className="p-2 space-y-4 max-h-[500px] overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {/* Clear filters */}
                 {activeFiltersCount > 0 && (
                   <>
@@ -486,152 +576,265 @@ export const KanbanBoard = () => {
                   </>
                 )}
 
-                {/* Tags Filter */}
-                <div className="space-y-2">
-                  <DropdownMenuLabel className="px-0 py-1">Tags</DropdownMenuLabel>
-                  {allTags.length > 0 ? (
-                    allTags.map((tag) => (
+                {/* Tags Filter - Collapsible */}
+                <Collapsible open={tagsOpen} onOpenChange={setTagsOpen}>
+                  <div className="flex items-center justify-between">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-between px-0 py-1 hover:bg-transparent">
+                        <DropdownMenuLabel className="px-0 py-0 cursor-pointer">Tags</DropdownMenuLabel>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${tagsOpen ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  <CollapsibleContent className="space-y-2 pt-2">
+                    {allTags.length > 0 ? (
+                      allTags.map((tag) => (
+                        <DropdownMenuCheckboxItem
+                          key={tag}
+                          checked={selectedTags.includes(tag)}
+                          onCheckedChange={(checked) => {
+                            setSelectedTags(
+                              checked
+                                ? [...selectedTags, tag]
+                                : selectedTags.filter((t) => t !== tag)
+                            );
+                          }}
+                        >
+                          {tag}
+                        </DropdownMenuCheckboxItem>
+                      ))
+                    ) : (
+                      <p className="px-2 py-1 text-xs text-muted-foreground">Nenhuma tag disponível</p>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <Separator />
+
+                {/* Source Filter - Collapsible */}
+                <Collapsible open={sourceOpen} onOpenChange={setSourceOpen}>
+                  <div className="flex items-center justify-between">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-between px-0 py-1 hover:bg-transparent">
+                        <DropdownMenuLabel className="px-0 py-0 cursor-pointer">Fonte</DropdownMenuLabel>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${sourceOpen ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  <CollapsibleContent className="space-y-2 pt-2">
+                    {allSources.map((source) => (
                       <DropdownMenuCheckboxItem
-                        key={tag}
-                        checked={selectedTags.includes(tag)}
+                        key={source}
+                        checked={selectedSources.includes(source)}
                         onCheckedChange={(checked) => {
-                          setSelectedTags(
+                          setSelectedSources(
                             checked
-                              ? [...selectedTags, tag]
-                              : selectedTags.filter((t) => t !== tag)
+                              ? [...selectedSources, source]
+                              : selectedSources.filter((s) => s !== source)
                           );
                         }}
                       >
-                        {tag}
+                        {source}
                       </DropdownMenuCheckboxItem>
-                    ))
-                  ) : (
-                    <p className="px-2 py-1 text-xs text-muted-foreground">Nenhuma tag disponível</p>
-                  )}
-                </div>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
 
                 <Separator />
 
-                {/* Source Filter */}
-                <div className="space-y-2">
-                  <DropdownMenuLabel className="px-0 py-1">Fonte</DropdownMenuLabel>
-                  {allSources.map((source) => (
-                    <DropdownMenuCheckboxItem
-                      key={source}
-                      checked={selectedSources.includes(source)}
-                      onCheckedChange={(checked) => {
-                        setSelectedSources(
-                          checked
-                            ? [...selectedSources, source]
-                            : selectedSources.filter((s) => s !== source)
-                        );
-                      }}
-                    >
-                      {source}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </div>
-
-                <Separator />
-
-                {/* Owner Filter */}
-                <div className="space-y-2">
-                  <DropdownMenuLabel className="px-0 py-1">Responsável</DropdownMenuLabel>
-                  {allOwners.map((owner) => (
-                    <DropdownMenuCheckboxItem
-                      key={owner}
-                      checked={selectedOwners.includes(owner)}
-                      onCheckedChange={(checked) => {
-                        setSelectedOwners(
-                          checked
-                            ? [...selectedOwners, owner]
-                            : selectedOwners.filter((o) => o !== owner)
-                        );
-                      }}
-                    >
-                      {owner}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </div>
-
-                <Separator />
-
-                {/* Score Filter */}
-                <div className="space-y-2">
-                  <DropdownMenuLabel className="px-0 py-1">Score</DropdownMenuLabel>
-                  <div className="grid grid-cols-2 gap-2 px-2">
-                    <div className="space-y-1">
-                      <Label htmlFor="min-score" className="text-xs">Mínimo</Label>
-                      <Input
-                        id="min-score"
-                        type="number"
-                        placeholder="0"
-                        min={0}
-                        max={100}
-                        value={scoreFilter.min ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseInt(e.target.value) : undefined;
-                          setScoreFilter({ ...scoreFilter, min: val });
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="max-score" className="text-xs">Máximo</Label>
-                      <Input
-                        id="max-score"
-                        type="number"
-                        placeholder="100"
-                        min={0}
-                        max={100}
-                        value={scoreFilter.max ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseInt(e.target.value) : undefined;
-                          setScoreFilter({ ...scoreFilter, max: val });
-                        }}
-                      />
-                    </div>
+                {/* Owner Filter - Collapsible */}
+                <Collapsible open={ownerOpen} onOpenChange={setOwnerOpen}>
+                  <div className="flex items-center justify-between">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-between px-0 py-1 hover:bg-transparent">
+                        <DropdownMenuLabel className="px-0 py-0 cursor-pointer">Responsável</DropdownMenuLabel>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${ownerOpen ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
                   </div>
-                </div>
+                  <CollapsibleContent className="space-y-2 pt-2">
+                    {allOwners.map((owner) => (
+                      <DropdownMenuCheckboxItem
+                        key={owner}
+                        checked={selectedOwners.includes(owner)}
+                        onCheckedChange={(checked) => {
+                          setSelectedOwners(
+                            checked
+                              ? [...selectedOwners, owner]
+                              : selectedOwners.filter((o) => o !== owner)
+                          );
+                        }}
+                      >
+                        {owner}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
 
                 <Separator />
 
-                {/* Deal Value Filter */}
-                <div className="space-y-2">
-                  <DropdownMenuLabel className="px-0 py-1">Valor do Negócio</DropdownMenuLabel>
-                  <div className="grid grid-cols-2 gap-2 px-2">
-                    <div className="space-y-1">
-                      <Label htmlFor="min-deal" className="text-xs">Mínimo (R$)</Label>
-                      <Input
-                        id="min-deal"
-                        type="number"
-                        placeholder="0"
-                        min={0}
-                        step="0.01"
-                        value={dealValueFilter.min ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseFloat(e.target.value) : undefined;
-                          setDealValueFilter({ ...dealValueFilter, min: val });
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="max-deal" className="text-xs">Máximo (R$)</Label>
-                      <Input
-                        id="max-deal"
-                        type="number"
-                        placeholder="∞"
-                        min={0}
-                        step="0.01"
-                        value={dealValueFilter.max ?? ''}
-                        onChange={(e) => {
-                          const val = e.target.value ? parseFloat(e.target.value) : undefined;
-                          setDealValueFilter({ ...dealValueFilter, max: val });
-                        }}
-                      />
-                    </div>
+                {/* Score Filter - Collapsible */}
+                <Collapsible open={scoreOpen} onOpenChange={setScoreOpen}>
+                  <div className="flex items-center justify-between">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-between px-0 py-1 hover:bg-transparent">
+                        <DropdownMenuLabel className="px-0 py-0 cursor-pointer">Score</DropdownMenuLabel>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${scoreOpen ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
                   </div>
-                </div>
+                  <CollapsibleContent className="pt-2">
+                    <div className="grid grid-cols-2 gap-2 px-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="min-score" className="text-xs">Mínimo</Label>
+                        <Input
+                          id="min-score"
+                          type="number"
+                          placeholder="0"
+                          min={0}
+                          max={100}
+                          value={scoreFilter.min ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseInt(e.target.value) : undefined;
+                            setScoreFilter({ ...scoreFilter, min: val });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="max-score" className="text-xs">Máximo</Label>
+                        <Input
+                          id="max-score"
+                          type="number"
+                          placeholder="100"
+                          min={0}
+                          max={100}
+                          value={scoreFilter.max ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseInt(e.target.value) : undefined;
+                            setScoreFilter({ ...scoreFilter, max: val });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <Separator />
+
+                {/* Deal Value Filter - Collapsible */}
+                <Collapsible open={dealValueOpen} onOpenChange={setDealValueOpen}>
+                  <div className="flex items-center justify-between">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-between px-0 py-1 hover:bg-transparent">
+                        <DropdownMenuLabel className="px-0 py-0 cursor-pointer">Valor do Negócio</DropdownMenuLabel>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${dealValueOpen ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  <CollapsibleContent className="pt-2">
+                    <div className="grid grid-cols-2 gap-2 px-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="min-deal" className="text-xs">Mínimo (R$)</Label>
+                        <Input
+                          id="min-deal"
+                          type="number"
+                          placeholder="0"
+                          min={0}
+                          step="0.01"
+                          value={dealValueFilter.min ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                            setDealValueFilter({ ...dealValueFilter, min: val });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="max-deal" className="text-xs">Máximo (R$)</Label>
+                        <Input
+                          id="max-deal"
+                          type="number"
+                          placeholder="∞"
+                          min={0}
+                          step="0.01"
+                          value={dealValueFilter.max ?? ''}
+                          onChange={(e) => {
+                            const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                            setDealValueFilter({ ...dealValueFilter, max: val });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* Sort Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <ArrowUpDown className="h-4 w-4" />
+                Ordenar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={sortBy === 'none'}
+                onCheckedChange={() => setSortBy('none')}
+              >
+                Padrão
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Data</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={sortBy === 'date-desc'}
+                onCheckedChange={() => setSortBy('date-desc')}
+              >
+                <ArrowDown className="h-3 w-3 mr-2" />
+                Mais recente primeiro
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={sortBy === 'date-asc'}
+                onCheckedChange={() => setSortBy('date-asc')}
+              >
+                <ArrowUp className="h-3 w-3 mr-2" />
+                Mais antiga primeiro
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Valor do Negócio</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={sortBy === 'value-desc'}
+                onCheckedChange={() => setSortBy('value-desc')}
+              >
+                <ArrowDown className="h-3 w-3 mr-2" />
+                Maior valor primeiro
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={sortBy === 'value-asc'}
+                onCheckedChange={() => setSortBy('value-asc')}
+              >
+                <ArrowUp className="h-3 w-3 mr-2" />
+                Menor valor primeiro
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Score</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={sortBy === 'score-desc'}
+                onCheckedChange={() => setSortBy('score-desc')}
+              >
+                <ArrowDown className="h-3 w-3 mr-2" />
+                Maior score primeiro
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={sortBy === 'score-asc'}
+                onCheckedChange={() => setSortBy('score-asc')}
+              >
+                <ArrowUp className="h-3 w-3 mr-2" />
+                Menor score primeiro
+              </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
           
@@ -831,6 +1034,109 @@ export const KanbanBoard = () => {
                         )}
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Tag Management Section */}
+                <div className="space-y-2">
+                  <h3 className="font-semibold">Gerenciar Tags</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Crie, edite ou exclua tags para organizar seus leads e tarefas
+                  </p>
+                  
+                  {/* Existing tags */}
+                  <div className="space-y-2 mt-4">
+                    <h4 className="text-sm font-medium">Tags Existentes</h4>
+                    <div className="space-y-2">
+                      {availableTags.map((tag) => (
+                        <div
+                          key={tag}
+                          className="flex items-center gap-3 p-3 border rounded-lg"
+                        >
+                          {editingTag === tag ? (
+                            <>
+                              <Input
+                                value={editingTagName}
+                                onChange={(e) => setEditingTagName(e.target.value)}
+                                className="flex-1"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSaveTagEdit();
+                                  }
+                                }}
+                              />
+                              <Button size="sm" onClick={handleSaveTagEdit}>
+                                Salvar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditingTag(null);
+                                  setEditingTagName('');
+                                }}
+                              >
+                                Cancelar
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Tags className="h-4 w-4 text-muted-foreground" />
+                              <Badge variant="secondary" className="flex-1 justify-start">
+                                {tag}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {leads.filter(l => l.tags.includes(tag)).length} lead{leads.filter(l => l.tags.includes(tag)).length !== 1 ? 's' : ''}
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditTag(tag)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteClick('tag', tag)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                      {availableTags.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          Nenhuma tag criada ainda
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Create new tag */}
+                  <div className="space-y-2 mt-4">
+                    <h4 className="text-sm font-medium">Criar Nova Tag</h4>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Nome da tag"
+                        value={newTagName}
+                        onChange={(e) => setNewTagName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleCreateTag();
+                          }
+                        }}
+                      />
+                      <Button onClick={handleCreateTag}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Criar
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1165,6 +1471,64 @@ export const KanbanBoard = () => {
               </div>
             </div>
 
+            {/* Informações Comerciais */}
+            <div className="space-y-3">
+              <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                Informações Comerciais
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="deal-value" className="text-xs font-medium">
+                    Valor do Negócio (R$)
+                  </Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="deal-value"
+                      type="number"
+                      placeholder="0,00"
+                      value={newLeadForm.dealValue}
+                      onChange={(e) => setNewLeadForm({ ...newLeadForm, dealValue: e.target.value })}
+                      className="h-9 pl-9"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-1.5">
+                  <Label htmlFor="expected-close-date" className="text-xs font-medium">
+                    Data de Fechamento Esperada
+                  </Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="expected-close-date"
+                        variant="outline"
+                        className="w-full h-9 justify-start text-left font-normal"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newLeadForm.expectedCloseDate ? (
+                          format(newLeadForm.expectedCloseDate, "dd/MM/yyyy", { locale: ptBR })
+                        ) : (
+                          <span className="text-muted-foreground">Selecione uma data</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={newLeadForm.expectedCloseDate || undefined}
+                        onSelect={(date) => setNewLeadForm({ ...newLeadForm, expectedCloseDate: date || null })}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+            </div>
+
             {/* Observações */}
             <div className="space-y-3">
               <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-2">
@@ -1402,7 +1766,9 @@ export const KanbanBoard = () => {
             <AlertDialogDescription>
               {deleteTarget?.type === 'funnel'
                 ? 'Tem certeza que deseja excluir este funil? Todos os leads serão movidos para o funil padrão.'
-                : 'Tem certeza que deseja excluir este estágio? Todos os leads neste estágio serão movidos para o primeiro estágio.'}
+                : deleteTarget?.type === 'stage'
+                ? 'Tem certeza que deseja excluir este estágio? Todos os leads neste estágio serão movidos para o primeiro estágio.'
+                : 'Tem certeza que deseja excluir esta tag? Ela será removida de todos os leads e tarefas que a utilizam.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

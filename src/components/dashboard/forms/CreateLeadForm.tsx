@@ -12,6 +12,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Select,
   SelectContent,
@@ -51,6 +57,12 @@ const leadSchema = z.object({
     .max(1000, { message: "Notas devem ter no máximo 1000 caracteres" })
     .optional()
     .or(z.literal("")),
+  dealValue: z.coerce
+    .number({ invalid_type_error: "Valor inválido" })
+    .min(0, { message: "Valor deve ser positivo" })
+    .optional()
+    .or(z.literal("")),
+  expectedCloseDate: z.date().optional(),
 });
 
 type LeadFormValues = z.infer<typeof leadSchema>;
@@ -72,6 +84,8 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
       stage: "captured",
       source: "",
       notes: "",
+      dealValue: undefined,
+      expectedCloseDate: undefined,
     },
   });
 
@@ -90,6 +104,8 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
         lastContact: new Date(),
         tags: [],
         notes: data.notes || '',
+        dealValue: data.dealValue ? Number(data.dealValue) : undefined,
+        expectedCloseDate: data.expectedCloseDate,
       });
 
       toast.success("Lead criado com sucesso!");
@@ -203,6 +219,68 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
                 <FormControl>
                   <Input placeholder="Website, LinkedIn, etc" {...field} maxLength={50} />
                 </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="dealValue"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Valor do Negócio (R$)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="45000"
+                    {...field}
+                    value={field.value || ""}
+                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : "")}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="expectedCloseDate"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Data de Fechamento Esperada</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full pl-3 text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value ? (
+                          format(field.value, "PPP", { locale: ptBR })
+                        ) : (
+                          <span>Selecione uma data</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}

@@ -10,6 +10,7 @@ import Tasks from "./pages/Tasks";
 import Funnel from "./pages/Funnel";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import { Campaigns } from "./pages/marketing/Campaigns";
 import { Analytics } from "./pages/business/Analytics";
@@ -37,7 +38,8 @@ const App = () => (
           {/* Business Solution */}
           <Route path="/business/analytics" element={<AppLayout currentView="analytics"><Analytics /></AppLayout>} />
           
-          {/* Settings */}
+          {/* Profile & Settings */}
+          <Route path="/profile" element={<AppLayout currentView="profile"><Profile /></AppLayout>} />
           <Route path="/settings" element={<AppLayout currentView="settings"><Settings /></AppLayout>} />
           
           {/* 404 */}

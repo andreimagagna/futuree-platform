@@ -16,9 +16,30 @@ export const mockLeads: Lead[] = [
     tags: ['hot', 'enterprise'],
     notes: 'Cliente muito interessado em integração',
     dealValue: 45000,
+    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 dias atrás
     products: [
-      { id: 'p1', name: 'Software ERP', price: 30000, quantity: 1 },
-      { id: 'p2', name: 'Consultoria', price: 15000, quantity: 1 },
+      { 
+        id: 'p1', 
+        name: 'Software ERP', 
+        price: 30000, 
+        quantity: 1,
+        currency: 'BRL',
+        priceType: 'fixed',
+        discount: 3000,
+        discountType: 'fixed',
+        taxRate: 5,
+      },
+      { 
+        id: 'p2', 
+        name: 'Consultoria', 
+        price: 15000, 
+        quantity: 1,
+        currency: 'BRL',
+        priceType: 'fixed',
+        discount: 10,
+        discountType: 'percentage',
+        taxRate: 0,
+      },
     ],
     bant: {
       budget: true,
@@ -44,8 +65,19 @@ export const mockLeads: Lead[] = [
     tags: ['hot', 'startup'],
     notes: 'Precisa de demo',
     dealValue: 12500,
+    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 dias atrás
     products: [
-      { id: 'p3', name: 'Licença SaaS Anual', price: 12500, quantity: 1 },
+      { 
+        id: 'p3', 
+        name: 'Licença SaaS Anual', 
+        price: 12500, 
+        quantity: 1,
+        currency: 'BRL',
+        priceType: 'fixed',
+        discount: 0,
+        discountType: 'fixed',
+        taxRate: 6,
+      },
     ],
     bant: {
       budget: true,
@@ -58,7 +90,7 @@ export const mockLeads: Lead[] = [
   },
   {
     id: '3',
-    name: 'Pedro Costa',
+  name: 'Carlos Souza',
     company: 'Digital Solutions',
     email: 'pedro@digital.com',
     whatsapp: '(11) 99999-0003',
@@ -69,10 +101,31 @@ export const mockLeads: Lead[] = [
     lastContact: new Date(Date.now() - 24 * 60 * 60 * 1000),
     tags: ['warm'],
     notes: 'Aguardando orçamento',
+    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 dias atrás
     dealValue: 89000,
     products: [
-      { id: 'p4', name: 'Sistema Customizado', price: 75000, quantity: 1 },
-      { id: 'p5', name: 'Treinamento', price: 7000, quantity: 2 },
+      { 
+        id: 'p4', 
+        name: 'Sistema Customizado', 
+        price: 75000, 
+        quantity: 1,
+        currency: 'BRL',
+        priceType: 'fixed',
+        discount: 5,
+        discountType: 'percentage',
+        taxRate: 10,
+      },
+      { 
+        id: 'p5', 
+        name: 'Treinamento', 
+        price: 7000, 
+        quantity: 2,
+        currency: 'BRL',
+        priceType: 'fixed',
+        discount: 500,
+        discountType: 'fixed',
+        taxRate: 0,
+      },
     ],
     bant: {
       budget: true,

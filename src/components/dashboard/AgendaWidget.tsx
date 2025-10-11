@@ -12,7 +12,7 @@ interface Meeting {
 const mockMeetings: Meeting[] = [
   { id: '1', time: '09:00', title: 'Reunião de alinhamento', participant: 'João Silva - Tech Corp', type: 'video' },
   { id: '2', time: '14:00', title: 'Demo do produto', participant: 'Maria Santos - Innovation Labs', type: 'video' },
-  { id: '3', time: '16:30', title: 'Follow-up comercial', participant: 'Pedro Costa - Digital Solutions', type: 'call' },
+  { id: '3', time: '16:30', title: 'Follow-up comercial', participant: 'Carlos Souza - Digital Solutions', type: 'call' },
 ];
 
 interface AgendaWidgetProps {

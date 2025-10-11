@@ -16,6 +16,11 @@ export interface Product {
   name: string;
   price: number;
   quantity: number;
+  currency: 'BRL' | 'USD'; // Moeda
+  priceType: 'fixed' | 'percentage'; // Tipo de preço (fixo ou percentual)
+  discount: number; // Desconto (valor absoluto ou %)
+  discountType: 'fixed' | 'percentage'; // Tipo de desconto
+  taxRate: number; // Taxa de imposto em %
 }
 
 export interface Lead {
@@ -38,6 +43,7 @@ export interface Lead {
   employeeCount?: string; // Número de funcionários
   dealValue?: number; // Valor do negócio
   products?: Product[]; // Produtos associados ao negócio
+  createdAt?: Date; // Data de criação do lead
 }
 
 export interface Task {

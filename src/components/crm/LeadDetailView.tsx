@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -217,7 +218,9 @@ export const LeadDetailView = () => {
       <div className="grid gap-4 xl:grid-cols-12">
         {renderProfileColumn(lead, updateLead)}
 
-        {renderMiddleColumn({
+        {renderCentralColumn({
+          lead,
+          updateLead,
           nextActionText,
           setNextActionText,
           nextActionDate,
@@ -394,6 +397,94 @@ function renderProfileColumn(
     <div className="space-y-4 xl:col-span-3">
       <Card>
         <CardHeader>
+          <CardTitle className="text-lg">Ticket</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Field label="Valor do negócio">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                R$
+              </span>
+              <Input 
+                type="number" 
+                defaultValue={lead.dealValue || 0} 
+                placeholder="0,00"
+                step="0.01"
+                min={0}
+                className="pl-10"
+                onBlur={(e) => updateLead(lead.id, { dealValue: parseFloat(e.target.value) || 0 })} 
+              />
+            </div>
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Visão Geral</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Idade do negócio</Label>
+              <p className="text-sm font-semibold">
+                {lead.createdAt 
+                  ? `${Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24))} dias`
+                  : 'N/A'}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Média p/ ganhar</Label>
+              <p className="text-sm font-semibold text-muted-foreground">
+                30 dias
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Inativo (dias)</Label>
+              <p className="text-sm font-semibold">
+                {Math.floor((Date.now() - new Date(lead.lastContact).getTime()) / (1000 * 60 * 60 * 24))} dias
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Criado em</Label>
+              <p className="text-sm font-semibold">
+                {lead.createdAt 
+                  ? format(new Date(lead.createdAt), "dd/MM/yyyy", { locale: ptBR })
+                  : 'N/A'}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1 col-span-2">
+              <Label className="text-xs text-muted-foreground">Data de Fechamento Esperada</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={lead.expectedCloseDate ? new Date(lead.expectedCloseDate).toISOString().slice(0,10) : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const date = val ? new Date(`${val}T00:00:00`) : undefined;
+                    updateLead(lead.id, { expectedCloseDate: date });
+                  }}
+                />
+                {lead.expectedCloseDate && (
+                  <Badge variant="secondary" className="text-xs">
+                    {format(new Date(lead.expectedCloseDate), "dd/MM/yyyy", { locale: ptBR })}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Esta data controla 100% a visão de previsão no CRM.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-lg">Identificação</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -457,16 +548,6 @@ function renderProfileColumn(
           <CardTitle className="text-lg">Comercial</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Field label="Valor do negócio">
-            <Input 
-              type="number" 
-              defaultValue={lead.dealValue || 0} 
-              placeholder="R$ 0,00"
-              step="0.01"
-              min={0}
-              onBlur={(e) => updateLead(lead.id, { dealValue: parseFloat(e.target.value) || 0 })} 
-            />
-          </Field>
           <Field label="Etapa">
             <Select value={lead.stage} onValueChange={(value: LeadStage) => updateLead(lead.id, { stage: value })}>
               <SelectTrigger className="w-full">
@@ -486,7 +567,262 @@ function renderProfileColumn(
           </Field>
         </CardContent>
       </Card>
+    </div>
+  );
+}
 
+function renderCentralColumn(params: {
+  lead: Lead;
+  updateLead: (id: string, updates: Partial<Lead>) => void;
+  nextActionText: string;
+  setNextActionText: (value: string) => void;
+  nextActionDate: string;
+  setNextActionDate: (value: string) => void;
+  nextActionTime: string;
+  setNextActionTime: (value: string) => void;
+  priority: string;
+  setPriority: (value: string) => void;
+  nextActionMissing: boolean;
+  tab: TabKey;
+  setTab: (value: TabKey) => void;
+  filters: TimelineFilterId[];
+  setFilters: Dispatch<SetStateAction<TimelineFilterId[]>>;
+  timelineItems: TimelineItem[];
+  onSaveNextAction: () => void;
+}) {
+  const {
+    lead,
+    updateLead,
+    nextActionText,
+    setNextActionText,
+    nextActionDate,
+    setNextActionDate,
+    nextActionTime,
+    setNextActionTime,
+    priority,
+    setPriority,
+    nextActionMissing,
+    tab,
+    setTab,
+    filters,
+    setFilters,
+    timelineItems,
+    onSaveNextAction,
+  } = params;
+
+  return (
+    <div className="space-y-4 xl:col-span-6">
+      {/* Menu - Tabs com Atividades, Timeline, etc */}
+      <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)} className="space-y-3">
+        <TabsList className="w-full justify-start gap-1 overflow-x-auto rounded-xl border bg-muted/30 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth snap-x snap-mandatory">
+          {(Object.keys(TAB_LABELS) as TabKey[]).map((key) => (
+            <TabsTrigger
+              key={key}
+              value={key}
+              className="min-w-[92px] sm:min-w-[110px] flex-1 snap-start whitespace-nowrap rounded-lg px-3 py-1 text-xs sm:text-sm text-muted-foreground bg-muted/40 hover:bg-muted/50 transition-colors data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+            >
+              {TAB_LABELS[key]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        <TabsContent value="notes">
+          <Card>
+            <CardContent className="space-y-2 p-4">
+              <Textarea placeholder="Escreva uma nota com @menções e #tags..." />
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm">Salvar</Button>
+                <Button size="sm" variant="outline">
+                  Fixar no topo
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Timeline</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {TIMELINE_FILTERS.map((filter) => (
+                  <button
+                    key={filter.id}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                      isFilterActive(filters, filter.id)
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
+                    }`}
+                    onClick={() => toggleFilter(filter.id, setFilters)}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                {timelineItems.map((item) => (
+                  <div key={item.id} className="flex items-start gap-3 rounded-lg border bg-card/80 p-3 shadow-sm">
+                    <Badge variant="secondary">{item.typeLabel}</Badge>
+                    <div className="space-y-1">
+                      <p className="text-sm text-foreground">{item.content}</p>
+                      <p className="text-xs text-muted-foreground">{format(item.date, "dd/MM/yyyy HH:mm")}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="call">
+          <Card>
+            <CardContent className="space-y-2 p-4">
+              <Input placeholder="Resultado" />
+              <Input placeholder="Duração (min)" type="number" />
+              <Textarea placeholder="Próximo passo" />
+              <Button size="sm">Salvar chamada</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="email">
+          <Card>
+            <CardContent className="space-y-2 p-4">
+              <p className="text-sm text-muted-foreground">Conversas mockadas (Responder / Template)</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="wa">
+          <Card>
+            <CardContent className="space-y-2 p-4">
+              <p className="text-sm">Mensagens (Enviada/Recebida)</p>
+              <Button variant="outline" size="sm">
+                Abrir no SDR
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="files">
+          <Card>
+            <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+              {MOCK_FILES.map((file) => (
+                <div key={file.id} className="rounded-lg border bg-card/70 p-3">
+                  <p className="text-sm font-medium text-foreground">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">{file.date}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="docs">
+          <Card>
+            <CardContent className="space-y-2 p-4">
+              <p className="text-sm">Proposta: rascunho | Contrato: enviado</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="invoice">
+          <Card>
+            <CardContent className="space-y-2 p-4">
+              <p className="text-sm">Status: Aguardando | Valor: R$ 10.000 | Vencimento: 30/10</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Próxima Ação */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-semibold">Próxima Ação</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 p-5 pt-0">
+          <form
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end"
+            onSubmit={e => {
+              e.preventDefault();
+              if (!nextActionMissing) {
+                onSaveNextAction();
+              }
+            }}
+          >
+            <div className="xl:col-span-2">
+              <Field label="Tipo de ação">
+                <Select
+                  value={nextActionText}
+                  onValueChange={v => setNextActionText(v)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Escolha o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                    <SelectItem value="E-mail">E-mail</SelectItem>
+                    <SelectItem value="Ligação">Ligação</SelectItem>
+                    <SelectItem value="Técnica">Técnica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+            <div>
+              <Field label="Data">
+                <Input
+                  type="date"
+                  value={nextActionDate}
+                  onChange={e => setNextActionDate(e.target.value)}
+                  required
+                  placeholder="dd/mm/aaaa"
+                />
+              </Field>
+            </div>
+            <div>
+              <Field label="Hora">
+                <Input
+                  type="time"
+                  value={nextActionTime}
+                  onChange={e => setNextActionTime(e.target.value)}
+                  required
+                  placeholder="--:--"
+                />
+              </Field>
+            </div>
+            <div className="xl:col-span-4 flex flex-wrap items-center gap-2">
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger className="w-[104px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="P1">P1</SelectItem>
+                  <SelectItem value="P2">P2</SelectItem>
+                  <SelectItem value="P3">P3</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="submit"
+                variant="default"
+                disabled={nextActionMissing}
+                className="ml-auto"
+              >
+                Salvar
+              </Button>
+            </div>
+          </form>
+          {nextActionMissing && (
+            <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              <AlertCircle className="h-4 w-4" />
+              <span>Preencha todos os campos para salvar a próxima ação</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Produtos */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -503,6 +839,11 @@ function renderProfileColumn(
                   name: '',
                   price: 0,
                   quantity: 1,
+                  currency: 'BRL',
+                  priceType: 'fixed',
+                  discount: 0,
+                  discountType: 'fixed',
+                  taxRate: 0,
                 };
                 const currentProducts = lead.products || [];
                 updateLead(lead.id, { products: [...currentProducts, newProduct] });
@@ -520,68 +861,479 @@ function renderProfileColumn(
             </p>
           ) : (
             <>
-              {lead.products.map((product, index) => (
-                <div key={product.id} className="flex gap-2 items-start p-3 border rounded-lg bg-card">
-                  <div className="flex-1 space-y-2">
-                    <Input
-                      placeholder="Nome do produto"
-                      defaultValue={product.name}
-                      onBlur={(e) => {
-                        const updatedProducts = [...(lead.products || [])];
-                        updatedProducts[index] = { ...product, name: e.target.value };
-                        updateLead(lead.id, { products: updatedProducts });
-                      }}
-                      className="h-8"
-                    />
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="Preço"
-                        defaultValue={product.price}
-                        step="0.01"
-                        min={0}
-                        onBlur={(e) => {
-                          const updatedProducts = [...(lead.products || [])];
-                          updatedProducts[index] = { ...product, price: parseFloat(e.target.value) || 0 };
+              {lead.products.map((product, index) => {
+                // Calcular valores
+                const basePrice = product.price || 0;
+                const qty = product.quantity || 1;
+                const subtotal = basePrice * qty;
+                
+                // Calcular desconto
+                let discountAmount = 0;
+                if (product.discountType === 'percentage') {
+                  discountAmount = subtotal * ((product.discount || 0) / 100);
+                } else {
+                  discountAmount = product.discount || 0;
+                }
+                
+                const afterDiscount = subtotal - discountAmount;
+                
+                // Calcular imposto
+                const taxAmount = afterDiscount * ((product.taxRate || 0) / 100);
+                const finalValue = afterDiscount + taxAmount;
+                
+                const currencySymbol = product.currency === 'USD' ? '$' : 'R$';
+                
+                return (
+                  <div key={product.id} className="border rounded-lg p-4 bg-card space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Nome do produto/serviço"
+                          defaultValue={product.name}
+                          onBlur={(e) => {
+                            const updatedProducts = [...(lead.products || [])];
+                            updatedProducts[index] = { ...product, name: e.target.value };
+                            updateLead(lead.id, { products: updatedProducts });
+                          }}
+                          className="h-9 font-medium"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const updatedProducts = (lead.products || []).filter((_, i) => i !== index);
                           updateLead(lead.id, { products: updatedProducts });
                         }}
-                        className="h-8 flex-1"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Qtd"
-                        defaultValue={product.quantity}
-                        min={1}
-                        onBlur={(e) => {
-                          const updatedProducts = [...(lead.products || [])];
-                          updatedProducts[index] = { ...product, quantity: parseInt(e.target.value) || 1 };
-                          updateLead(lead.id, { products: updatedProducts });
-                        }}
-                        className="h-8 w-20"
-                      />
+                        className="h-9 w-9 p-0"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Subtotal: R$ {((product.price || 0) * (product.quantity || 1)).toFixed(2)}
-                    </p>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                      {/* Preço */}
+                      <div className="space-y-1.5 lg:col-span-2">
+                        <Label className="text-xs">Preço</Label>
+                        <div className="flex gap-2">
+                          <Select
+                            value={product.currency}
+                            onValueChange={(value: 'BRL' | 'USD') => {
+                              const updatedProducts = [...(lead.products || [])];
+                              updatedProducts[index] = { ...product, currency: value };
+                              updateLead(lead.id, { products: updatedProducts });
+                            }}
+                          >
+                            <SelectTrigger className="w-[80px] h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="BRL">R$</SelectItem>
+                              <SelectItem value="USD">$</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            placeholder="0,00"
+                            defaultValue={product.price}
+                            step="0.01"
+                            min={0}
+                            onBlur={(e) => {
+                              const updatedProducts = [...(lead.products || [])];
+                              updatedProducts[index] = { ...product, price: parseFloat(e.target.value) || 0 };
+                              updateLead(lead.id, { products: updatedProducts });
+                            }}
+                            className="h-9 flex-1"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Quantidade */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Quantidade</Label>
+                        <Input
+                          type="number"
+                          placeholder="1"
+                          defaultValue={product.quantity}
+                          min={1}
+                          onBlur={(e) => {
+                            const updatedProducts = [...(lead.products || [])];
+                            updatedProducts[index] = { ...product, quantity: parseInt(e.target.value) || 1 };
+                            updateLead(lead.id, { products: updatedProducts });
+                          }}
+                          className="h-9"
+                        />
+                      </div>
+
+                      {/* Desconto */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Desconto</Label>
+                        <div className="flex gap-2">
+                          <Select
+                            value={product.discountType}
+                            onValueChange={(value: 'fixed' | 'percentage') => {
+                              const updatedProducts = [...(lead.products || [])];
+                              updatedProducts[index] = { ...product, discountType: value };
+                              updateLead(lead.id, { products: updatedProducts });
+                            }}
+                          >
+                            <SelectTrigger className="w-[70px] h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fixed">{currencySymbol}</SelectItem>
+                              <SelectItem value="percentage">%</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            defaultValue={product.discount}
+                            step="0.01"
+                            min={0}
+                            onBlur={(e) => {
+                              const updatedProducts = [...(lead.products || [])];
+                              updatedProducts[index] = { ...product, discount: parseFloat(e.target.value) || 0 };
+                              updateLead(lead.id, { products: updatedProducts });
+                            }}
+                            className="h-9 flex-1"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Imposto */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Imposto (%)</Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          defaultValue={product.taxRate}
+                          step="0.01"
+                          min={0}
+                          max={100}
+                          onBlur={(e) => {
+                            const updatedProducts = [...(lead.products || [])];
+                            updatedProducts[index] = { ...product, taxRate: parseFloat(e.target.value) || 0 };
+                            updateLead(lead.id, { products: updatedProducts });
+                          }}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Cálculo detalhado */}
+                    <div className="pt-2 border-t space-y-1 text-xs">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Subtotal ({qty}x {currencySymbol} {basePrice.toFixed(2)}):</span>
+                        <span>{currencySymbol} {subtotal.toFixed(2)}</span>
+                      </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Desconto ({product.discountType === 'percentage' ? `${product.discount}%` : `${currencySymbol} ${product.discount}`}):</span>
+                          <span className="text-red-600">- {currencySymbol} {discountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {taxAmount > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Imposto ({product.taxRate}%):</span>
+                          <span>+ {currencySymbol} {taxAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-semibold text-sm pt-1 border-t">
+                        <span>Valor Final:</span>
+                        <span className="text-primary">{currencySymbol} {finalValue.toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      const updatedProducts = (lead.products || []).filter((_, i) => i !== index);
-                      updateLead(lead.id, { products: updatedProducts });
-                    }}
-                    className="h-8 w-8 p-0"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
+              
               <div className="pt-3 border-t">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold">Total dos Produtos:</span>
-                  <span className="text-lg font-bold text-primary">
-                    R$ {(lead.products || []).reduce((sum, p) => sum + (p.price * p.quantity), 0).toFixed(2)}
+                  <span className="text-sm font-semibold">Total Geral:</span>
+                  <span className="text-xl font-bold text-primary">
+                    R$ {(lead.products || []).reduce((sum, p) => {
+                      const basePrice = p.price || 0;
+                      const qty = p.quantity || 1;
+                      const subtotal = basePrice * qty;
+                      
+                      let discountAmount = 0;
+                      if (p.discountType === 'percentage') {
+                        discountAmount = subtotal * ((p.discount || 0) / 100);
+                      } else {
+                        discountAmount = p.discount || 0;
+                      }
+                      
+                      const afterDiscount = subtotal - discountAmount;
+                      const taxAmount = afterDiscount * ((p.taxRate || 0) / 100);
+                      const finalValue = afterDiscount + taxAmount;
+                      
+                      return sum + finalValue;
+                    }, 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function renderProductsColumn(
+  lead: Lead,
+  updateLead: (id: string, updates: Partial<Lead>) => void,
+) {
+  return (
+    <div className="space-y-4 xl:col-span-6">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Produtos
+            </CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const newProduct: Product = {
+                  id: `product-${Date.now()}`,
+                  name: '',
+                  price: 0,
+                  quantity: 1,
+                  currency: 'BRL',
+                  priceType: 'fixed',
+                  discount: 0,
+                  discountType: 'fixed',
+                  taxRate: 0,
+                };
+                const currentProducts = lead.products || [];
+                updateLead(lead.id, { products: [...currentProducts, newProduct] });
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Adicionar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(!lead.products || lead.products.length === 0) ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhum produto adicionado
+            </p>
+          ) : (
+            <>
+              {lead.products.map((product, index) => {
+                // Calcular valores
+                const basePrice = product.price || 0;
+                const qty = product.quantity || 1;
+                const subtotal = basePrice * qty;
+                
+                // Calcular desconto
+                let discountAmount = 0;
+                if (product.discountType === 'percentage') {
+                  discountAmount = subtotal * ((product.discount || 0) / 100);
+                } else {
+                  discountAmount = product.discount || 0;
+                }
+                
+                const afterDiscount = subtotal - discountAmount;
+                
+                // Calcular imposto
+                const taxAmount = afterDiscount * ((product.taxRate || 0) / 100);
+                const finalValue = afterDiscount + taxAmount;
+                
+                const currencySymbol = product.currency === 'USD' ? '$' : 'R$';
+                
+                return (
+                  <div key={product.id} className="border rounded-lg p-4 bg-card space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Nome do produto/serviço"
+                          defaultValue={product.name}
+                          onBlur={(e) => {
+                            const updatedProducts = [...(lead.products || [])];
+                            updatedProducts[index] = { ...product, name: e.target.value };
+                            updateLead(lead.id, { products: updatedProducts });
+                          }}
+                          className="h-9 font-medium"
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const updatedProducts = (lead.products || []).filter((_, i) => i !== index);
+                          updateLead(lead.id, { products: updatedProducts });
+                        }}
+                        className="h-9 w-9 p-0"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+                      {/* Preço */}
+                      <div className="space-y-1.5 lg:col-span-2">
+                        <Label className="text-xs">Preço</Label>
+                        <div className="flex gap-2">
+                          <Select
+                            value={product.currency}
+                            onValueChange={(value: 'BRL' | 'USD') => {
+                              const updatedProducts = [...(lead.products || [])];
+                              updatedProducts[index] = { ...product, currency: value };
+                              updateLead(lead.id, { products: updatedProducts });
+                            }}
+                          >
+                            <SelectTrigger className="w-[80px] h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="BRL">R$</SelectItem>
+                              <SelectItem value="USD">$</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            placeholder="0,00"
+                            defaultValue={product.price}
+                            step="0.01"
+                            min={0}
+                            onBlur={(e) => {
+                              const updatedProducts = [...(lead.products || [])];
+                              updatedProducts[index] = { ...product, price: parseFloat(e.target.value) || 0 };
+                              updateLead(lead.id, { products: updatedProducts });
+                            }}
+                            className="h-9 flex-1"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Quantidade */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Quantidade</Label>
+                        <Input
+                          type="number"
+                          placeholder="1"
+                          defaultValue={product.quantity}
+                          min={1}
+                          onBlur={(e) => {
+                            const updatedProducts = [...(lead.products || [])];
+                            updatedProducts[index] = { ...product, quantity: parseInt(e.target.value) || 1 };
+                            updateLead(lead.id, { products: updatedProducts });
+                          }}
+                          className="h-9"
+                        />
+                      </div>
+
+                      {/* Desconto */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Desconto</Label>
+                        <div className="flex gap-2">
+                          <Select
+                            value={product.discountType}
+                            onValueChange={(value: 'fixed' | 'percentage') => {
+                              const updatedProducts = [...(lead.products || [])];
+                              updatedProducts[index] = { ...product, discountType: value };
+                              updateLead(lead.id, { products: updatedProducts });
+                            }}
+                          >
+                            <SelectTrigger className="w-[70px] h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fixed">{currencySymbol}</SelectItem>
+                              <SelectItem value="percentage">%</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            defaultValue={product.discount}
+                            step="0.01"
+                            min={0}
+                            onBlur={(e) => {
+                              const updatedProducts = [...(lead.products || [])];
+                              updatedProducts[index] = { ...product, discount: parseFloat(e.target.value) || 0 };
+                              updateLead(lead.id, { products: updatedProducts });
+                            }}
+                            className="h-9 flex-1"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Imposto */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Imposto (%)</Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          defaultValue={product.taxRate}
+                          step="0.01"
+                          min={0}
+                          max={100}
+                          onBlur={(e) => {
+                            const updatedProducts = [...(lead.products || [])];
+                            updatedProducts[index] = { ...product, taxRate: parseFloat(e.target.value) || 0 };
+                            updateLead(lead.id, { products: updatedProducts });
+                          }}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Cálculo detalhado */}
+                    <div className="pt-2 border-t space-y-1 text-xs">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Subtotal ({qty}x {currencySymbol} {basePrice.toFixed(2)}):</span>
+                        <span>{currencySymbol} {subtotal.toFixed(2)}</span>
+                      </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Desconto ({product.discountType === 'percentage' ? `${product.discount}%` : `${currencySymbol} ${product.discount}`}):</span>
+                          <span className="text-red-600">- {currencySymbol} {discountAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {taxAmount > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Imposto ({product.taxRate}%):</span>
+                          <span>+ {currencySymbol} {taxAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-semibold text-sm pt-1 border-t">
+                        <span>Valor Final:</span>
+                        <span className="text-primary">{currencySymbol} {finalValue.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              <div className="pt-3 border-t">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold">Total Geral:</span>
+                  <span className="text-xl font-bold text-primary">
+                    R$ {(lead.products || []).reduce((sum, p) => {
+                      const basePrice = p.price || 0;
+                      const qty = p.quantity || 1;
+                      const subtotal = basePrice * qty;
+                      
+                      let discountAmount = 0;
+                      if (p.discountType === 'percentage') {
+                        discountAmount = subtotal * ((p.discount || 0) / 100);
+                      } else {
+                        discountAmount = p.discount || 0;
+                      }
+                      
+                      const afterDiscount = subtotal - discountAmount;
+                      const taxAmount = afterDiscount * ((p.taxRate || 0) / 100);
+                      const finalValue = afterDiscount + taxAmount;
+                      
+                      return sum + finalValue;
+                    }, 0).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -629,7 +1381,7 @@ function renderMiddleColumn(params: {
   } = params;
 
   return (
-    <div className="space-y-4 xl:col-span-6">
+    <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-semibold">Próxima Ação</CardTitle>

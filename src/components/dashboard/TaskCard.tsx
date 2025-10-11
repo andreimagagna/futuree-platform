@@ -56,7 +56,7 @@ export const TaskCard = ({ task }: TaskCardProps) => {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "p-3 space-y-3 bg-card/80 backdrop-blur-sm shadow-sm relative",
+        "p-2 space-y-2 bg-card/80 backdrop-blur-sm shadow-sm relative",
         isDragging && "opacity-50 z-50"
       )}
     >
@@ -68,26 +68,26 @@ export const TaskCard = ({ task }: TaskCardProps) => {
             onBlur={handleTitleBlur}
             onKeyDown={handleKeyDown}
             autoFocus
-            className="h-8 -ml-1"
+            className="h-7 -ml-1 text-sm"
           />
         ) : (
-          <p className="font-semibold text-sm flex-1" onClick={() => setIsEditing(true)}>
+          <p className="font-semibold text-xs flex-1" onClick={() => setIsEditing(true)}>
             {task.title}
           </p>
         )}
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-7 w-7">
+          <Button variant="ghost" size="icon" className="h-6 w-6">
             <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
           </Button>
           <button {...attributes} {...listeners} className="p-1">
-            <GripVertical className="h-5 w-5 text-muted-foreground/50 cursor-grab" />
+            <GripVertical className="h-4 w-4 text-muted-foreground/50 cursor-grab" />
           </button>
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-xs">
+      <div className="flex items-center justify-between text-[11px]">
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className={cn("text-xs", priorityClasses[task.priority])}>
+          <Badge variant="outline" className={cn("text-[11px]", priorityClasses[task.priority])}>
             {task.priority}
           </Badge>
           {task.leadId && <Badge variant="secondary">Lead</Badge>}
