@@ -47,14 +47,17 @@ export const KPICard = ({
 }: KPICardProps) => {
   if (isLoading) {
     return (
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-6 w-6 rounded-full" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-8 w-1/2 mb-2" />
-          <Skeleton className="h-3 w-1/3" />
+          <div className="relative">
+            <Skeleton className="h-8 w-1/2 mb-2" />
+            <Skeleton className="h-3 w-1/3" />
+            <div className="absolute inset-0 bg-gradient-to-r from-muted/0 via-muted/30 to-muted/0 animate-[shimmer_1.5s_infinite]" style={{ backgroundSize: '200% 100%' }} />
+          </div>
         </CardContent>
       </Card>
     );
@@ -75,10 +78,10 @@ export const KPICard = ({
   }
 
   return (
-    <Card>
+    <Card className="group relative transition-all duration-200 hover:shadow-md">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <Icon className="h-5 w-5 text-muted-foreground" />
+        <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
       </CardHeader>
       <CardContent>
         <div className="flex items-end justify-between">
@@ -111,6 +114,7 @@ export const KPICard = ({
             </div>
           )}
         </div>
+        <div className="pointer-events-none absolute inset-x-0 -bottom-px h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
       </CardContent>
     </Card>
   );

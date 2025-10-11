@@ -5,6 +5,29 @@ export type TaskStatus = 'backlog' | 'in_progress' | 'review' | 'done';
 export type Priority = 'P1' | 'P2' | 'P3';
 export type DateRange = 'today' | 'this_week' | 'this_month' | 'custom';
 
+export interface FunnelStage {
+  id: string;
+  name: string;
+  color: string;
+  order: number;
+}
+
+export interface Funnel {
+  id: string;
+  name: string;
+  stages: FunnelStage[];
+  isDefault: boolean;
+}
+
+export interface BANTMethodology {
+  budget: boolean;      // Tem orçamento definido?
+  authority: boolean;   // Fala com decisor?
+  need: boolean;        // Tem necessidade clara?
+  timeline: boolean;    // Tem prazo definido?
+  qualifiedAt?: Date;   // Data da qualificação
+  qualifiedBy?: string; // Quem qualificou
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -12,6 +35,8 @@ export interface Lead {
   email: string;
   whatsapp: string;
   stage: LeadStage;
+  funnelId?: string;
+  customStageId?: string;
   score: number;
   owner: string;
   source: string;
@@ -19,6 +44,15 @@ export interface Lead {
   nextAction?: Date;
   tags: string[];
   notes: string;
+  status?: 'open' | 'won' | 'lost';
+  lostReason?: string;
+  lostCompetitor?: string;
+  wonDate?: Date;
+  lostDate?: Date;
+  bant?: BANTMethodology; // Metodologia BANT
+  website?: string; // Site da empresa
+  companySize?: string; // Porte da empresa (Pequena, Média, Grande, Corporativa)
+  employeeCount?: string; // Número de funcionários
 }
 
 export interface Task {
@@ -78,6 +112,7 @@ export interface GameState {
 interface StoreState {
   // UI State
   dateRange: DateRange;
+  activeFunnelId: string;
 
   // Data
   leads: Lead[];
@@ -85,6 +120,7 @@ interface StoreState {
   projects: Project[];
   conversations: Conversation[];
   notes: Note[];
+  funnels: Funnel[];
   
   // Gamification
   gameState: GameState;
@@ -95,6 +131,7 @@ interface StoreState {
   
   // Actions
   setDateRange: (range: DateRange) => void;
+  setActiveFunnel: (id: string) => void;
 
   addLead: (lead: Lead) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
@@ -106,11 +143,46 @@ interface StoreState {
   
   addNote: (note: Note) => void;
 
+  addFunnel: (funnel: Funnel) => void;
+  updateFunnel: (id: string, updates: Partial<Funnel>) => void;
+  deleteFunnel: (id: string) => void;
+  addStageToFunnel: (funnelId: string, stage: FunnelStage) => void;
+  removeStageFromFunnel: (funnelId: string, stageId: string) => void;
+  updateStageInFunnel: (funnelId: string, stageId: string, updates: Partial<FunnelStage>) => void;
+
   toggleAgent: () => void;
   completeMission: (id: string) => void;
 }
 
 // Mock data
+const mockFunnels: Funnel[] = [
+  {
+    id: 'default',
+    name: 'Funil Padrão',
+    isDefault: true,
+    stages: [
+      { id: 'captured', name: 'Capturado', color: '#3B82F6', order: 0 },
+      { id: 'qualify', name: 'Qualificar', color: '#8B5CF6', order: 1 },
+      { id: 'contact', name: 'Contato', color: '#10B981', order: 2 },
+      { id: 'proposal', name: 'Proposta', color: '#F59E0B', order: 3 },
+      { id: 'closing', name: 'Fechamento', color: '#EC4899', order: 4 },
+    ],
+  },
+  {
+    id: 'enterprise',
+    name: 'Funil Enterprise',
+    isDefault: false,
+    stages: [
+      { id: 'lead', name: 'Lead', color: '#6366F1', order: 0 },
+      { id: 'discovery', name: 'Discovery', color: '#8B5CF6', order: 1 },
+      { id: 'demo', name: 'Demo', color: '#14B8A6', order: 2 },
+      { id: 'poc', name: 'POC', color: '#F59E0B', order: 3 },
+      { id: 'negotiation', name: 'Negociação', color: '#EF4444', order: 4 },
+      { id: 'closed', name: 'Fechado', color: '#10B981', order: 5 },
+    ],
+  },
+];
+
 const mockLeads: Lead[] = [
   {
     id: '1',
@@ -221,9 +293,11 @@ const mockNotes: Note[] = [
 
 export const useStore = create<StoreState>((set) => ({
   dateRange: 'this_week',
+  activeFunnelId: 'default',
   leads: mockLeads,
   tasks: mockTasks,
   notes: mockNotes,
+  funnels: mockFunnels,
   projects: [
     { id: '1', name: 'Onboarding Q1', color: '#5B8DEF', leadIds: ['1', '2'] },
     { id: '2', name: 'Enterprise Deals', color: '#34C759', leadIds: ['3'] },
@@ -267,6 +341,7 @@ export const useStore = create<StoreState>((set) => ({
   agentActive: true,
   
   setDateRange: (range) => set({ dateRange: range }),
+  setActiveFunnel: (id) => set({ activeFunnelId: id }),
 
   addLead: (lead) => set((state) => ({ leads: [...state.leads, lead] })),
   updateLead: (id, updates) => set((state) => ({
@@ -281,6 +356,32 @@ export const useStore = create<StoreState>((set) => ({
   deleteTask: (id) => set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) })),
   
   addNote: (note) => set((state) => ({ notes: [note, ...state.notes] })),
+
+  addFunnel: (funnel) => set((state) => ({ funnels: [...state.funnels, funnel] })),
+  updateFunnel: (id, updates) => set((state) => ({
+    funnels: state.funnels.map((f) => (f.id === id ? { ...f, ...updates } : f)),
+  })),
+  deleteFunnel: (id) => set((state) => ({ 
+    funnels: state.funnels.filter((f) => f.id !== id),
+    activeFunnelId: state.activeFunnelId === id ? 'default' : state.activeFunnelId,
+  })),
+  addStageToFunnel: (funnelId, stage) => set((state) => ({
+    funnels: state.funnels.map((f) => 
+      f.id === funnelId ? { ...f, stages: [...f.stages, stage] } : f
+    ),
+  })),
+  removeStageFromFunnel: (funnelId, stageId) => set((state) => ({
+    funnels: state.funnels.map((f) => 
+      f.id === funnelId ? { ...f, stages: f.stages.filter((s) => s.id !== stageId) } : f
+    ),
+  })),
+  updateStageInFunnel: (funnelId, stageId, updates) => set((state) => ({
+    funnels: state.funnels.map((f) => 
+      f.id === funnelId 
+        ? { ...f, stages: f.stages.map((s) => s.id === stageId ? { ...s, ...updates } : s) }
+        : f
+    ),
+  })),
 
   toggleAgent: () => set((state) => ({ agentActive: !state.agentActive })),
   completeMission: (id) => set((state) => ({

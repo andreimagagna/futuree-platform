@@ -5,7 +5,7 @@ import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { CreateDialog } from "@/components/dashboard/CreateDialog";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { DashboardViewV2 as DashboardView } from '@/components/dashboard/DashboardViewV2';
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -15,7 +15,7 @@ interface AppLayoutProps {
 export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage<boolean>("ui.sidebarCollapsed", false);
   const navigate = useNavigate();
 
   const handleNavigate = (view: string) => {
@@ -30,7 +30,6 @@ export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProp
     <div className="min-h-screen bg-background">
       <Topbar
         onOpenSearch={() => setSearchOpen(true)}
-        onOpenCreate={() => setCreateOpen(true)}
       />
       
       <Sidebar 
@@ -44,7 +43,7 @@ export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProp
         "pt-[var(--topbar-height)] transition-all duration-300",
         sidebarCollapsed ? "pl-[var(--sidebar-collapsed-width)]" : "pl-[var(--sidebar-width)]"
       )}>
-        <div className="p-4 lg:p-6 max-w-[1600px] mx-auto animate-fade-in">
+        <div className="p-4 lg:p-6 max-w-[1600px] mx-auto animate-in fade-in duration-300">
           {children}
         </div>
       </main>

@@ -26,6 +26,7 @@ const App = () => (
           {/* Sales Solution */}
           <Route path="/" element={<AppLayout currentView="dashboard"><Dashboard /></AppLayout>} />
           <Route path="/crm" element={<AppLayout currentView="crm"><CRM /></AppLayout>} />
+          <Route path="/crm/:id" element={<AppLayout currentView="crm"><CRM /></AppLayout>} />
           <Route path="/tasks" element={<AppLayout currentView="tasks"><Tasks /></AppLayout>} />
           <Route path="/funnel" element={<AppLayout currentView="funnel"><Funnel /></AppLayout>} />
           <Route path="/reports" element={<AppLayout currentView="reports"><Reports /></AppLayout>} />

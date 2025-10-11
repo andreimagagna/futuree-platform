@@ -1,5 +1,5 @@
 import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2 } from "lucide-react";
-import "@/styles/sidebar.css";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "react-router-dom";
@@ -105,9 +105,9 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
   return (
     <aside
       className={cn(
-        "sidebar-container",
-        "bg-card",
-        "border-r border-r-slate-200 dark:border-r-slate-800",
+        "fixed left-0 top-[var(--topbar-height)] bottom-0 z-20",
+        "bg-card border-r",
+        "transition-all duration-300 ease-in-out",
         collapsed ? "w-[var(--sidebar-collapsed-width)]" : "w-[var(--sidebar-width)]"
       )}
     >

@@ -15,6 +15,14 @@ export const mockLeads: Lead[] = [
     nextAction: new Date(Date.now() + 24 * 60 * 60 * 1000),
     tags: ['hot', 'enterprise'],
     notes: 'Cliente muito interessado em integração',
+    bant: {
+      budget: true,
+      authority: true,
+      need: true,
+      timeline: false,
+      qualifiedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      qualifiedBy: 'Você',
+    },
   },
   {
     id: '2',
@@ -30,6 +38,14 @@ export const mockLeads: Lead[] = [
     nextAction: new Date(Date.now() + 2 * 60 * 60 * 1000),
     tags: ['hot', 'startup'],
     notes: 'Precisa de demo',
+    bant: {
+      budget: true,
+      authority: false,
+      need: true,
+      timeline: true,
+      qualifiedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+      qualifiedBy: 'Você',
+    },
   },
   {
     id: '3',
@@ -44,6 +60,14 @@ export const mockLeads: Lead[] = [
     lastContact: new Date(Date.now() - 24 * 60 * 60 * 1000),
     tags: ['warm'],
     notes: 'Aguardando orçamento',
+    bant: {
+      budget: true,
+      authority: true,
+      need: true,
+      timeline: true,
+      qualifiedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      qualifiedBy: 'Você',
+    },
   },
 ];
 

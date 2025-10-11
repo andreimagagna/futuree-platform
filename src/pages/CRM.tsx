@@ -1,12 +1,10 @@
 import { CRMView } from "@/components/crm/CRMView";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { LeadDetailView } from "@/components/crm/LeadDetailView";
+import { useParams } from "react-router-dom";
 
 const CRM = () => {
-  return (
-    <AppLayout currentView="crm">
-      <CRMView />
-    </AppLayout>
-  );
+  const { id } = useParams();
+  return id ? <LeadDetailView /> : <CRMView />;
 };
 
 export default CRM;

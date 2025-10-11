@@ -2,6 +2,15 @@ export type LeadStage = 'captured' | 'qualify' | 'contact' | 'proposal' | 'closi
 export type TaskStatus = 'backlog' | 'in_progress' | 'review' | 'done';
 export type Priority = 'P1' | 'P2' | 'P3';
 
+export interface BANTMethodology {
+  budget: boolean;      // Tem orçamento definido?
+  authority: boolean;   // Fala com decisor?
+  need: boolean;        // Tem necessidade clara?
+  timeline: boolean;    // Tem prazo definido?
+  qualifiedAt?: Date;   // Data da qualificação
+  qualifiedBy?: string; // Quem qualificou
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -16,6 +25,10 @@ export interface Lead {
   nextAction?: Date;
   tags: string[];
   notes: string;
+  bant?: BANTMethodology; // Metodologia BANT
+  website?: string; // Site da empresa
+  companySize?: string; // Porte da empresa
+  employeeCount?: string; // Número de funcionários
 }
 
 export interface Task {

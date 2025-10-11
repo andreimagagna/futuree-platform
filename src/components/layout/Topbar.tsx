@@ -12,13 +12,16 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, User, LogOut, Settings, Bell, Search } from "lucide-react";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { useEffect } from "react";
+import { Breadcrumbs } from "./Breadcrumbs";
+import { Moon, Sun } from "lucide-react";
+import { useLocalStorage } from "@/hooks/use-local-storage";
 
 interface TopbarProps {
   onOpenSearch: () => void;
-  onOpenCreate: () => void;
 }
 
-export const Topbar = ({ onOpenSearch, onOpenCreate }: TopbarProps) => {
+export const Topbar = ({ onOpenSearch }: TopbarProps) => {
+  const [theme, setTheme] = useLocalStorage<string>("theme", "light");
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
@@ -29,6 +32,15 @@ export const Topbar = ({ onOpenSearch, onOpenCreate }: TopbarProps) => {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, [onOpenSearch]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+  }, [theme]);
 
   return (
     <header className="fixed top-0 left-0 right-0 h-[var(--topbar-height)] bg-card border-b z-40 shadow-sm">
@@ -56,17 +68,18 @@ export const Topbar = ({ onOpenSearch, onOpenCreate }: TopbarProps) => {
             <Badge variant="secondary" className="ml-auto">⌘K</Badge>
           </Button>
           <DateRangeFilter />
+          <Breadcrumbs className="ml-2" />
         </div>
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
-          <Button 
-            size="sm" 
-            onClick={onOpenCreate}
-            className="gap-2"
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Toggle theme"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Criar</span>
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
 
           <Button variant="ghost" size="icon" className="relative hidden sm:flex">

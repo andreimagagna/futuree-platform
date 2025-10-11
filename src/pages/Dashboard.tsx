@@ -1,5 +1,4 @@
 import { DashboardView } from "@/components/dashboard/DashboardView";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
@@ -9,11 +8,7 @@ const Dashboard = () => {
     navigate(`/${view === 'dashboard' ? '' : view}`);
   };
 
-  return (
-    <AppLayout currentView="dashboard">
-      <DashboardView onNavigate={handleNavigate} />
-    </AppLayout>
-  );
+  return <DashboardView onNavigate={handleNavigate} />;
 };
 
 export default Dashboard;

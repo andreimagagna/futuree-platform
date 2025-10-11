@@ -1,11 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { Settings as SettingsIcon } from "lucide-react";
 
 const Settings = () => {
   return (
-    <AppLayout currentView="settings">
-      <div className="space-y-4">
+    <div className="space-y-4">
         <h2 className="text-2xl font-bold">Configurações</h2>
         <Card>
           <CardHeader>
@@ -19,7 +17,6 @@ const Settings = () => {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
   );
 };
 
