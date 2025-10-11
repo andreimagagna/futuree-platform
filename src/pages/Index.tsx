@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { CreateDialog } from "@/components/dashboard/CreateDialog";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { GuideView } from "@/components/guide/GuideView";
 import { CRMView } from "@/components/crm/CRMView";
 import { TasksView } from "@/components/tasks/TasksView";
 import { QualificationFunnel } from "@/components/QualificationFunnel";
@@ -25,6 +26,8 @@ const Index = () => {
     switch (currentView) {
       case 'dashboard':
         return <DashboardView onNavigate={handleNavigate} />;
+      case 'guide':
+        return <GuideView onNavigate={handleNavigate} />;
       case 'crm':
         return <CRMView />;
       case 'tasks':

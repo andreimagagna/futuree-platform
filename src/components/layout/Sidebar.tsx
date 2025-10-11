@@ -9,7 +9,8 @@ import {
   BarChart3, 
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  BookOpen
 } from "lucide-react";
 import { useState } from "react";
 
@@ -20,6 +21,7 @@ interface SidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'guide', label: 'Guia', icon: BookOpen },
   { id: 'crm', label: 'CRM (Leads)', icon: Users },
   { id: 'tasks', label: 'Tarefas/Projetos', icon: CheckSquare },
   { id: 'funnel', label: 'Funil de Qualificação', icon: TrendingUp },
