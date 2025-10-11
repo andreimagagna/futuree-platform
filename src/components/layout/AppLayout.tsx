@@ -1,10 +1,11 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { CreateDialog } from "@/components/dashboard/CreateDialog";
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { DashboardViewV2 as DashboardView } from '@/components/dashboard/DashboardViewV2';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -14,6 +15,7 @@ interface AppLayoutProps {
 export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
 
   const handleNavigate = (view: string) => {
@@ -31,9 +33,17 @@ export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProp
         onOpenCreate={() => setCreateOpen(true)}
       />
       
-      <Sidebar currentView={currentView} onViewChange={handleViewChange} />
+      <Sidebar 
+        currentView={currentView} 
+        onViewChange={handleViewChange}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+      />
 
-      <main className="pt-[var(--topbar-height)] pl-[var(--sidebar-width)] transition-all duration-300">
+      <main className={cn(
+        "pt-[var(--topbar-height)] transition-all duration-300",
+        sidebarCollapsed ? "pl-[var(--sidebar-collapsed-width)]" : "pl-[var(--sidebar-width)]"
+      )}>
         <div className="p-4 lg:p-6 max-w-[1600px] mx-auto animate-fade-in">
           {children}
         </div>

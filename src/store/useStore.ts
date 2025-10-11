@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export type LeadStage = 'captured' | 'qualify' | 'contact' | 'proposal' | 'closing';
 export type TaskStatus = 'backlog' | 'in_progress' | 'review' | 'done';
 export type Priority = 'P1' | 'P2' | 'P3';
+export type DateRange = 'today' | 'this_week' | 'this_month' | 'custom';
 
 export interface Lead {
   id: string;
@@ -58,6 +59,15 @@ export interface Mission {
   completed: boolean;
 }
 
+export interface Note {
+  id: string;
+  content: string;
+  leadId?: string;
+  dealId?: string;
+  createdAt: Date;
+  createdBy: string;
+}
+
 export interface GameState {
   xp: number;
   level: number;
@@ -66,11 +76,15 @@ export interface GameState {
 }
 
 interface StoreState {
+  // UI State
+  dateRange: DateRange;
+
   // Data
   leads: Lead[];
   tasks: Task[];
   projects: Project[];
   conversations: Conversation[];
+  notes: Note[];
   
   // Gamification
   gameState: GameState;
@@ -80,6 +94,8 @@ interface StoreState {
   agentActive: boolean;
   
   // Actions
+  setDateRange: (range: DateRange) => void;
+
   addLead: (lead: Lead) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
@@ -88,6 +104,8 @@ interface StoreState {
   updateTask: (id: string, updates: Partial<Task>) => void;
   deleteTask: (id: string) => void;
   
+  addNote: (note: Note) => void;
+
   toggleAgent: () => void;
   completeMission: (id: string) => void;
 }
@@ -184,9 +202,28 @@ const mockTasks: Task[] = [
   },
 ];
 
+const mockNotes: Note[] = [
+  {
+    id: '1',
+    leadId: '1',
+    content: 'Cliente mencionou que o budget para o projeto é de $5k.',
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+    createdBy: 'Você',
+  },
+  {
+    id: '2',
+    leadId: '2',
+    content: 'A decisora principal, Ana, está de férias até dia 20.',
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    createdBy: 'Você',
+  }
+];
+
 export const useStore = create<StoreState>((set) => ({
+  dateRange: 'this_week',
   leads: mockLeads,
   tasks: mockTasks,
+  notes: mockNotes,
   projects: [
     { id: '1', name: 'Onboarding Q1', color: '#5B8DEF', leadIds: ['1', '2'] },
     { id: '2', name: 'Enterprise Deals', color: '#34C759', leadIds: ['3'] },
@@ -229,6 +266,8 @@ export const useStore = create<StoreState>((set) => ({
   
   agentActive: true,
   
+  setDateRange: (range) => set({ dateRange: range }),
+
   addLead: (lead) => set((state) => ({ leads: [...state.leads, lead] })),
   updateLead: (id, updates) => set((state) => ({
     leads: state.leads.map((l) => (l.id === id ? { ...l, ...updates } : l)),
@@ -241,6 +280,8 @@ export const useStore = create<StoreState>((set) => ({
   })),
   deleteTask: (id) => set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) })),
   
+  addNote: (note) => set((state) => ({ notes: [note, ...state.notes] })),
+
   toggleAgent: () => set((state) => ({ agentActive: !state.agentActive })),
   completeMission: (id) => set((state) => ({
     missions: state.missions.map((m) => (m.id === id ? { ...m, completed: true, current: m.target } : m)),

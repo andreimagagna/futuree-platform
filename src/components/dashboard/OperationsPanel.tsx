@@ -26,8 +26,11 @@ const statusColumns = [
 ];
 
 export const OperationsPanel = () => {
-  const { tasks, updateTask, deleteTask } = useStore();
+  const { tasks, deleteTask } = useStore();
+  const { loading, error } = useLoadingError('tasks');
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const filteredTasks = useDateRangeFilter(tasks);
 
   const handleStatusChange = (taskId: string, newStatus: 'backlog' | 'in_progress' | 'done') => {
     updateTask(taskId, { status: newStatus });

@@ -61,40 +61,15 @@ const typeConfig = {
   call_scheduled: { color: 'bg-warning-light text-warning', label: 'Ligação' },
 };
 
+import { Card, CardTitle, CardHeader } from "../ui/card";
+import { History } from 'lucide-react';
+import { Badge } from "../ui/badge";
+import { ScrollArea } from "../ui/scroll-area";
+import { LoadingState } from "../ui/loading-state";
+import { useLoadingError } from "@/hooks/use-loading-error";
+import { useDateRangeFilter } from "@/hooks/use-date-range-filter";
+import { useStore } from "@/store/useStore";
+
 export const ActivityTimeline = () => {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Atividades Recentes</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {mockActivities.slice(0, 5).map((activity, index) => {
-            const Icon = activity.icon;
-            const config = typeConfig[activity.type];
-            
-            return (
-              <div key={activity.id} className="flex gap-3 group">
-                <div className="relative">
-                  <div className={`p-2 rounded-lg ${config.color} group-hover:scale-110 transition-transform`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  {index < mockActivities.slice(0, 5).length - 1 && (
-                    <div className="absolute left-1/2 top-10 w-px h-5 bg-border -translate-x-1/2" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="text-sm font-semibold truncate">{activity.title}</p>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{activity.time}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">{activity.entity}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+  const { loading, error } = useLoadingError('activities');
+  const activities = useDateRangeFilter(useStore().activities);

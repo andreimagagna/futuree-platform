@@ -1,179 +1,213 @@
+import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2 } from "lucide-react";
+import "@/styles/sidebar.css";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { 
-  LayoutDashboard, 
-  Users, 
-  CheckSquare, 
-  TrendingUp, 
-  Bot, 
-  BarChart3, 
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  BookOpen
-} from "lucide-react";
-import { useState } from "react";
+import { useLocation } from "react-router-dom";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SidebarProps {
   currentView: string;
   onViewChange: (view: string) => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
-// Menu items organized by priority and workflow
-const mainMenuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
-  { id: 'funnel', label: 'Funil BANT', icon: TrendingUp, badge: null },
-  { id: 'crm', label: 'Leads', icon: Users, badge: null },
-  { id: 'tasks', label: 'Tarefas', icon: CheckSquare, badge: null },
+interface SolutionGroup {
+  title: string;
+  icon: React.FC<{ className?: string }>;
+  items: NavItem[];
+}
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.FC<{ className?: string }>;
+  path: string;
+}
+
+const solutions: SolutionGroup[] = [
+  {
+    title: "Sales Solution",
+    icon: Target,
+    items: [
+      {
+        id: "dashboard",
+        label: "Dashboard",
+        icon: LayoutDashboard,
+        path: "/",
+      },
+      {
+        id: "crm",
+        label: "CRM",
+        icon: Users2,
+        path: "/crm",
+      },
+      {
+        id: "tasks",
+        label: "Tarefas",
+        icon: CheckSquare,
+        path: "/tasks",
+      },
+      {
+        id: "funnel",
+        label: "Funil",
+        icon: FileSpreadsheet,
+        path: "/funnel",
+      },
+      {
+        id: "reports",
+        label: "Relatórios",
+        icon: BarChart4,
+        path: "/reports",
+      },
+    ],
+  },
+  {
+    title: "Marketing Solution",
+    icon: Radio,
+    items: [
+      {
+        id: "campaigns",
+        label: "Campanhas",
+        icon: Target,
+        path: "/marketing/campaigns",
+      },
+    ],
+  },
+  {
+    title: "Business Solution",
+    icon: Building2,
+    items: [
+      {
+        id: "analytics",
+        label: "Analytics",
+        icon: BarChart4,
+        path: "/business/analytics",
+      },
+    ],
+  },
 ];
 
-const secondaryMenuItems = [
-  { id: 'agent', label: 'Agente SDR', icon: Bot, badge: 'AI' },
-  { id: 'reports', label: 'Relatórios', icon: BarChart3, badge: null },
-];
+export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse }: SidebarProps) => {
+  const location = useLocation();
 
-const bottomMenuItems = [
-  { id: 'guide', label: 'Guia', icon: BookOpen, badge: null },
-  { id: 'settings', label: 'Configurações', icon: Settings, badge: null },
-];
+  const isActive = (path: string) => {
+    if (path === "/") {
+      return location.pathname === "/";
+    }
+    return location.pathname.startsWith(path);
+  };
 
-const MenuSection = ({ 
-  items, 
-  currentView, 
-  onViewChange, 
-  collapsed 
-}: { 
-  items: typeof mainMenuItems; 
-  currentView: string; 
-  onViewChange: (view: string) => void;
-  collapsed: boolean;
-}) => (
-  <>
-    {items.map((item) => {
-      const Icon = item.icon;
-      const isActive = currentView === item.id;
-      
-      return (
-        <Button
-          key={item.id}
-          variant={isActive ? "default" : "ghost"}
-          className={cn(
-            "w-full justify-start gap-3 h-10 transition-all duration-200 relative",
-            collapsed && "justify-center px-2",
-            isActive && "shadow-sm font-semibold",
-            !isActive && "hover:bg-muted/50 hover:translate-x-1"
-          )}
-          onClick={() => onViewChange(item.id)}
-        >
-          <Icon className={cn(
-            "h-4 w-4 flex-shrink-0",
-            isActive && "scale-110"
-          )} />
-          {!collapsed && (
-            <>
-              <span className="text-sm font-medium transition-opacity duration-200 flex-1 text-left">
-                {item.label}
-              </span>
-              {item.badge && (
-                <Badge 
-                  variant="secondary" 
-                  className="h-5 px-1.5 text-[10px] font-bold"
-                >
-                  {item.badge}
-                </Badge>
-              )}
-            </>
-          )}
-        </Button>
-      );
-    })}
-  </>
-);
-
-export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const isSolutionActive = (solution: SolutionGroup) => {
+    return solution.items.some(item => isActive(item.path));
+  };
 
   return (
     <aside
       className={cn(
-        "fixed left-0 top-[var(--topbar-height)] h-[calc(100vh-var(--topbar-height))] bg-card border-r transition-all duration-300 z-30 shadow-md",
+        "sidebar-container",
+        "bg-card",
+        "border-r border-r-slate-200 dark:border-r-slate-800",
         collapsed ? "w-[var(--sidebar-collapsed-width)]" : "w-[var(--sidebar-width)]"
       )}
     >
       <div className="flex flex-col h-full">
-        {/* Main Navigation */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {/* Primary Section */}
-          {!collapsed && (
-            <div className="px-3 py-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Principal
-              </p>
+        <ScrollArea className="flex-1 py-4">
+          {solutions.map((solution) => (
+            <div 
+              key={solution.title} 
+              className={cn(
+                "mb-8 px-3 relative",
+                isSolutionActive(solution) && "before:absolute before:left-0 before:top-0 before:h-full before:w-[3px] before:bg-primary"
+              )}
+            >
+              <div
+                className={cn(
+                  "flex items-center gap-3 mb-3",
+                  collapsed ? "justify-center px-2" : "px-3",
+                  "group"
+                )}
+              >
+                <div className={cn(
+                  "p-2 rounded-lg",
+                  isSolutionActive(solution) 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-muted text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 transition-colors"
+                )}>
+                  <solution.icon className="w-5 h-5" />
+                </div>
+                {!collapsed && (
+                  <div>
+                    <span className={cn(
+                      "text-sm font-semibold tracking-wide",
+                      isSolutionActive(solution) ? "text-primary" : "text-muted-foreground"
+                    )}>
+                      {solution.title}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className={cn(
+                "space-y-1",
+                collapsed ? "px-2" : "ml-4"
+              )}>
+                {solution.items.map((item) => (
+                  <Button
+                    key={item.id}
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start py-2 px-3 h-auto",
+                      "transition-all duration-200",
+                      "hover:bg-muted/80",
+                      isActive(item.path) && [
+                        "bg-primary/10 text-primary",
+                        "hover:bg-primary/20",
+                        "font-medium",
+                      ],
+                      !isActive(item.path) && "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => onViewChange(item.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className={cn(
+                        "w-4 h-4",
+                        isActive(item.path) ? "text-primary" : "text-muted-foreground"
+                      )} />
+                      {!collapsed && (
+                        <span className="text-sm">{item.label}</span>
+                      )}
+                    </div>
+                  </Button>
+                ))}
+              </div>
             </div>
-          )}
-          <div className="space-y-1">
-            <MenuSection 
-              items={mainMenuItems} 
-              currentView={currentView} 
-              onViewChange={onViewChange}
-              collapsed={collapsed}
-            />
-          </div>
+          ))}
+        </ScrollArea>
 
-          {/* Separator */}
-          <Separator className="my-3" />
-
-          {/* Secondary Section */}
-          {!collapsed && (
-            <div className="px-3 py-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Ferramentas
-              </p>
-            </div>
-          )}
-          <div className="space-y-1">
-            <MenuSection 
-              items={secondaryMenuItems} 
-              currentView={currentView} 
-              onViewChange={onViewChange}
-              collapsed={collapsed}
-            />
-          </div>
-        </nav>
-
-        {/* Bottom Navigation */}
-        <div className="p-3 border-t bg-muted/20 space-y-1">
-          <MenuSection 
-            items={bottomMenuItems} 
-            currentView={currentView} 
-            onViewChange={onViewChange}
-            collapsed={collapsed}
-          />
-          
-          <Separator className="my-2" />
-          
-          {/* Collapse Button */}
+        <div className="p-2 border-t">
           <Button
             variant="ghost"
-            size="sm"
-            className={cn(
-              "w-full h-9 transition-all duration-200 hover:bg-muted/50",
-              collapsed && "justify-center px-0"
-            )}
-            onClick={() => setCollapsed(!collapsed)}
+            className={cn("w-full justify-start", collapsed ? "px-2" : "px-3")}
+            onClick={() => onViewChange("settings")}
           >
-            {collapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                <span className="text-xs font-medium">Recolher</span>
-              </>
-            )}
+            <Settings className="w-5 h-5" />
+            {!collapsed && <span className="ml-3 text-sm">Configurações</span>}
           </Button>
         </div>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute -right-3 top-3 h-6 w-6 rounded-full border bg-background shadow-sm"
+          onClick={onToggleCollapse}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
       </div>
     </aside>
   );

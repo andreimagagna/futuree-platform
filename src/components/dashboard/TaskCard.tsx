@@ -1,0 +1,101 @@
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Task } from "@/store/useStore";
+import { GripVertical, MoreHorizontal } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Input } from "../ui/input";
+
+interface TaskCardProps {
+  task: Task;
+}
+
+const priorityClasses = {
+  P1: "bg-red-500/10 text-red-600 border-red-500/20",
+  P2: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
+  P3: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+};
+
+export const TaskCard = ({ task }: TaskCardProps) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+    data: {
+      type: "Task",
+      task,
+    },
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [title, setTitle] = useState(task.title);
+
+  const style = {
+    transition,
+    transform: CSS.Transform.toString(transform),
+  };
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTitle(e.target.value);
+  };
+
+  const handleTitleBlur = () => {
+    // Here you would call a store action to update the task title
+    // updateTask(task.id, { title });
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleTitleBlur();
+    }
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "p-3 space-y-3 bg-card/80 backdrop-blur-sm shadow-sm relative",
+        isDragging && "opacity-50 z-50"
+      )}
+    >
+      <div className="flex items-start justify-between">
+        {isEditing ? (
+          <Input 
+            value={title}
+            onChange={handleTitleChange}
+            onBlur={handleTitleBlur}
+            onKeyDown={handleKeyDown}
+            autoFocus
+            className="h-8 -ml-1"
+          />
+        ) : (
+          <p className="font-semibold text-sm flex-1" onClick={() => setIsEditing(true)}>
+            {task.title}
+          </p>
+        )}
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7">
+            <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+          </Button>
+          <button {...attributes} {...listeners} className="p-1">
+            <GripVertical className="h-5 w-5 text-muted-foreground/50 cursor-grab" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className={cn("text-xs", priorityClasses[task.priority])}>
+            {task.priority}
+          </Badge>
+          {task.leadId && <Badge variant="secondary">Lead</Badge>}
+        </div>
+        <span className="text-muted-foreground">
+          {task.dueDate ? new Date(task.dueDate).toLocaleDateString('pt-BR') : 'Sem data'}
+        </span>
+      </div>
+    </Card>
+  );
+};

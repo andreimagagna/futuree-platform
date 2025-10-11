@@ -189,29 +189,7 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps = {}) => {
         </Card>
       </div>
 
-      {/* CTA Card */}
-      <Card className="bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 border-2 border-primary/20">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div>
-              <h3 className="text-xl font-bold mb-2">
-                Precisa de orientação?
-              </h3>
-              <p className="text-muted-foreground">
-                Acesse o guia completo sobre metodologia BANT e processo comercial
-              </p>
-            </div>
-            <Button
-              size="lg"
-              onClick={() => onNavigate?.('guide')}
-              className="flex-shrink-0"
-            >
-              Ver Guia Completo
-              <ArrowUpRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   );
 };

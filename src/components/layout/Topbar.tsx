@@ -9,7 +9,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, User, LogOut, Settings, Bell } from "lucide-react";
+import { Plus, User, LogOut, Settings, Bell, Search } from "lucide-react";
+import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
+import { useEffect } from "react";
 
 interface TopbarProps {
   onOpenSearch: () => void;
@@ -17,10 +19,21 @@ interface TopbarProps {
 }
 
 export const Topbar = ({ onOpenSearch, onOpenCreate }: TopbarProps) => {
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        onOpenSearch();
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, [onOpenSearch]);
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[var(--topbar-height)] bg-card border-b z-40 shadow-sm">
       <div className="flex items-center justify-between h-full px-4 lg:px-6 gap-4 animate-fade-in">
-        {/* Logo */}
+        {/* Logo & Search */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-sm">
             <span className="text-white font-bold text-lg">S</span>
@@ -31,7 +44,21 @@ export const Topbar = ({ onOpenSearch, onOpenCreate }: TopbarProps) => {
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Center Actions */}
+        <div className="flex-1 flex justify-center items-center gap-4">
+          <Button
+            variant="outline"
+            className="w-full max-w-xs h-9 text-muted-foreground justify-start gap-2 hidden md:flex"
+            onClick={onOpenSearch}
+          >
+            <Search className="h-4 w-4" />
+            Busca global...
+            <Badge variant="secondary" className="ml-auto">⌘K</Badge>
+          </Button>
+          <DateRangeFilter />
+        </div>
+
+        {/* Right Actions */}
         <div className="flex items-center gap-2">
           <Button 
             size="sm" 

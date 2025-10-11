@@ -20,44 +20,23 @@ const mockLeads: Lead[] = [
 
 const stages = ['Capturado', 'Qualificar', 'Contato', 'Proposta', 'Fechamento'];
 
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
+import { LoadingState } from '../ui/loading-state';
+import { useLoadingError } from '@/hooks/use-loading-error';
+import { useStore } from '@/store/useStore';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+
 export const PipelineSummary = () => {
+  const { loading, error } = useLoadingError('leads');
+  const [savedView, setSavedView] = useLocalStorage('pipelineView', 'kanban');
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Pipeline
-          </CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {stages.map((stage, index) => {
-            const count = mockLeads.filter((l) => l.stage === stage).length;
-            const total = mockLeads.length;
-            const percentage = (count / total) * 100;
-            const width = 100 - index * 15;
-            
-            return (
-              <div key={stage} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold">{stage}</span>
-                  <span className="text-muted-foreground">{count} leads</span>
-                </div>
-                <div className="h-8 bg-muted rounded-lg overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary to-accent flex items-center px-3 text-white text-sm font-semibold transition-all"
-                    style={{ width: `${width}%` }}
-                  >
-                    {count > 0 && `${percentage.toFixed(0)}%`}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+    <Card className="p-4">
+      <LoadingState isLoading={loading} error={error}>
+        <Tabs defaultValue={savedView} onValueChange={setSavedView}>
+          <div className="flex items-center justify-between mb-4">
+            <TabsList>
+              <TabsTrigger value="kanban">Kanban</TabsTrigger>
+              <TabsTrigger value="funnel">Funil</TabsTrigger>
+            </TabsList>
+          </div>
