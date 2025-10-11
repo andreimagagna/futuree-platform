@@ -18,8 +18,8 @@ interface TopbarProps {
 
 export const Topbar = ({ onOpenSearch, onOpenCreate }: TopbarProps) => {
   return (
-    <header className="fixed top-0 left-0 right-0 h-[var(--topbar-height)] bg-card border-b z-40">
-      <div className="flex items-center justify-between h-full px-4 lg:px-6 gap-4">
+    <header className="fixed top-0 left-0 right-0 h-[var(--topbar-height)] bg-card border-b z-40 shadow-sm">
+      <div className="flex items-center justify-between h-full px-4 lg:px-6 gap-4 animate-fade-in">
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-sm">

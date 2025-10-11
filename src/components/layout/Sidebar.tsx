@@ -36,12 +36,12 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-[var(--topbar-height)] h-[calc(100vh-var(--topbar-height))] bg-card border-r transition-all duration-300 z-30",
+        "fixed left-0 top-[var(--topbar-height)] h-[calc(100vh-var(--topbar-height))] bg-card border-r transition-all duration-300 z-30 shadow-md",
         collapsed ? "w-[var(--sidebar-collapsed-width)]" : "w-[var(--sidebar-width)]"
       )}
     >
       <div className="flex flex-col h-full">
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
@@ -51,23 +51,32 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
                 key={item.id}
                 variant={isActive ? "default" : "ghost"}
                 className={cn(
-                  "w-full justify-start gap-3 h-10",
-                  collapsed && "justify-center px-0"
+                  "w-full justify-start gap-3 h-10 transition-all duration-200",
+                  collapsed && "justify-center px-0",
+                  isActive && "shadow-sm",
+                  !isActive && "hover:bg-muted/50 hover:translate-x-1"
                 )}
                 onClick={() => onViewChange(item.id)}
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
-                {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
+                {!collapsed && (
+                  <span className="text-sm font-medium transition-opacity duration-200">
+                    {item.label}
+                  </span>
+                )}
               </Button>
             );
           })}
         </nav>
 
-        <div className="p-3 border-t">
+        <div className="p-3 border-t bg-muted/20">
           <Button
             variant="ghost"
             size="sm"
-            className={cn("w-full h-9", collapsed && "justify-center px-0")}
+            className={cn(
+              "w-full h-9 transition-all duration-200 hover:bg-muted/50",
+              collapsed && "justify-center px-0"
+            )}
             onClick={() => setCollapsed(!collapsed)}
           >
             {collapsed ? (
