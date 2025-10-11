@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, User, LogOut, Settings, Bell, Search } from "lucide-react";
-import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { useEffect } from "react";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { Moon, Sun } from "lucide-react";
@@ -67,7 +66,6 @@ export const Topbar = ({ onOpenSearch }: TopbarProps) => {
             Busca global...
             <Badge variant="secondary" className="ml-auto">⌘K</Badge>
           </Button>
-          <DateRangeFilter />
           <Breadcrumbs className="ml-2" />
         </div>
 

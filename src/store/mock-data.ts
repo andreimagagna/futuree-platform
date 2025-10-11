@@ -15,6 +15,11 @@ export const mockLeads: Lead[] = [
     nextAction: new Date(Date.now() + 24 * 60 * 60 * 1000),
     tags: ['hot', 'enterprise'],
     notes: 'Cliente muito interessado em integração',
+    dealValue: 45000,
+    products: [
+      { id: 'p1', name: 'Software ERP', price: 30000, quantity: 1 },
+      { id: 'p2', name: 'Consultoria', price: 15000, quantity: 1 },
+    ],
     bant: {
       budget: true,
       authority: true,
@@ -38,6 +43,10 @@ export const mockLeads: Lead[] = [
     nextAction: new Date(Date.now() + 2 * 60 * 60 * 1000),
     tags: ['hot', 'startup'],
     notes: 'Precisa de demo',
+    dealValue: 12500,
+    products: [
+      { id: 'p3', name: 'Licença SaaS Anual', price: 12500, quantity: 1 },
+    ],
     bant: {
       budget: true,
       authority: false,
@@ -60,6 +69,11 @@ export const mockLeads: Lead[] = [
     lastContact: new Date(Date.now() - 24 * 60 * 60 * 1000),
     tags: ['warm'],
     notes: 'Aguardando orçamento',
+    dealValue: 89000,
+    products: [
+      { id: 'p4', name: 'Sistema Customizado', price: 75000, quantity: 1 },
+      { id: 'p5', name: 'Treinamento', price: 7000, quantity: 2 },
+    ],
     bant: {
       budget: true,
       authority: true,

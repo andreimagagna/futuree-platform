@@ -1,6 +1,6 @@
 import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { useStore, LeadStage, type Lead, type BANTMethodology } from "@/store/useStore";
+import { useStore, LeadStage, type Lead, type BANTMethodology, type Product } from "@/store/useStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,9 @@ import {
   Target,
   Clock,
   CheckCircle2,
+  Plus,
+  Minus,
+  Package,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -454,6 +457,16 @@ function renderProfileColumn(
           <CardTitle className="text-lg">Comercial</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <Field label="Valor do negócio">
+            <Input 
+              type="number" 
+              defaultValue={lead.dealValue || 0} 
+              placeholder="R$ 0,00"
+              step="0.01"
+              min={0}
+              onBlur={(e) => updateLead(lead.id, { dealValue: parseFloat(e.target.value) || 0 })} 
+            />
+          </Field>
           <Field label="Etapa">
             <Select value={lead.stage} onValueChange={(value: LeadStage) => updateLead(lead.id, { stage: value })}>
               <SelectTrigger className="w-full">
@@ -471,6 +484,109 @@ function renderProfileColumn(
           <Field label="Probabilidade %">
             <Input type="number" defaultValue={70} min={0} max={100} />
           </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Produtos
+            </CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const newProduct: Product = {
+                  id: `product-${Date.now()}`,
+                  name: '',
+                  price: 0,
+                  quantity: 1,
+                };
+                const currentProducts = lead.products || [];
+                updateLead(lead.id, { products: [...currentProducts, newProduct] });
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Adicionar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(!lead.products || lead.products.length === 0) ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Nenhum produto adicionado
+            </p>
+          ) : (
+            <>
+              {lead.products.map((product, index) => (
+                <div key={product.id} className="flex gap-2 items-start p-3 border rounded-lg bg-card">
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      placeholder="Nome do produto"
+                      defaultValue={product.name}
+                      onBlur={(e) => {
+                        const updatedProducts = [...(lead.products || [])];
+                        updatedProducts[index] = { ...product, name: e.target.value };
+                        updateLead(lead.id, { products: updatedProducts });
+                      }}
+                      className="h-8"
+                    />
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Preço"
+                        defaultValue={product.price}
+                        step="0.01"
+                        min={0}
+                        onBlur={(e) => {
+                          const updatedProducts = [...(lead.products || [])];
+                          updatedProducts[index] = { ...product, price: parseFloat(e.target.value) || 0 };
+                          updateLead(lead.id, { products: updatedProducts });
+                        }}
+                        className="h-8 flex-1"
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Qtd"
+                        defaultValue={product.quantity}
+                        min={1}
+                        onBlur={(e) => {
+                          const updatedProducts = [...(lead.products || [])];
+                          updatedProducts[index] = { ...product, quantity: parseInt(e.target.value) || 1 };
+                          updateLead(lead.id, { products: updatedProducts });
+                        }}
+                        className="h-8 w-20"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Subtotal: R$ {((product.price || 0) * (product.quantity || 1)).toFixed(2)}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      const updatedProducts = (lead.products || []).filter((_, i) => i !== index);
+                      updateLead(lead.id, { products: updatedProducts });
+                    }}
+                    className="h-8 w-8 p-0"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <div className="pt-3 border-t">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold">Total dos Produtos:</span>
+                  <span className="text-lg font-bold text-primary">
+                    R$ {(lead.products || []).reduce((sum, p) => sum + (p.price * p.quantity), 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

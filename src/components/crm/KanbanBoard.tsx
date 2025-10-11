@@ -124,6 +124,7 @@ export const KanbanBoard = () => {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
   const [scoreFilter, setScoreFilter] = useState<{ min?: number; max?: number }>({});
+  const [dealValueFilter, setDealValueFilter] = useState<{ min?: number; max?: number }>({});
   
   const navigate = useNavigate();
 
@@ -159,20 +160,28 @@ export const KanbanBoard = () => {
       (scoreFilter.min === undefined || lead.score >= scoreFilter.min) &&
       (scoreFilter.max === undefined || lead.score <= scoreFilter.max);
     
-    return matchesSearch && matchesFunnel && matchesTags && matchesSource && matchesOwner && matchesScore;
+    // Deal value filter
+    const leadDealValue = lead.dealValue || 0;
+    const matchesDealValue = 
+      (dealValueFilter.min === undefined || leadDealValue >= dealValueFilter.min) &&
+      (dealValueFilter.max === undefined || leadDealValue <= dealValueFilter.max);
+    
+    return matchesSearch && matchesFunnel && matchesTags && matchesSource && matchesOwner && matchesScore && matchesDealValue;
   });
 
   const activeFiltersCount = 
     selectedTags.length + 
     selectedSources.length + 
     selectedOwners.length + 
-    (scoreFilter.min !== undefined || scoreFilter.max !== undefined ? 1 : 0);
+    (scoreFilter.min !== undefined || scoreFilter.max !== undefined ? 1 : 0) +
+    (dealValueFilter.min !== undefined || dealValueFilter.max !== undefined ? 1 : 0);
 
   const clearAllFilters = () => {
     setSelectedTags([]);
     setSelectedSources([]);
     setSelectedOwners([]);
     setScoreFilter({});
+    setDealValueFilter({});
   };
 
   const getScoreColor = (score: number) => {
@@ -583,6 +592,45 @@ export const KanbanBoard = () => {
                     </div>
                   </div>
                 </div>
+
+                <Separator />
+
+                {/* Deal Value Filter */}
+                <div className="space-y-2">
+                  <DropdownMenuLabel className="px-0 py-1">Valor do Negócio</DropdownMenuLabel>
+                  <div className="grid grid-cols-2 gap-2 px-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="min-deal" className="text-xs">Mínimo (R$)</Label>
+                      <Input
+                        id="min-deal"
+                        type="number"
+                        placeholder="0"
+                        min={0}
+                        step="0.01"
+                        value={dealValueFilter.min ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                          setDealValueFilter({ ...dealValueFilter, min: val });
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="max-deal" className="text-xs">Máximo (R$)</Label>
+                      <Input
+                        id="max-deal"
+                        type="number"
+                        placeholder="∞"
+                        min={0}
+                        step="0.01"
+                        value={dealValueFilter.max ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                          setDealValueFilter({ ...dealValueFilter, max: val });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -938,7 +986,17 @@ export const KanbanBoard = () => {
                             className="flex items-center justify-between text-xs text-muted-foreground"
                             onClick={() => navigate(`/crm/${lead.id}`)}
                           >
-                            <span>{lead.owner}</span>
+                            <div className="flex items-center gap-2">
+                              <span>{lead.owner}</span>
+                              {lead.dealValue && lead.dealValue > 0 && (
+                                <>
+                                  <span className="text-muted-foreground/50">•</span>
+                                  <span className="font-semibold text-primary">
+                                    R$ {lead.dealValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                             <span>
                               {formatDistanceToNow(lead.lastContact, {
                                 addSuffix: true,

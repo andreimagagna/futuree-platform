@@ -28,6 +28,13 @@ export interface BANTMethodology {
   qualifiedBy?: string; // Quem qualificou
 }
 
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 export interface Lead {
   id: string;
   name: string;
@@ -53,6 +60,8 @@ export interface Lead {
   website?: string; // Site da empresa
   companySize?: string; // Porte da empresa (Pequena, Média, Grande, Corporativa)
   employeeCount?: string; // Número de funcionários
+  dealValue?: number; // Valor do negócio
+  products?: Product[]; // Produtos associados ao negócio
 }
 
 export interface Task {
