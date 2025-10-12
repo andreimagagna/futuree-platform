@@ -25,26 +25,18 @@ import {
   Plus,
   Settings,
   Trash2,
-  Copy,
   Move,
   Zap,
-  Users,
   Target,
   DollarSign,
-  Mail,
   Phone,
   Calendar,
   CheckCircle,
   X,
-  ArrowRight,
   GitBranch,
   FolderOpen,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
   Grid3x3,
   ArrowLeft,
-  Home
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -263,18 +255,8 @@ export default function ConstrutorFunil() {
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    // Zoom apenas com Ctrl pressionado
-    if (e.ctrlKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      const newZoom = Math.max(0.3, Math.min(2, viewport.zoom * delta));
-      
-      setViewport(prev => ({
-        ...prev,
-        zoom: newZoom
-      }));
-    }
-    // Caso contrário, permite scroll normal
+    // Permitir scroll normal sem interferência
+    // O zoom foi removido para simplificar a interação
   };
 
   const addNode = (type: FunnelNode['type']) => {
@@ -448,10 +430,8 @@ export default function ConstrutorFunil() {
           isSelected ? 'z-50' : 'z-10'
         }`}
         style={{ 
-          left: node.position.x * viewport.zoom + viewport.x, 
-          top: node.position.y * viewport.zoom + viewport.y,
-          transform: `scale(${viewport.zoom})`,
-          transformOrigin: 'top left',
+          left: node.position.x, 
+          top: node.position.y,
         }}
         onMouseDown={(e) => {
           e.stopPropagation();
@@ -602,11 +582,11 @@ export default function ConstrutorFunil() {
 
     if (!fromNode || !toNode) return null;
 
-    // Aplicar zoom e pan - ajustado para o novo tamanho dos nós
-    const fromX = (fromNode.position.x + 240) * viewport.zoom + viewport.x;
-    const fromY = (fromNode.position.y + 80) * viewport.zoom + viewport.y;
-    const toX = toNode.position.x * viewport.zoom + viewport.x;
-    const toY = (toNode.position.y + 80) * viewport.zoom + viewport.y;
+    // Posições dos nós sem aplicar transformações (SVG vai se ajustar ao viewport)
+    const fromX = fromNode.position.x + 240; // Saída à direita do nó
+    const fromY = fromNode.position.y + 80;  // Centro vertical do nó
+    const toX = toNode.position.x;           // Entrada à esquerda do nó
+    const toY = toNode.position.y + 80;      // Centro vertical do nó
 
     const style = connection.style || 'curved';
     const curvature = connection.curvature || 0.5;
@@ -629,7 +609,7 @@ export default function ConstrutorFunil() {
       const dx = toX - fromX;
       const dy = toY - fromY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const curveStrength = Math.min(distance * curvature, 200 * viewport.zoom);
+      const curveStrength = Math.min(distance * curvature, 200);
 
       let cp1x, cp1y, cp2x, cp2y;
 
@@ -794,7 +774,7 @@ export default function ConstrutorFunil() {
         {isEditing && style === 'curved' && (
           <>
             <circle
-              cx={fromX + 60 * viewport.zoom}
+              cx={fromX + 60}
               cy={fromY}
               r="6"
               fill="hsl(var(--primary))"
@@ -804,7 +784,7 @@ export default function ConstrutorFunil() {
               style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}
             />
             <circle
-              cx={toX - 60 * viewport.zoom}
+              cx={toX - 60}
               cy={toY}
               r="6"
               fill="hsl(var(--primary))"
@@ -824,14 +804,22 @@ export default function ConstrutorFunil() {
     const handleMouseMove = (e: MouseEvent) => {
       if (draggedNode && canvasRef.current) {
         const rect = canvasRef.current.getBoundingClientRect();
-        const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
-        const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+        const parentRect = canvasRef.current.parentElement?.getBoundingClientRect();
         
-        setNodes(prev => prev.map(node =>
-          node.id === draggedNode
-            ? { ...node, position: { x: x - 110, y: y - 40 } }
-            : node
-        ));
+        if (parentRect) {
+          // Considerar o scroll do container pai
+          const scrollLeft = canvasRef.current.parentElement?.scrollLeft || 0;
+          const scrollTop = canvasRef.current.parentElement?.scrollTop || 0;
+          
+          const x = e.clientX - parentRect.left + scrollLeft;
+          const y = e.clientY - parentRect.top + scrollTop;
+          
+          setNodes(prev => prev.map(node =>
+            node.id === draggedNode
+              ? { ...node, position: { x: x - 120, y: y - 80 } }
+              : node
+          ));
+        }
       } else if (isPanning && canvasRef.current) {
         const deltaX = e.clientX - panStart.x;
         const deltaY = e.clientY - panStart.y;
@@ -923,40 +911,6 @@ export default function ConstrutorFunil() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Controles de Zoom */}
-          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setViewport(prev => ({ ...prev, zoom: Math.max(0.3, prev.zoom - 0.1) }))}
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <span className="text-xs font-medium px-2 min-w-[50px] text-center">
-              {Math.round(viewport.zoom * 100)}%
-            </span>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setViewport(prev => ({ ...prev, zoom: Math.min(2, prev.zoom + 0.1) }))}
-              title="Zoom In"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setViewport({ x: 0, y: 0, zoom: 1 })}
-              title="Reset View"
-            >
-              <Maximize className="w-4 h-4" />
-            </Button>
-          </div>
-
           {/* Botões principais */}
           <Button variant="outline" size="sm" onClick={() => setShowNodeDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
@@ -1282,11 +1236,7 @@ export default function ConstrutorFunil() {
                   <kbd className="px-2 py-0.5 bg-muted rounded text-[10px] font-mono">Esc</kbd>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Pan</span>
-                  <kbd className="px-2 py-0.5 bg-muted rounded text-[10px] font-mono">Alt+Drag</kbd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Zoom</span>
+                  <span className="text-muted-foreground">Navegar</span>
                   <kbd className="px-2 py-0.5 bg-muted rounded text-[10px] font-mono">Scroll</kbd>
                 </div>
               </div>
@@ -1304,8 +1254,7 @@ export default function ConstrutorFunil() {
                 linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
                 linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)
               `,
-              backgroundSize: `${40 * viewport.zoom}px ${40 * viewport.zoom}px`,
-              backgroundPosition: `${viewport.x}px ${viewport.y}px`,
+              backgroundSize: '40px 40px',
             }}
           >
             {/* Grid secundário (pontos) */}
@@ -1313,8 +1262,7 @@ export default function ConstrutorFunil() {
               className="absolute inset-0 opacity-20 pointer-events-none"
               style={{
                 backgroundImage: `radial-gradient(circle, hsl(var(--primary)) 1px, transparent 1px)`,
-                backgroundSize: `${40 * viewport.zoom}px ${40 * viewport.zoom}px`,
-                backgroundPosition: `${viewport.x}px ${viewport.y}px`,
+                backgroundSize: '40px 40px',
               }}
             />
 
@@ -1326,8 +1274,15 @@ export default function ConstrutorFunil() {
               onMouseDown={handleCanvasMouseDown}
               onWheel={handleWheel}
             >
-            {/* SVG para conexões */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+            {/* SVG para conexões - usar largura/altura fixas para cobrir toda a área */}
+            <svg 
+              className="absolute top-0 left-0 pointer-events-none" 
+              style={{ 
+                width: '3000px', 
+                height: '2000px',
+                zIndex: 1 
+              }}
+            >
               <defs>
                 {/* Filtros para efeitos */}
                 <filter id="glow">
@@ -1382,15 +1337,15 @@ export default function ConstrutorFunil() {
                     <div className="flex flex-col gap-2 text-xs text-muted-foreground">
                       <div className="flex items-center gap-2 justify-center">
                         <kbd className="px-2 py-1 bg-muted rounded">Scroll</kbd>
-                        <span>Navegar horizontal/vertical</span>
+                        <span>Navegar pelo canvas</span>
                       </div>
                       <div className="flex items-center gap-2 justify-center">
-                        <kbd className="px-2 py-1 bg-muted rounded">Ctrl + Scroll</kbd>
-                        <span>Zoom</span>
+                        <kbd className="px-2 py-1 bg-muted rounded">Arrastar nós</kbd>
+                        <span>Mover elementos</span>
                       </div>
                       <div className="flex items-center gap-2 justify-center">
-                        <kbd className="px-2 py-1 bg-muted rounded">Alt + Arrastar</kbd>
-                        <span>Pan (mover canvas)</span>
+                        <kbd className="px-2 py-1 bg-muted rounded">Botão direito</kbd>
+                        <span>Conectar nós</span>
                       </div>
                     </div>
                   </div>
