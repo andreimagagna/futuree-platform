@@ -37,9 +37,14 @@ import {
   Download,
   Share2,
   X,
+  Undo2,
+  Redo2,
+  Clock,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useAutoSave } from '@/hooks/use-auto-save';
+import { useUndoRedo } from '@/hooks/use-undo-redo';
 import { LandingPageTemplate, LandingPageComponent, ComponentType } from '@/types/LandingPage';
 import { LANDING_PAGE_TEMPLATES, EMPTY_TEMPLATE } from '@/utils/landingPageTemplates';
 import { PREMIUM_TEMPLATES } from '@/utils/premiumTemplates';
@@ -58,7 +63,8 @@ import { PricingComponent } from '@/components/landing-page/PricingComponent';
 import { FAQComponent } from '@/components/landing-page/FAQComponent';
 import { TestimonialComponent } from '@/components/landing-page/TestimonialComponent';
 import { CTAComponent } from '@/components/landing-page/CTAComponent';
-import { PropertyEditor } from '@/components/landing-page/PropertyEditor';
+import { PropertyEditorV2 } from '@/components/landing-page/PropertyEditorV2';
+import { DraggableComponentList } from '@/components/landing-page/DraggableComponentList';
 
 const COMPONENT_LIBRARY: { type: ComponentType; label: string; icon: string; category: string }[] = [
   { type: 'hero-fullscreen', label: 'Hero Fullscreen', icon: 'Maximize', category: 'premium' },
@@ -81,7 +87,20 @@ const ALL_TEMPLATES = [...PREMIUM_TEMPLATES, ...LANDING_PAGE_TEMPLATES];
 
 export default function LandingPageEditor() {
   const [currentPage, setCurrentPage] = useState<LandingPageTemplate | null>(null);
-  const [components, setComponents] = useState<LandingPageComponent[]>([]);
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  
+  // Undo/Redo functionality
+  const {
+    state: components,
+    setState: setComponentsState,
+    addToHistory,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useUndoRedo([]);
+
   const [selectedComponent, setSelectedComponent] = useState<LandingPageComponent | null>(null);
   const [showPropertyEditor, setShowPropertyEditor] = useState(false);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -89,8 +108,20 @@ export default function LandingPageEditor() {
   const [showTemplateDialog, setShowTemplateDialog] = useState(true);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pageName, setPageName] = useState('');
-  const { toast } = useToast();
-  const navigate = useNavigate();
+
+  // Auto-save functionality
+  const { lastSaved, isSaving, manualSave } = useAutoSave(
+    currentPage?.id || null,
+    components,
+    currentPage,
+    { enabled: !!currentPage }
+  );
+
+  // Helper to update components with history tracking
+  const setComponents = (newComponents: LandingPageComponent[] | ((prev: LandingPageComponent[]) => LandingPageComponent[])) => {
+    const updatedComponents = typeof newComponents === 'function' ? newComponents(components) : newComponents;
+    addToHistory(updatedComponents);
+  };
 
   const loadTemplate = (template: LandingPageTemplate) => {
     setCurrentPage(template);
@@ -99,7 +130,7 @@ export default function LandingPageEditor() {
       ...comp,
       order: comp.order || index + 1,
     }));
-    setComponents(componentsWithOrder);
+    setComponentsState(componentsWithOrder); // Use setState directly, não addToHistory
     setShowTemplateDialog(false);
     toast({
       title: "Template carregado",
@@ -205,45 +236,40 @@ export default function LandingPageEditor() {
   };
 
   const renderComponent = (component: LandingPageComponent) => {
-    const isSelected = selectedComponent?.id === component.id;
-    const wrapperClass = `relative group cursor-pointer transition-all duration-200 ${
-      isSelected ? 'ring-4 ring-blue-600 ring-offset-4 shadow-2xl' : 'hover:ring-2 hover:ring-blue-300'
-    }`;
-
     const commonProps: any = {
       ...component.props,
       ...component.styles,
-      isEditing: true,
+      isEditing: false, // Removido isEditing para limpar a interface
       onEdit: () => selectComponent(component),
     };
 
     switch (component.type) {
       case 'hero':
-        return <div key={component.id} className={wrapperClass}><HeroComponent {...commonProps} /></div>;
+        return <HeroComponent {...commonProps} />;
       case 'hero-fullscreen':
-        return <div key={component.id} className={wrapperClass}><HeroFullScreen {...commonProps} /></div>;
+        return <HeroFullScreen {...commonProps} />;
       case 'bento-grid':
-        return <div key={component.id} className={wrapperClass}><BentoGrid {...commonProps} /></div>;
+        return <BentoGrid {...commonProps} />;
       case 'interactive-showcase':
-        return <div key={component.id} className={wrapperClass}><InteractiveShowcase {...commonProps} /></div>;
+        return <InteractiveShowcase {...commonProps} />;
       case 'stats-counter':
-        return <div key={component.id} className={wrapperClass}><StatsCounter {...commonProps} /></div>;
+        return <StatsCounter {...commonProps} />;
       case 'form':
-        return <div key={component.id} className={wrapperClass}><FormComponent {...commonProps} /></div>;
+        return <FormComponent {...commonProps} />;
       case 'features':
-        return <div key={component.id} className={wrapperClass}><FeaturesComponent {...commonProps} /></div>;
+        return <FeaturesComponent {...commonProps} />;
       case 'countdown':
-        return <div key={component.id} className={wrapperClass}><CountdownComponent {...commonProps} /></div>;
+        return <CountdownComponent {...commonProps} />;
       case 'social-proof':
-        return <div key={component.id} className={wrapperClass}><SocialProofComponent {...commonProps} /></div>;
+        return <SocialProofComponent {...commonProps} />;
       case 'pricing':
-        return <div key={component.id} className={wrapperClass}><PricingComponent {...commonProps} /></div>;
+        return <PricingComponent {...commonProps} />;
       case 'faq':
-        return <div key={component.id} className={wrapperClass}><FAQComponent {...commonProps} /></div>;
+        return <FAQComponent {...commonProps} />;
       case 'testimonial':
-        return <div key={component.id} className={wrapperClass}><TestimonialComponent {...commonProps} /></div>;
+        return <TestimonialComponent {...commonProps} />;
       case 'cta':
-        return <div key={component.id} className={wrapperClass}><CTAComponent {...commonProps} /></div>;
+        return <CTAComponent {...commonProps} />;
       default:
         return null;
     }
@@ -268,6 +294,52 @@ export default function LandingPageEditor() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Undo/Redo */}
+            <div className="flex gap-1 border rounded-lg p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={undo}
+                disabled={!canUndo}
+                title="Desfazer (Ctrl+Z)"
+              >
+                <Undo2 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={redo}
+                disabled={!canRedo}
+                title="Refazer (Ctrl+Y)"
+              >
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Auto-save Indicator */}
+            {currentPage && (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted text-xs">
+                {isSaving ? (
+                  <>
+                    <Clock className="w-3 h-3 animate-spin" />
+                    <span>Salvando...</span>
+                  </>
+                ) : lastSaved ? (
+                  <>
+                    <Clock className="w-3 h-3 text-green-600" />
+                    <span className="text-green-600">
+                      Salvo {new Date(lastSaved).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3 h-3" />
+                    <span>Não salvo</span>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Preview Mode */}
             <div className="flex gap-1 border rounded-lg p-1">
               <Button
@@ -437,7 +509,17 @@ export default function LandingPageEditor() {
                 </div>
               </div>
             ) : (
-              components.map(renderComponent)
+              <div className="pl-16">
+                <DraggableComponentList
+                  components={components}
+                  selectedComponentId={selectedComponent?.id}
+                  onReorder={setComponents}
+                  onSelectComponent={selectComponent}
+                  onDeleteComponent={deleteComponent}
+                  onDuplicateComponent={duplicateComponent}
+                  renderComponent={renderComponent}
+                />
+              </div>
             )}
           </div>
         </div>
@@ -455,7 +537,7 @@ export default function LandingPageEditor() {
                 <X className="w-4 h-4" />
               </Button>
             </div>
-            <PropertyEditor
+            <PropertyEditorV2
               component={selectedComponent}
               onUpdate={updateComponent}
               onClose={() => setShowPropertyEditor(false)}
