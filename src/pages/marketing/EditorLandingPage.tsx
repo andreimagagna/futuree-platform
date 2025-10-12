@@ -40,6 +40,7 @@ import {
   Undo2,
   Redo2,
   Clock,
+  Zap,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -47,14 +48,21 @@ import { useAutoSave } from '@/hooks/use-auto-save';
 import { useUndoRedo } from '@/hooks/use-undo-redo';
 import { LandingPageTemplate, LandingPageComponent, ComponentType } from '@/types/LandingPage';
 import { LANDING_PAGE_TEMPLATES, EMPTY_TEMPLATE } from '@/utils/landingPageTemplates';
-import { PREMIUM_TEMPLATES } from '@/utils/premiumTemplates';
+import { getAllReadySections, getSectionsByCategory } from '@/utils/readySections';
 
-// Import all components
+// Import Inline Editor Context
+import { InlineEditorProvider } from '@/components/landing-page/InlineEditorContext';
+
+// Import V2 components (with inline editing)
+import { HeroComponentV2 } from '@/components/landing-page/HeroComponentV2';
+import { FeaturesComponentV2 } from '@/components/landing-page/FeaturesComponentV2';
+import { PricingComponentV2 } from '@/components/landing-page/PricingComponentV2';
+import { TestimonialComponentV2 } from '@/components/landing-page/TestimonialComponentV2';
+import { FAQComponentV2 } from '@/components/landing-page/FAQComponentV2';
+import { CTAComponentV2 } from '@/components/landing-page/CTAComponentV2';
+
+// Import all other components
 import { HeroComponent } from '@/components/landing-page/HeroComponent';
-import { HeroFullScreen } from '@/components/landing-page/sections/HeroFullScreen';
-import { BentoGrid } from '@/components/landing-page/sections/BentoGrid';
-import { InteractiveShowcase } from '@/components/landing-page/sections/InteractiveShowcase';
-import { StatsCounter } from '@/components/landing-page/sections/StatsCounter';
 import { FormComponent } from '@/components/landing-page/FormComponent';
 import { FeaturesComponent } from '@/components/landing-page/FeaturesComponent';
 import { CountdownComponent } from '@/components/landing-page/CountdownComponent';
@@ -63,27 +71,60 @@ import { PricingComponent } from '@/components/landing-page/PricingComponent';
 import { FAQComponent } from '@/components/landing-page/FAQComponent';
 import { TestimonialComponent } from '@/components/landing-page/TestimonialComponent';
 import { CTAComponent } from '@/components/landing-page/CTAComponent';
+import { TextBlockComponent } from '@/components/landing-page/TextBlockComponent';
+import { SpacerComponent } from '@/components/landing-page/SpacerComponent';
+import { DividerComponent } from '@/components/landing-page/DividerComponent';
+import { ImageComponent } from '@/components/landing-page/ImageComponent';
+import { VideoComponent } from '@/components/landing-page/VideoComponent';
+import { HeaderComponent } from '@/components/landing-page/HeaderComponent';
+import { FooterComponent } from '@/components/landing-page/FooterComponent';
+import { GalleryComponent } from '@/components/landing-page/GalleryComponent';
+import { ColumnsComponent } from '@/components/landing-page/ColumnsComponent';
+import { ProgressBarsComponent } from '@/components/landing-page/ProgressBarsComponent';
+import { StatsComponent } from '@/components/landing-page/StatsComponent';
 import { PropertyEditorV2 } from '@/components/landing-page/PropertyEditorV2';
 import { DraggableComponentList } from '@/components/landing-page/DraggableComponentList';
+import { GlassOverlay } from '@/components/ui/GlassOverlay';
+import { Sparkles } from 'lucide-react';
 
 const COMPONENT_LIBRARY: { type: ComponentType; label: string; icon: string; category: string }[] = [
-  { type: 'hero-fullscreen', label: 'Hero Fullscreen', icon: 'Maximize', category: 'premium' },
-  { type: 'bento-grid', label: 'Bento Grid', icon: 'LayoutGrid', category: 'premium' },
-  { type: 'interactive-showcase', label: 'Showcase Interativo', icon: 'Sparkles', category: 'premium' },
-  { type: 'stats-counter', label: 'Contador Stats', icon: 'BarChart3', category: 'premium' },
-  { type: 'hero', label: 'Hero Section', icon: 'Layout', category: 'basic' },
-  { type: 'form', label: 'Formulário', icon: 'FileText', category: 'basic' },
-  { type: 'features', label: 'Features', icon: 'Grid3x3', category: 'basic' },
-  { type: 'pricing', label: 'Pricing', icon: 'DollarSign', category: 'basic' },
-  { type: 'testimonial', label: 'Depoimentos', icon: 'MessageSquare', category: 'basic' },
-  { type: 'faq', label: 'FAQ', icon: 'HelpCircle', category: 'basic' },
-  { type: 'countdown', label: 'Contador', icon: 'Clock', category: 'basic' },
-  { type: 'social-proof', label: 'Prova Social', icon: 'Users', category: 'basic' },
-  { type: 'cta', label: 'Call-to-Action', icon: 'Target', category: 'basic' },
+  // Layout & Structure
+  { type: 'header', label: 'Header/Navbar', icon: 'LayoutDashboard', category: 'layout' },
+  { type: 'footer', label: 'Footer', icon: 'PanelBottom', category: 'layout' },
+  { type: 'columns', label: 'Colunas', icon: 'Columns', category: 'layout' },
+  { type: 'spacer', label: 'Espaçamento', icon: 'ArrowUpDown', category: 'layout' },
+  { type: 'divider', label: 'Divisor', icon: 'Minus', category: 'layout' },
+  
+  // Hero & CTA
+  { type: 'hero', label: 'Hero Section', icon: 'Layout', category: 'hero' },
+  { type: 'cta', label: 'Call-to-Action', icon: 'Target', category: 'hero' },
+  
+  // Content
+  { type: 'text', label: 'Bloco de Texto', icon: 'Type', category: 'content' },
+  { type: 'features', label: 'Features', icon: 'Grid3x3', category: 'content' },
+  { type: 'stats', label: 'Estatísticas', icon: 'BarChart', category: 'content' },
+  { type: 'progress', label: 'Barras de Progresso', icon: 'Activity', category: 'content' },
+  
+  // Media
+  { type: 'image', label: 'Imagem', icon: 'Image', category: 'media' },
+  { type: 'video', label: 'Vídeo', icon: 'Video', category: 'media' },
+  { type: 'gallery', label: 'Galeria', icon: 'Images', category: 'media' },
+  
+  // Social Proof
+  { type: 'testimonial', label: 'Depoimentos', icon: 'MessageSquare', category: 'social' },
+  { type: 'social-proof', label: 'Prova Social', icon: 'Users', category: 'social' },
+  
+  // Conversion
+  { type: 'form', label: 'Formulário', icon: 'FileText', category: 'conversion' },
+  { type: 'pricing', label: 'Pricing', icon: 'DollarSign', category: 'conversion' },
+  { type: 'countdown', label: 'Contador', icon: 'Clock', category: 'conversion' },
+  
+  // Information
+  { type: 'faq', label: 'FAQ', icon: 'HelpCircle', category: 'info' },
 ];
 
-// Combine all templates
-const ALL_TEMPLATES = [...PREMIUM_TEMPLATES, ...LANDING_PAGE_TEMPLATES];
+// Use apenas templates básicos
+const ALL_TEMPLATES = LANDING_PAGE_TEMPLATES;
 
 export default function LandingPageEditor() {
   const [currentPage, setCurrentPage] = useState<LandingPageTemplate | null>(null);
@@ -105,6 +146,7 @@ export default function LandingPageEditor() {
   const [showPropertyEditor, setShowPropertyEditor] = useState(false);
   const [previewMode, setPreviewMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'components' | 'sections'>('sections'); // Default to sections
   const [showTemplateDialog, setShowTemplateDialog] = useState(true);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [pageName, setPageName] = useState('');
@@ -163,6 +205,14 @@ export default function LandingPageEditor() {
     });
   };
 
+  const updateComponentProps = (id: string, newProps: any) => {
+    setComponents(
+      components.map(c => 
+        c.id === id ? { ...c, props: newProps } : c
+      )
+    );
+  };
+
   const duplicateComponent = (component: LandingPageComponent) => {
     const newComponent: LandingPageComponent = {
       ...component,
@@ -170,6 +220,26 @@ export default function LandingPageEditor() {
       order: components.length + 1,
     };
     setComponents([...components, newComponent]);
+  };
+
+  const addReadySection = (sectionId: string) => {
+    const allSections = getAllReadySections();
+    const section = allSections.find(s => s.id === sectionId);
+    
+    if (section && section.components) {
+      const newComponents = section.components.map((comp, index) => ({
+        ...comp,
+        id: `component-${Date.now()}-${index}`,
+        order: components.length + index + 1,
+      }));
+      
+      setComponents([...components, ...newComponents]);
+      
+      toast({
+        title: "Seção adicionada!",
+        description: `${section.name} foi adicionada com sucesso.`,
+      });
+    }
   };
 
   const updateComponent = (updatedComponent: LandingPageComponent) => {
@@ -236,40 +306,58 @@ export default function LandingPageEditor() {
   };
 
   const renderComponent = (component: LandingPageComponent) => {
-    const commonProps: any = {
-      ...component.props,
-      ...component.styles,
-      isEditing: false, // Removido isEditing para limpar a interface
+    // Todos os componentes básicos esperam { props: {...}, styles: {...} } (aninhado)
+    const isSelected = selectedComponent?.id === component.id;
+    
+    const wrappedProps: any = {
+      props: component.props,
+      styles: component.styles,
+      isEditing: isSelected,
       onEdit: () => selectComponent(component),
+      onUpdate: (newProps: any) => updateComponentProps(component.id, newProps),
     };
 
     switch (component.type) {
       case 'hero':
-        return <HeroComponent {...commonProps} />;
-      case 'hero-fullscreen':
-        return <HeroFullScreen {...commonProps} />;
-      case 'bento-grid':
-        return <BentoGrid {...commonProps} />;
-      case 'interactive-showcase':
-        return <InteractiveShowcase {...commonProps} />;
-      case 'stats-counter':
-        return <StatsCounter {...commonProps} />;
+        return <HeroComponentV2 {...wrappedProps} />;
+      case 'header':
+        return <HeaderComponent {...wrappedProps} />;
+      case 'footer':
+        return <FooterComponent {...wrappedProps} />;
       case 'form':
-        return <FormComponent {...commonProps} />;
+        return <FormComponent {...wrappedProps} />;
       case 'features':
-        return <FeaturesComponent {...commonProps} />;
+        return <FeaturesComponentV2 {...wrappedProps} />;
       case 'countdown':
-        return <CountdownComponent {...commonProps} />;
+        return <CountdownComponent {...wrappedProps} />;
       case 'social-proof':
-        return <SocialProofComponent {...commonProps} />;
+        return <SocialProofComponent {...wrappedProps} />;
       case 'pricing':
-        return <PricingComponent {...commonProps} />;
+        return <PricingComponentV2 {...wrappedProps} />;
       case 'faq':
-        return <FAQComponent {...commonProps} />;
+        return <FAQComponentV2 {...wrappedProps} />;
       case 'testimonial':
-        return <TestimonialComponent {...commonProps} />;
+        return <TestimonialComponentV2 {...wrappedProps} />;
       case 'cta':
-        return <CTAComponent {...commonProps} />;
+        return <CTAComponentV2 {...wrappedProps} />;
+      case 'text':
+        return <TextBlockComponent {...wrappedProps} />;
+      case 'image':
+        return <ImageComponent {...wrappedProps} />;
+      case 'video':
+        return <VideoComponent {...wrappedProps} />;
+      case 'gallery':
+        return <GalleryComponent {...wrappedProps} />;
+      case 'columns':
+        return <ColumnsComponent {...wrappedProps} />;
+      case 'stats':
+        return <StatsComponent {...wrappedProps} />;
+      case 'progress':
+        return <ProgressBarsComponent {...wrappedProps} />;
+      case 'spacer':
+        return <SpacerComponent {...wrappedProps} />;
+      case 'divider':
+        return <DividerComponent {...wrappedProps} />;
       default:
         return null;
     }
@@ -281,13 +369,14 @@ export default function LandingPageEditor() {
     'max-w-full';
 
   return (
-    <div className="flex flex-col h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-              <ChevronLeft className="w-4 h-4 mr-2" />
+    <InlineEditorProvider>
+      <div className="flex flex-col h-screen bg-background relative">
+        {/* Header */}
+        <div className="border-b bg-card px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+                <ChevronLeft className="w-4 h-4 mr-2" />
               Voltar
             </Button>
             <h1 className="text-2xl font-bold text-primary">Editor de Landing Pages</h1>
@@ -384,108 +473,323 @@ export default function LandingPageEditor() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar - Component Library */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={`absolute top-24 z-50 h-8 w-8 rounded-full bg-background border shadow-md hover:bg-muted transition-all duration-300 ${
-            isSidebarCollapsed ? 'left-2' : 'left-[270px]'
-          }`}
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        >
-          {isSidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
-
-        {/* Left Sidebar - Components */}
+        {/* Left Sidebar - Components Library (Unbounce Style) */}
         <div
-          className={`border-r bg-muted/30 overflow-y-auto transition-all duration-300 ${
-            isSidebarCollapsed ? 'w-0' : 'w-72'
+          className={`border-r bg-card overflow-y-auto transition-all duration-300 ${
+            isSidebarCollapsed ? 'w-0' : 'w-80'
           }`}
         >
-          <div className={`p-4 space-y-4 ${isSidebarCollapsed ? 'hidden' : ''}`}>
-            <div>
-              <h3 className="font-bold mb-3 text-primary">Componentes Premium</h3>
-              <div className="grid grid-cols-1 gap-2 mb-4">
-                {COMPONENT_LIBRARY.filter(c => c.category === 'premium').map((comp) => (
+          <div className={`${isSidebarCollapsed ? 'hidden' : 'block'}`}>
+            {/* Sidebar Header */}
+            <div className="sticky top-0 z-10 bg-card border-b">
+              <div className="p-4 pb-0">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-lg">Construtor</h3>
                   <Button
-                    key={comp.type}
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="justify-start bg-gradient-to-r from-purple-600/10 to-pink-600/10 border-purple-500/30 hover:from-purple-600/20 hover:to-pink-600/20"
-                    onClick={() => addComponent(comp.type)}
+                    onClick={() => setIsSidebarCollapsed(true)}
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {comp.label}
+                    <ChevronLeft className="h-4 w-4" />
                   </Button>
-                ))}
+                </div>
               </div>
-
-              <h3 className="font-bold mb-3 mt-6">Componentes Básicos</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {COMPONENT_LIBRARY.filter(c => c.category === 'basic').map((comp) => (
-                  <Button
-                    key={comp.type}
-                    variant="outline"
-                    size="sm"
-                    className="justify-start"
-                    onClick={() => addComponent(comp.type)}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {comp.label}
-                  </Button>
-                ))}
-              </div>
+              
+              {/* Tabs */}
+              <Tabs value={sidebarTab} onValueChange={(v) => setSidebarTab(v as any)} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 rounded-none border-t">
+                  <TabsTrigger value="sections" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    🎯 Seções Prontas
+                  </TabsTrigger>
+                  <TabsTrigger value="components" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    🧩 Componentes
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
 
-            {selectedComponent && (
-              <div className="pt-4 border-t">
-                <h3 className="font-bold mb-3">Componente Selecionado</h3>
+            <div className="p-4 space-y-6">
+              {/* Seções Prontas Tab */}
+              {sidebarTab === 'sections' && (
+                <div className="space-y-6">
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+                    <p className="text-xs text-primary font-semibold flex items-center gap-1">
+                      <Zap className="w-3 h-3" />
+                      Seções otimizadas para alta conversão
+                    </p>
+                  </div>
+                  
+                  {/* Hero Sections */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <span className="text-lg">🚀</span>
+                      Hero Sections
+                    </h4>
+                    <div className="space-y-2">
+                      {getSectionsByCategory('hero').map((section: any) => (
+                        <Card
+                          key={section.id}
+                          className="cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] group"
+                          onClick={() => addReadySection(section.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="text-2xl">{section.thumbnail}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{section.name}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+                              </div>
+                              <Plus className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Trust Sections */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <span className="text-lg">🏆</span>
+                      Prova Social
+                    </h4>
+                    <div className="space-y-2">
+                      {getSectionsByCategory('trust').map((section: any) => (
+                        <Card
+                          key={section.id}
+                          className="cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] group"
+                          onClick={() => addReadySection(section.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="text-2xl">{section.thumbnail}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{section.name}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+                              </div>
+                              <Plus className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Features Sections */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <span className="text-lg">⚡</span>
+                      Features & Benefícios
+                    </h4>
+                    <div className="space-y-2">
+                      {getSectionsByCategory('features').map((section: any) => (
+                        <Card
+                          key={section.id}
+                          className="cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] group"
+                          onClick={() => addReadySection(section.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="text-2xl">{section.thumbnail}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{section.name}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+                              </div>
+                              <Plus className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pricing Sections */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <span className="text-lg">💳</span>
+                      Pricing
+                    </h4>
+                    <div className="space-y-2">
+                      {getSectionsByCategory('pricing').map((section: any) => (
+                        <Card
+                          key={section.id}
+                          className="cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] group"
+                          onClick={() => addReadySection(section.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="text-2xl">{section.thumbnail}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{section.name}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+                              </div>
+                              <Plus className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Testimonials */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <span className="text-lg">⭐</span>
+                      Depoimentos
+                    </h4>
+                    <div className="space-y-2">
+                      {getSectionsByCategory('social').map((section: any) => (
+                        <Card
+                          key={section.id}
+                          className="cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] group"
+                          onClick={() => addReadySection(section.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="text-2xl">{section.thumbnail}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{section.name}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+                              </div>
+                              <Plus className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* CTAs */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <span className="text-lg">🎯</span>
+                      CTAs de Conversão
+                    </h4>
+                    <div className="space-y-2">
+                      {getSectionsByCategory('conversion').map((section: any) => (
+                        <Card
+                          key={section.id}
+                          className="cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] group"
+                          onClick={() => addReadySection(section.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="text-2xl">{section.thumbnail}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{section.name}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+                              </div>
+                              <Plus className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* FAQ */}
+                  <div>
+                    <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <span className="text-lg">❓</span>
+                      FAQ
+                    </h4>
+                    <div className="space-y-2">
+                      {getSectionsByCategory('info').map((section: any) => (
+                        <Card
+                          key={section.id}
+                          className="cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] group"
+                          onClick={() => addReadySection(section.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-start gap-3">
+                              <div className="text-2xl">{section.thumbnail}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm">{section.name}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{section.description}</p>
+                              </div>
+                              <Plus className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Components Library Tab */}
+              {sidebarTab === 'components' && (
+                <div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                    <p className="text-xs text-blue-900 font-semibold">
+                      💡 Componentes individuais para personalização avançada
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {COMPONENT_LIBRARY.map((comp) => (
+                      <Card
+                        key={comp.type}
+                        className="cursor-pointer hover:shadow-md transition-all duration-200 hover:scale-[1.02] group"
+                        onClick={() => addComponent(comp.type)}
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex flex-col items-center text-center gap-2">
+                            <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                              <Plus className="w-4 h-4" />
+                            </div>
+                            <p className="font-medium text-xs leading-tight">{comp.label}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Actions */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Ações</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
                 <div className="space-y-2">
                   <Button
                     variant="outline"
                     size="sm"
                     className="w-full justify-start"
-                    onClick={() => moveComponent(selectedComponent.id, 'up')}
+                    onClick={() => setShowTemplateDialog(true)}
                   >
-                    <ArrowUp className="w-4 h-4 mr-2" />
-                    Mover para Cima
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    Carregar Template
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     className="w-full justify-start"
-                    onClick={() => moveComponent(selectedComponent.id, 'down')}
-                  >
-                    <ArrowDown className="w-4 h-4 mr-2" />
-                    Mover para Baixo
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => duplicateComponent(selectedComponent)}
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Duplicar
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="w-full justify-start"
-                    onClick={() => deleteComponent(selectedComponent.id)}
+                    onClick={() => setComponents([])}
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Remover
+                    Limpar Tudo
                   </Button>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
+
+        {/* Toggle Sidebar Button (when collapsed) */}
+        {isSidebarCollapsed && (
+          <Button
+            variant="default"
+            size="sm"
+            className="absolute top-24 left-4 z-50 shadow-lg"
+            onClick={() => setIsSidebarCollapsed(false)}
+          >
+            <ChevronRight className="h-4 h-4 mr-2" />
+            Abrir Biblioteca
+          </Button>
+        )}
 
         {/* Canvas/Preview */}
         <div className="flex-1 overflow-y-auto bg-muted p-8">
@@ -589,35 +893,21 @@ export default function LandingPageEditor() {
                     .map((template) => (
                       <Card
                         key={template.id}
-                        className={`cursor-pointer hover:shadow-lg transition-all duration-300 ${
-                          template.palette ? 'bg-gradient-to-br from-purple-900/10 to-pink-900/10 border-purple-500/20' : ''
-                        }`}
+                        className="cursor-pointer hover:shadow-lg transition-all duration-300"
                         onClick={() => loadTemplate(template)}
                       >
                         <CardContent className="p-6">
-                          <div className={`aspect-video rounded-lg mb-4 flex items-center justify-center ${
-                            template.palette 
-                              ? 'bg-gradient-to-br from-purple-600 to-pink-600' 
-                              : 'bg-gradient-to-br from-primary/10 to-primary/5'
-                          }`}>
-                            <span className="text-4xl">{template.palette ? '⚡' : '🎨'}</span>
+                          <div className="aspect-video rounded-lg mb-4 flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                            <span className="text-4xl">🎨</span>
                           </div>
                           <div className="flex items-start justify-between mb-2">
                             <h3 className="font-bold">{template.name}</h3>
-                            {template.palette && (
-                              <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0">
-                                Premium
-                              </Badge>
-                            )}
                           </div>
                           <p className="text-sm text-muted-foreground mb-2">
                             {template.description}
                           </p>
                           <div className="flex gap-2">
                             <Badge variant="secondary">{template.category}</Badge>
-                            {template.typography && (
-                              <Badge variant="outline">{template.typography}</Badge>
-                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -663,7 +953,8 @@ export default function LandingPageEditor() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </InlineEditorProvider>
   );
 }
 
@@ -672,95 +963,325 @@ function getDefaultProps(type: ComponentType): Record<string, any> {
   switch (type) {
     case 'hero':
       return {
-        title: 'Título do Hero',
-        subtitle: 'Subtítulo explicativo',
-        ctaText: 'Call to Action',
-        alignment: 'center',
-      };
-    case 'hero-fullscreen':
-      return {
-        title: 'Transforme Seu Futuro',
-        subtitle: 'Novidade 2025',
-        description: 'Descubra a nova geração de soluções inovadoras',
+        title: 'Transforme Seu Negócio Hoje',
+        subtitle: 'Soluções Inovadoras',
+        description: 'Descubra ferramentas poderosas para impulsionar seus resultados',
         primaryCTA: 'Começar Agora',
         secondaryCTA: 'Saiba Mais',
-        palette: 'cyberpunk',
-        typography: 'modern',
         alignment: 'center',
-        overlay: true,
-        overlayOpacity: 60,
       };
-    case 'bento-grid':
+    case 'header':
       return {
-        items: [
-          { title: 'Recurso Principal', description: 'Descrição detalhada', icon: 'zap', size: 'large', highlight: true },
-          { title: 'Recurso 2', description: 'Funcionalidade extra', icon: 'shield', size: 'medium' },
-          { title: 'Recurso 3', description: 'Mais benefícios', icon: 'star', size: 'medium' },
-          { title: 'Recurso 4', description: 'Adicional', icon: 'check', size: 'small' },
-          { title: 'Recurso 5', description: 'Extra', icon: 'trending', size: 'small' },
+        logo: '',
+        logoText: 'Logo',
+        menuItems: [
+          { label: 'Início', link: '#' },
+          { label: 'Recursos', link: '#recursos' },
+          { label: 'Preços', link: '#precos' },
+          { label: 'Contato', link: '#contato' },
         ],
-        palette: 'cyberpunk',
-        style: 'glassmorphism',
+        ctaText: 'Começar',
+        ctaLink: '#',
+        sticky: true,
+        transparent: false,
+        alignment: 'space-between',
       };
-    case 'interactive-showcase':
+    case 'footer':
       return {
-        title: 'Recursos Poderosos',
-        subtitle: 'Tecnologia avançada',
-        tabs: [
+        logo: '',
+        logoText: 'Logo',
+        description: 'Construindo o futuro com inovação e excelência.',
+        columns: [
           {
-            name: 'Dashboard',
-            title: 'Analytics em Tempo Real',
-            description: 'Visualize métricas críticas',
-            features: ['Gráficos interativos', 'Filtros avançados', 'Exportação de dados'],
+            title: 'Produto',
+            links: [
+              { label: 'Recursos', url: '#' },
+              { label: 'Preços', url: '#' },
+              { label: 'FAQ', url: '#' },
+            ],
           },
           {
-            name: 'Automação',
-            title: 'Workflows Inteligentes',
-            description: 'Automatize processos complexos',
-            features: ['Editor visual', 'Templates prontos', 'Integrações'],
+            title: 'Empresa',
+            links: [
+              { label: 'Sobre', url: '#' },
+              { label: 'Blog', url: '#' },
+              { label: 'Carreiras', url: '#' },
+            ],
           },
         ],
-        palette: 'cyberpunk',
+        socialLinks: [
+          { platform: 'facebook', url: '#' },
+          { platform: 'twitter', url: '#' },
+          { platform: 'linkedin', url: '#' },
+        ],
+        contactInfo: {
+          email: 'contato@exemplo.com',
+          phone: '+55 11 1234-5678',
+          address: 'São Paulo, SP',
+        },
+        copyrightText: '© 2025 Todos os direitos reservados.',
+        showNewsletter: true,
+        newsletterTitle: 'Fique por dentro',
+        newsletterPlaceholder: 'Seu email',
       };
-    case 'stats-counter':
+    case 'gallery':
       return {
-        title: 'Números Impressionantes',
-        subtitle: 'Resultados comprovados',
-        stats: [
-          { number: '10', suffix: 'K+', label: 'Clientes', description: 'Em todo o mundo' },
-          { number: '99', suffix: '%', label: 'Satisfação', description: 'Taxa de aprovação' },
-          { number: '24', suffix: '/7', label: 'Suporte', description: 'Sempre disponível' },
-          { number: '5', suffix: 'x', label: 'ROI', description: 'Retorno médio' },
+        images: [
+          { url: 'https://via.placeholder.com/800x600?text=Imagem+1', title: 'Imagem 1', description: 'Descrição da imagem 1' },
+          { url: 'https://via.placeholder.com/800x600?text=Imagem+2', title: 'Imagem 2', description: 'Descrição da imagem 2' },
+          { url: 'https://via.placeholder.com/800x600?text=Imagem+3', title: 'Imagem 3', description: 'Descrição da imagem 3' },
         ],
         layout: 'grid',
-        palette: 'cyberpunk',
+        columns: 3,
+        showThumbnails: true,
+        autoplay: false,
+        autoplayInterval: 3000,
+        showCaptions: true,
+      };
+    case 'columns':
+      return {
+        columns: [
+          {
+            width: 6,
+            items: [
+              { type: 'text', content: '<h3>Coluna 1</h3><p>Conteúdo da primeira coluna</p>' },
+            ],
+            verticalAlign: 'top',
+          },
+          {
+            width: 6,
+            items: [
+              { type: 'text', content: '<h3>Coluna 2</h3><p>Conteúdo da segunda coluna</p>' },
+            ],
+            verticalAlign: 'top',
+          },
+        ],
+        gap: 4,
+        mobileStack: true,
+        reverseOnMobile: false,
+      };
+    case 'stats':
+      return {
+        title: 'Números que Impressionam',
+        subtitle: 'Resultados comprovados',
+        stats: [
+          { value: '10,000', label: 'Clientes', suffix: '+', icon: 'users', trend: 15, color: 'hsl(25, 40%, 35%)' },
+          { value: '50', label: 'Países', suffix: '+', icon: 'target', trend: 8, color: 'hsl(25, 40%, 35%)' },
+          { value: '99.9', label: 'Uptime', suffix: '%', icon: 'zap', trend: 2, color: 'hsl(25, 40%, 35%)' },
+          { value: '4.9', label: 'Avaliação', suffix: '/5', icon: 'award', trend: 5, color: 'hsl(25, 40%, 35%)' },
+        ],
+        layout: 'grid',
+        animated: true,
+        showIcons: true,
+        showTrends: true,
+      };
+    case 'progress':
+      return {
+        title: 'Nossas Habilidades',
+        subtitle: 'Expertise comprovada',
+        items: [
+          { label: 'Design', value: 90, color: 'hsl(25, 40%, 35%)', showValue: true },
+          { label: 'Desenvolvimento', value: 85, color: 'hsl(25, 40%, 35%)', showValue: true },
+          { label: 'Marketing', value: 80, color: 'hsl(25, 40%, 35%)', showValue: true },
+          { label: 'Suporte', value: 95, color: 'hsl(25, 40%, 35%)', showValue: true },
+        ],
+        animated: true,
+        style: 'bar',
+        height: 12,
       };
     case 'form':
       return {
-        title: 'Formulário',
+        title: 'Entre em Contato',
+        subtitle: 'Fale conosco',
+        description: 'Preencha o formulário abaixo',
         fields: [
-          { id: 'name', type: 'text', label: 'Nome', required: true },
-          { id: 'email', type: 'email', label: 'E-mail', required: true },
+          { id: 'name', type: 'text', label: 'Nome Completo', placeholder: 'Seu nome', required: true },
+          { id: 'email', type: 'email', label: 'E-mail', placeholder: 'seu@email.com', required: true },
+          { id: 'message', type: 'textarea', label: 'Mensagem', placeholder: 'Sua mensagem...', required: false },
         ],
-        submitText: 'Enviar',
+        submitText: 'Enviar Mensagem',
+        privacyText: 'Seus dados estão seguros conosco',
       };
     case 'features':
       return {
-        title: 'Nossos Recursos',
+        title: 'Recursos Incríveis',
+        subtitle: 'Tudo que você precisa',
+        description: 'Ferramentas poderosas para o seu sucesso',
         features: [
-          { icon: 'Target', title: 'Feature 1', description: 'Descrição do feature 1' },
-          { icon: 'TrendingUp', title: 'Feature 2', description: 'Descrição do feature 2' },
-          { icon: 'Users', title: 'Feature 3', description: 'Descrição do feature 3' },
+          { icon: 'Zap', title: 'Rápido e Eficiente', description: 'Performance otimizada para máxima velocidade' },
+          { icon: 'Shield', title: 'Seguro e Confiável', description: 'Proteção avançada para seus dados' },
+          { icon: 'Users', title: 'Colaborativo', description: 'Trabalhe em equipe de forma integrada' },
+          { icon: 'TrendingUp', title: 'Escalável', description: 'Cresce junto com seu negócio' },
+          { icon: 'Heart', title: 'Suporte Dedicado', description: 'Equipe pronta para ajudar 24/7' },
+          { icon: 'Star', title: 'Qualidade Premium', description: 'Excelência em cada detalhe' },
         ],
+        layout: 'grid',
+        columns: 3,
+      };
+    case 'pricing':
+      return {
+        title: 'Planos e Preços',
+        subtitle: 'Escolha o plano ideal',
+        description: 'Preços transparentes, sem taxas ocultas',
+        tiers: [
+          {
+            name: 'Básico',
+            price: 'R$ 49',
+            period: '/mês',
+            description: 'Para começar',
+            features: ['5 projetos', '10GB armazenamento', 'Suporte por email'],
+            ctaText: 'Começar Grátis',
+            highlighted: false,
+          },
+          {
+            name: 'Pro',
+            price: 'R$ 99',
+            period: '/mês',
+            description: 'Mais popular',
+            features: ['Projetos ilimitados', '100GB armazenamento', 'Suporte prioritário', 'API access'],
+            ctaText: 'Começar Teste',
+            highlighted: true,
+          },
+          {
+            name: 'Enterprise',
+            price: 'Personalizado',
+            period: '',
+            description: 'Para grandes equipes',
+            features: ['Tudo ilimitado', 'Suporte dedicado', 'SLA garantido', 'Treinamento'],
+            ctaText: 'Falar com Vendas',
+            highlighted: false,
+          },
+        ],
+      };
+    case 'testimonial':
+      return {
+        title: 'O Que Dizem Nossos Clientes',
+        subtitle: 'Histórias de sucesso',
+        testimonials: [
+          {
+            quote: 'Produto incrível! Aumentou nossa produtividade em 300%',
+            author: 'Maria Silva',
+            role: 'CEO',
+            company: 'TechCorp',
+            avatar: '',
+            rating: 5,
+          },
+          {
+            quote: 'Melhor investimento do ano. ROI impressionante!',
+            author: 'João Santos',
+            role: 'CTO',
+            company: 'StartupXYZ',
+            avatar: '',
+            rating: 5,
+          },
+          {
+            quote: 'Suporte excepcional e produto de altíssima qualidade',
+            author: 'Ana Costa',
+            role: 'Product Manager',
+            company: 'Innovation Labs',
+            avatar: '',
+            rating: 5,
+          },
+        ],
+      };
+    case 'faq':
+      return {
+        title: 'Perguntas Frequentes',
+        subtitle: 'Tire suas dúvidas',
+        items: [
+          {
+            question: 'Como funciona o período de teste?',
+            answer: 'Você tem 14 dias para testar gratuitamente, sem precisar de cartão de crédito.',
+          },
+          {
+            question: 'Posso cancelar a qualquer momento?',
+            answer: 'Sim! Você pode cancelar sua assinatura quando quiser, sem multas ou taxas.',
+          },
+          {
+            question: 'Qual é o prazo de suporte?',
+            answer: 'Oferecemos suporte 24/7 por email, chat e telefone para todos os planos.',
+          },
+          {
+            question: 'Os dados são seguros?',
+            answer: 'Sim! Utilizamos criptografia de ponta e seguimos as melhores práticas de segurança.',
+          },
+        ],
+      };
+    case 'countdown':
+      return {
+        title: 'Oferta Especial Termina Em',
+        subtitle: 'Não perca essa oportunidade',
+        targetDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        ctaText: 'Garantir Meu Desconto',
+      };
+    case 'social-proof':
+      return {
+        title: 'Empresas que Confiam',
+        subtitle: 'Junte-se a milhares de clientes satisfeitos',
+        logos: [
+          { name: 'Empresa 1', url: '' },
+          { name: 'Empresa 2', url: '' },
+          { name: 'Empresa 3', url: '' },
+          { name: 'Empresa 4', url: '' },
+          { name: 'Empresa 5', url: '' },
+        ],
+        stats: {
+          customers: '10,000+',
+          rating: '4.9/5',
+          reviews: '2,500+',
+        },
       };
     case 'cta':
       return {
-        title: 'Pronto para começar?',
+        title: 'Pronto para Começar?',
         subtitle: 'Junte-se a milhares de clientes satisfeitos',
-        ctaText: 'Começar Agora',
+        description: 'Comece seu teste gratuito hoje mesmo, sem necessidade de cartão de crédito',
+        ctaText: 'Começar Agora Grátis',
+        ctaLink: '#',
+        ctaSecondaryText: 'Agendar Demo',
+        ctaSecondaryLink: '#',
+        showTrustBadges: true,
+      };
+    case 'text':
+      return {
+        content: 'Digite seu texto aqui. Você pode personalizar o alinhamento, tamanho da fonte e peso da fonte.',
+        alignment: 'left',
+        fontSize: 'base',
+        fontWeight: 'normal',
+      };
+    case 'image':
+      return {
+        src: 'https://via.placeholder.com/800x400?text=Adicione+sua+imagem',
+        alt: 'Imagem',
+        width: 100,
+        alignment: 'center',
+        caption: '',
+      };
+    case 'video':
+      return {
+        url: '',
+        type: 'youtube',
+        autoplay: false,
+        controls: true,
+        width: 100,
+        alignment: 'center',
+        caption: '',
+      };
+    case 'spacer':
+      return {
+        height: 40,
+      };
+    case 'divider':
+      return {
+        thickness: 1,
+        style: 'solid',
+        width: 100,
       };
     default:
-      return {};
+      return {
+        title: 'Novo Componente',
+        description: 'Personalize este componente',
+      };
   }
 }
 
@@ -772,10 +1293,60 @@ function getDefaultStyles(type: ComponentType): Record<string, any> {
         color: 'white',
         padding: '80px 20px',
       };
+    case 'header':
+      return {
+        backgroundColor: 'white',
+        borderBottom: '1px solid hsl(0,0%,90%)',
+        padding: '0',
+      };
+    case 'footer':
+      return {
+        backgroundColor: 'hsl(0,0%,98%)',
+        borderTop: '1px solid hsl(0,0%,90%)',
+        padding: '0',
+      };
     case 'form':
       return {
         backgroundColor: 'hsl(40,20%,97%)',
         padding: '60px 20px',
+      };
+    case 'gallery':
+      return {
+        padding: '60px 20px',
+      };
+    case 'columns':
+      return {
+        padding: '60px 20px',
+      };
+    case 'stats':
+      return {
+        backgroundColor: 'hsl(40,20%,97%)',
+        padding: '60px 20px',
+      };
+    case 'progress':
+      return {
+        padding: '60px 20px',
+      };
+    case 'text':
+      return {
+        padding: '20px 20px',
+      };
+    case 'image':
+      return {
+        padding: '40px 20px',
+      };
+    case 'video':
+      return {
+        padding: '40px 20px',
+      };
+    case 'spacer':
+      return {
+        padding: '0',
+      };
+    case 'divider':
+      return {
+        padding: '20px 20px',
+        borderColor: 'hsl(0,0%,80%)',
       };
     default:
       return {

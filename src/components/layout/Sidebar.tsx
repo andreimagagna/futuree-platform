@@ -23,6 +23,7 @@ interface NavItem {
   label: string;
   icon: React.FC<{ className?: string }>;
   path: string;
+  comingSoon?: boolean;
 }
 
 const solutions: SolutionGroup[] = [
@@ -71,6 +72,7 @@ const solutions: SolutionGroup[] = [
         label: "Agente Virtual",
         icon: Bot,
         path: "/agent",
+        comingSoon: true,
       },
       {
         id: "guide",
@@ -107,6 +109,7 @@ const solutions: SolutionGroup[] = [
         label: "Landing Pages",
         icon: Layout,
         path: "/marketing/landing-pages",
+        comingSoon: true,
       },
     ],
   },
@@ -161,8 +164,7 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
               <div
                 className={cn(
                   "flex items-center gap-3 mb-3",
-                  collapsed ? "justify-center px-2" : "px-3",
-                  "group"
+                  collapsed ? "justify-center px-2" : "px-3"
                 )}
               >
                 {/* Light mode: fundo marrom, ícone branco */}
@@ -196,9 +198,11 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
                     key={item.id}
                     variant="ghost"
                     className={cn(
-                      "w-full justify-start py-2 px-3 h-auto rounded-lg",
+                      "w-full py-2 px-3 h-auto rounded-lg",
                       "transition-all duration-200",
                       "hover:bg-muted/80",
+                      "text-left",
+                      item.comingSoon && "relative overflow-visible",
                       isActive(item.path) && [
                         "bg-primary/10 text-primary shadow-sm",
                         "hover:bg-primary/15",
@@ -207,15 +211,21 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
                       ],
                       !isActive(item.path) && "text-muted-foreground hover:text-foreground"
                     )}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => !item.comingSoon && navigate(item.path)}
+                    disabled={item.comingSoon}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-start gap-3 w-full text-left">
                       <item.icon className={cn(
-                        "w-4 h-4 transition-colors",
+                        "w-4 h-4 transition-colors flex-shrink-0",
                         isActive(item.path) ? "text-primary" : "text-muted-foreground"
                       )} />
                       {!collapsed && (
-                        <span className="text-sm">{item.label}</span>
+                        <span className="text-sm text-left">{item.label}</span>
+                      )}
+                      {item.comingSoon && !collapsed && (
+                        <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-warning/20 text-warning border border-warning/30 backdrop-blur-sm flex-shrink-0">
+                          EM BREVE
+                        </span>
                       )}
                     </div>
                   </Button>

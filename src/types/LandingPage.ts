@@ -2,14 +2,13 @@
 
 export type ComponentType = 
   | 'hero'
-  | 'hero-fullscreen'
-  | 'bento-grid'
-  | 'interactive-showcase'
-  | 'stats-counter'
+  | 'header'
+  | 'footer'
   | 'form'
   | 'text'
   | 'image'
   | 'video'
+  | 'gallery'
   | 'testimonial'
   | 'features'
   | 'pricing'
@@ -19,7 +18,9 @@ export type ComponentType =
   | 'social-proof'
   | 'spacer'
   | 'divider'
-  | 'columns';
+  | 'columns'
+  | 'stats'
+  | 'progress';
 
 export type TemplateCategory = 
   | 'saas'

@@ -317,6 +317,64 @@ export const PropertyEditorV2: React.FC<PropertyEditorV2Props> = ({
                   />
                 </div>
               )}
+
+              {/* CTA Text (for CTA component) */}
+              {props.ctaText !== undefined && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Botão Principal CTA</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Texto do Botão</Label>
+                      <Input
+                        value={props.ctaText || ''}
+                        onChange={(e) => updateProp('ctaText', e.target.value)}
+                        placeholder="Ex: Começar Agora"
+                      />
+                    </div>
+                    {props.ctaLink !== undefined && (
+                      <div className="space-y-2">
+                        <Label className="text-xs">Link</Label>
+                        <Input
+                          value={props.ctaLink || ''}
+                          onChange={(e) => updateProp('ctaLink', e.target.value)}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Secondary CTA Text (for CTA component) */}
+              {props.ctaSecondaryText !== undefined && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm">Botão Secundário CTA</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Texto do Botão</Label>
+                      <Input
+                        value={props.ctaSecondaryText || ''}
+                        onChange={(e) => updateProp('ctaSecondaryText', e.target.value)}
+                        placeholder="Ex: Saiba Mais"
+                      />
+                    </div>
+                    {props.ctaSecondaryLink !== undefined && (
+                      <div className="space-y-2">
+                        <Label className="text-xs">Link</Label>
+                        <Input
+                          value={props.ctaSecondaryLink || ''}
+                          onChange={(e) => updateProp('ctaSecondaryLink', e.target.value)}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </AccordionContent>
           </AccordionItem>
 
@@ -397,8 +455,405 @@ export const PropertyEditorV2: React.FC<PropertyEditorV2Props> = ({
             </AccordionContent>
           </AccordionItem>
 
-          {/* Arrays Section (Features, Stats, Items, etc.) */}
-          {(props.features || props.stats || props.items || props.testimonials || props.faqs) && (
+          {/* Special Fields (Countdown, Social Proof, etc.) */}
+          {(props.targetDate !== undefined || props.expiredMessage !== undefined || props.type !== undefined || props.content !== undefined || props.src !== undefined || props.url !== undefined || props.height !== undefined || props.thickness !== undefined) && (
+            <AccordionItem value="special">
+              <AccordionTrigger className="text-sm font-semibold">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Configurações Especiais
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-4 pt-4">
+                {/* Text Block Content */}
+                {props.content !== undefined && component.type === 'text' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Conteúdo do Texto</Label>
+                    <Textarea
+                      value={props.content || ''}
+                      onChange={(e) => updateProp('content', e.target.value)}
+                      placeholder="Digite seu texto aqui..."
+                      rows={6}
+                      className="resize-none font-mono text-sm"
+                    />
+                  </div>
+                )}
+                
+                {/* Text Block Alignment */}
+                {props.alignment !== undefined && component.type === 'text' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Alinhamento</Label>
+                    <Select
+                      value={props.alignment || 'left'}
+                      onValueChange={(value) => updateProp('alignment', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="left">Esquerda</SelectItem>
+                        <SelectItem value="center">Centro</SelectItem>
+                        <SelectItem value="right">Direita</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                {/* Text Block Font Size */}
+                {props.fontSize !== undefined && component.type === 'text' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Tamanho da Fonte</Label>
+                    <Select
+                      value={props.fontSize || 'base'}
+                      onValueChange={(value) => updateProp('fontSize', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sm">Pequeno</SelectItem>
+                        <SelectItem value="base">Normal</SelectItem>
+                        <SelectItem value="lg">Grande</SelectItem>
+                        <SelectItem value="xl">Maior</SelectItem>
+                        <SelectItem value="2xl">Extra Grande</SelectItem>
+                        <SelectItem value="3xl">Gigante</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                {/* Text Block Font Weight */}
+                {props.fontWeight !== undefined && component.type === 'text' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Peso da Fonte</Label>
+                    <Select
+                      value={props.fontWeight || 'normal'}
+                      onValueChange={(value) => updateProp('fontWeight', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="medium">Médio</SelectItem>
+                        <SelectItem value="semibold">Semi-Negrito</SelectItem>
+                        <SelectItem value="bold">Negrito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                {/* Image Source */}
+                {props.src !== undefined && component.type === 'image' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">URL da Imagem</Label>
+                    <Input
+                      value={props.src || ''}
+                      onChange={(e) => updateProp('src', e.target.value)}
+                      placeholder="https://exemplo.com/imagem.jpg"
+                    />
+                  </div>
+                )}
+                
+                {/* Image Alt Text */}
+                {props.alt !== undefined && component.type === 'image' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Texto Alternativo</Label>
+                    <Input
+                      value={props.alt || ''}
+                      onChange={(e) => updateProp('alt', e.target.value)}
+                      placeholder="Descrição da imagem"
+                    />
+                  </div>
+                )}
+                
+                {/* Image/Video Width */}
+                {props.width !== undefined && (component.type === 'image' || component.type === 'video') && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Largura (%)</Label>
+                    <div className="flex items-center gap-3">
+                      <Slider
+                        value={[props.width || 100]}
+                        onValueChange={([value]) => updateProp('width', value)}
+                        min={10}
+                        max={100}
+                        step={5}
+                        className="flex-1"
+                      />
+                      <span className="text-sm font-mono w-12 text-right">{props.width || 100}%</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Image/Video Alignment */}
+                {props.alignment !== undefined && (component.type === 'image' || component.type === 'video') && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Alinhamento</Label>
+                    <Select
+                      value={props.alignment || 'center'}
+                      onValueChange={(value) => updateProp('alignment', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="left">Esquerda</SelectItem>
+                        <SelectItem value="center">Centro</SelectItem>
+                        <SelectItem value="right">Direita</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                {/* Image/Video Caption */}
+                {props.caption !== undefined && (component.type === 'image' || component.type === 'video') && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Legenda</Label>
+                    <Input
+                      value={props.caption || ''}
+                      onChange={(e) => updateProp('caption', e.target.value)}
+                      placeholder="Legenda opcional"
+                    />
+                  </div>
+                )}
+                
+                {/* Video URL */}
+                {props.url !== undefined && component.type === 'video' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">URL do Vídeo</Label>
+                    <Input
+                      value={props.url || ''}
+                      onChange={(e) => updateProp('url', e.target.value)}
+                      placeholder="https://youtube.com/watch?v=..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Suporta: YouTube, Vimeo, ou URL direta de vídeo
+                    </p>
+                  </div>
+                )}
+                
+                {/* Video Type */}
+                {props.type !== undefined && component.type === 'video' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Tipo de Vídeo</Label>
+                    <Select
+                      value={props.type || 'youtube'}
+                      onValueChange={(value) => updateProp('type', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="youtube">YouTube</SelectItem>
+                        <SelectItem value="vimeo">Vimeo</SelectItem>
+                        <SelectItem value="direct">Vídeo Direto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                {/* Video Autoplay */}
+                {props.autoplay !== undefined && component.type === 'video' && (
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Reprodução Automática</Label>
+                    <Switch
+                      checked={props.autoplay || false}
+                      onCheckedChange={(checked) => updateProp('autoplay', checked)}
+                    />
+                  </div>
+                )}
+                
+                {/* Video Controls */}
+                {props.controls !== undefined && component.type === 'video' && (
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Mostrar Controles</Label>
+                    <Switch
+                      checked={props.controls !== false}
+                      onCheckedChange={(checked) => updateProp('controls', checked)}
+                    />
+                  </div>
+                )}
+                
+                {/* Spacer Height */}
+                {props.height !== undefined && component.type === 'spacer' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Altura (px)</Label>
+                    <div className="flex items-center gap-3">
+                      <Slider
+                        value={[props.height || 40]}
+                        onValueChange={([value]) => updateProp('height', value)}
+                        min={0}
+                        max={200}
+                        step={10}
+                        className="flex-1"
+                      />
+                      <span className="text-sm font-mono w-16 text-right">{props.height || 40}px</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Divider Thickness */}
+                {props.thickness !== undefined && component.type === 'divider' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Espessura (px)</Label>
+                    <div className="flex items-center gap-3">
+                      <Slider
+                        value={[props.thickness || 1]}
+                        onValueChange={([value]) => updateProp('thickness', value)}
+                        min={1}
+                        max={10}
+                        step={1}
+                        className="flex-1"
+                      />
+                      <span className="text-sm font-mono w-12 text-right">{props.thickness || 1}px</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Divider Style */}
+                {props.style !== undefined && component.type === 'divider' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Estilo da Linha</Label>
+                    <Select
+                      value={props.style || 'solid'}
+                      onValueChange={(value) => updateProp('style', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="solid">Sólida</SelectItem>
+                        <SelectItem value="dashed">Tracejada</SelectItem>
+                        <SelectItem value="dotted">Pontilhada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                {/* Divider Width */}
+                {props.width !== undefined && component.type === 'divider' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Largura (%)</Label>
+                    <div className="flex items-center gap-3">
+                      <Slider
+                        value={[props.width || 100]}
+                        onValueChange={([value]) => updateProp('width', value)}
+                        min={10}
+                        max={100}
+                        step={5}
+                        className="flex-1"
+                      />
+                      <span className="text-sm font-mono w-12 text-right">{props.width || 100}%</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Countdown Target Date */}
+                {props.targetDate !== undefined && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Data/Hora Alvo (Countdown)</Label>
+                    <Input
+                      type="datetime-local"
+                      value={props.targetDate ? new Date(props.targetDate).toISOString().slice(0, 16) : ''}
+                      onChange={(e) => updateProp('targetDate', new Date(e.target.value).toISOString())}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Defina quando o contador deve terminar
+                    </p>
+                  </div>
+                )}
+                {props.expiredMessage !== undefined && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Mensagem Após Expirar</Label>
+                    <Input
+                      value={props.expiredMessage || ''}
+                      onChange={(e) => updateProp('expiredMessage', e.target.value)}
+                      placeholder="Ex: Oferta expirada!"
+                    />
+                  </div>
+                )}
+                {/* Social Proof Type */}
+                {props.type !== undefined && component.type === 'social-proof' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Tipo de Prova Social</Label>
+                    <Select
+                      value={props.type || 'logos'}
+                      onValueChange={(value) => updateProp('type', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="logos">Logos de Empresas</SelectItem>
+                        <SelectItem value="testimonials">Depoimentos</SelectItem>
+                        <SelectItem value="stats">Estatísticas</SelectItem>
+                        <SelectItem value="reviews">Avaliações</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          )}
+
+          {/* Form Settings (for Form components) */}
+          {(props.submitText !== undefined || props.privacyText !== undefined) && (
+            <AccordionItem value="form-settings">
+              <AccordionTrigger className="text-sm font-semibold">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Configurações do Formulário
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-4 pt-4">
+                {props.submitText !== undefined && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Texto do Botão Enviar</Label>
+                    <Input
+                      value={props.submitText || ''}
+                      onChange={(e) => updateProp('submitText', e.target.value)}
+                      placeholder="Ex: Enviar Mensagem"
+                    />
+                  </div>
+                )}
+                {props.privacyText !== undefined && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Texto de Privacidade</Label>
+                    <Textarea
+                      value={props.privacyText || ''}
+                      onChange={(e) => updateProp('privacyText', e.target.value)}
+                      placeholder="Ex: Seus dados estão seguros conosco"
+                      rows={2}
+                    />
+                  </div>
+                )}
+                {props.successMessage !== undefined && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">Mensagem de Sucesso</Label>
+                    <Textarea
+                      value={props.successMessage || ''}
+                      onChange={(e) => updateProp('successMessage', e.target.value)}
+                      placeholder="Ex: Obrigado! Entraremos em contato em breve."
+                      rows={2}
+                    />
+                  </div>
+                )}
+                {props.redirectUrl !== undefined && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">URL de Redirecionamento</Label>
+                    <Input
+                      value={props.redirectUrl || ''}
+                      onChange={(e) => updateProp('redirectUrl', e.target.value)}
+                      placeholder="https://..."
+                    />
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          )}
+
+          {/* Arrays Section (Features, Stats, Items, Tiers, Testimonials, Form Fields, Tabs, etc.) */}
+          {(props.features || props.stats || props.items || props.tiers || props.testimonials || props.fields || props.tabs || props.faqs) && (
             <AccordionItem value="items">
               <AccordionTrigger className="text-sm font-semibold">
                 <div className="flex items-center gap-2">
@@ -505,15 +960,21 @@ export const PropertyEditorV2: React.FC<PropertyEditorV2Props> = ({
                   </div>
                 )}
 
-                {/* Generic Items */}
+                {/* Generic Items (FAQ) */}
                 {props.items !== undefined && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Itens</Label>
+                      <Label className="text-sm font-semibold">
+                        {component.type === 'faq' ? 'Perguntas & Respostas' : 'Itens'}
+                      </Label>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => addArrayItem('items', { title: '', description: '' })}
+                        onClick={() => addArrayItem('items', 
+                          component.type === 'faq' 
+                            ? { question: '', answer: '' }
+                            : { title: '', description: '' }
+                        )}
                       >
                         <Plus className="w-4 h-4 mr-1" />
                         Adicionar
@@ -524,22 +985,402 @@ export const PropertyEditorV2: React.FC<PropertyEditorV2Props> = ({
                         <CardContent className="pt-4 space-y-3">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1 space-y-2">
-                              <Input
-                                value={item.title || ''}
-                                onChange={(e) => updateArrayItem('items', index, 'title', e.target.value)}
-                                placeholder="Título"
-                              />
-                              <Textarea
-                                value={item.description || ''}
-                                onChange={(e) => updateArrayItem('items', index, 'description', e.target.value)}
-                                placeholder="Descrição"
-                                rows={2}
-                              />
+                              {component.type === 'faq' ? (
+                                <>
+                                  <Input
+                                    value={item.question || ''}
+                                    onChange={(e) => updateArrayItem('items', index, 'question', e.target.value)}
+                                    placeholder="Pergunta"
+                                    className="font-semibold"
+                                  />
+                                  <Textarea
+                                    value={item.answer || ''}
+                                    onChange={(e) => updateArrayItem('items', index, 'answer', e.target.value)}
+                                    placeholder="Resposta"
+                                    rows={3}
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <Input
+                                    value={item.title || ''}
+                                    onChange={(e) => updateArrayItem('items', index, 'title', e.target.value)}
+                                    placeholder="Título"
+                                  />
+                                  <Textarea
+                                    value={item.description || ''}
+                                    onChange={(e) => updateArrayItem('items', index, 'description', e.target.value)}
+                                    placeholder="Descrição"
+                                    rows={2}
+                                  />
+                                </>
+                              )}
                             </div>
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => removeArrayItem('items', index)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Pricing Tiers */}
+                {props.tiers !== undefined && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Planos de Preços</Label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addArrayItem('tiers', { 
+                          name: 'Novo Plano',
+                          price: 'R$ 99',
+                          period: '/mês',
+                          description: 'Descrição do plano',
+                          features: ['Feature 1', 'Feature 2'],
+                          ctaText: 'Assinar',
+                          highlighted: false
+                        })}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Adicionar Plano
+                      </Button>
+                    </div>
+                    {(props.tiers as any[] || []).map((tier: any, index: number) => (
+                      <Card key={index} className={tier.highlighted ? 'border-primary border-2' : ''}>
+                        <CardContent className="pt-4 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 space-y-3">
+                              <div className="flex gap-2">
+                                <Input
+                                  value={tier.name || ''}
+                                  onChange={(e) => updateArrayItem('tiers', index, 'name', e.target.value)}
+                                  placeholder="Nome do Plano"
+                                  className="font-bold"
+                                />
+                                <div className="flex items-center gap-2 min-w-fit">
+                                  <Switch
+                                    checked={tier.highlighted || false}
+                                    onCheckedChange={(checked) => updateArrayItem('tiers', index, 'highlighted', checked)}
+                                  />
+                                  <Label className="text-xs">Destaque</Label>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  value={tier.price || ''}
+                                  onChange={(e) => updateArrayItem('tiers', index, 'price', e.target.value)}
+                                  placeholder="R$ 99"
+                                />
+                                <Input
+                                  value={tier.period || ''}
+                                  onChange={(e) => updateArrayItem('tiers', index, 'period', e.target.value)}
+                                  placeholder="/mês"
+                                />
+                              </div>
+                              <Textarea
+                                value={tier.description || ''}
+                                onChange={(e) => updateArrayItem('tiers', index, 'description', e.target.value)}
+                                placeholder="Descrição do plano"
+                                rows={2}
+                              />
+                              <div className="space-y-2">
+                                <Label className="text-xs">Features (uma por linha)</Label>
+                                <Textarea
+                                  value={(tier.features || []).join('\n')}
+                                  onChange={(e) => updateArrayItem('tiers', index, 'features', e.target.value.split('\n'))}
+                                  placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
+                                  rows={4}
+                                />
+                              </div>
+                              <Input
+                                value={tier.ctaText || ''}
+                                onChange={(e) => updateArrayItem('tiers', index, 'ctaText', e.target.value)}
+                                placeholder="Texto do Botão"
+                              />
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeArrayItem('tiers', index)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Testimonials */}
+                {props.testimonials !== undefined && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Depoimentos</Label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addArrayItem('testimonials', { 
+                          quote: 'Excelente produto!',
+                          author: 'Nome do Cliente',
+                          role: 'Cargo',
+                          company: 'Empresa',
+                          avatar: '',
+                          rating: 5
+                        })}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Adicionar
+                      </Button>
+                    </div>
+                    {(props.testimonials as any[] || []).map((testimonial: any, index: number) => (
+                      <Card key={index}>
+                        <CardContent className="pt-4 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 space-y-2">
+                              <Textarea
+                                value={testimonial.quote || ''}
+                                onChange={(e) => updateArrayItem('testimonials', index, 'quote', e.target.value)}
+                                placeholder="Depoimento completo..."
+                                rows={3}
+                                className="italic"
+                              />
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  value={testimonial.author || ''}
+                                  onChange={(e) => updateArrayItem('testimonials', index, 'author', e.target.value)}
+                                  placeholder="Nome"
+                                  className="font-semibold"
+                                />
+                                <Input
+                                  value={testimonial.role || ''}
+                                  onChange={(e) => updateArrayItem('testimonials', index, 'role', e.target.value)}
+                                  placeholder="Cargo"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  value={testimonial.company || ''}
+                                  onChange={(e) => updateArrayItem('testimonials', index, 'company', e.target.value)}
+                                  placeholder="Empresa"
+                                />
+                                <Input
+                                  value={testimonial.avatar || ''}
+                                  onChange={(e) => updateArrayItem('testimonials', index, 'avatar', e.target.value)}
+                                  placeholder="URL Avatar"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs">Avaliação:</Label>
+                                <Select
+                                  value={String(testimonial.rating || 5)}
+                                  onValueChange={(value) => updateArrayItem('testimonials', index, 'rating', Number(value))}
+                                >
+                                  <SelectTrigger className="w-24">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="1">⭐</SelectItem>
+                                    <SelectItem value="2">⭐⭐</SelectItem>
+                                    <SelectItem value="3">⭐⭐⭐</SelectItem>
+                                    <SelectItem value="4">⭐⭐⭐⭐</SelectItem>
+                                    <SelectItem value="5">⭐⭐⭐⭐⭐</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeArrayItem('testimonials', index)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Form Fields */}
+                {props.fields !== undefined && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Campos do Formulário</Label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addArrayItem('fields', { 
+                          id: `field-${Date.now()}`,
+                          type: 'text',
+                          label: 'Novo Campo',
+                          placeholder: '',
+                          required: false
+                        })}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Adicionar Campo
+                      </Button>
+                    </div>
+                    {(props.fields as any[] || []).map((field: any, index: number) => (
+                      <Card key={index}>
+                        <CardContent className="pt-4 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Tipo de Campo</Label>
+                                  <Select
+                                    value={field.type || 'text'}
+                                    onValueChange={(value) => updateArrayItem('fields', index, 'type', value)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="text">Texto</SelectItem>
+                                      <SelectItem value="email">Email</SelectItem>
+                                      <SelectItem value="tel">Telefone</SelectItem>
+                                      <SelectItem value="number">Número</SelectItem>
+                                      <SelectItem value="textarea">Texto Longo</SelectItem>
+                                      <SelectItem value="select">Seleção</SelectItem>
+                                      <SelectItem value="checkbox">Checkbox</SelectItem>
+                                      <SelectItem value="date">Data</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">ID (único)</Label>
+                                  <Input
+                                    value={field.id || ''}
+                                    onChange={(e) => updateArrayItem('fields', index, 'id', e.target.value)}
+                                    placeholder="field-id"
+                                  />
+                                </div>
+                              </div>
+                              <Input
+                                value={field.label || ''}
+                                onChange={(e) => updateArrayItem('fields', index, 'label', e.target.value)}
+                                placeholder="Label do Campo"
+                                className="font-semibold"
+                              />
+                              <Input
+                                value={field.placeholder || ''}
+                                onChange={(e) => updateArrayItem('fields', index, 'placeholder', e.target.value)}
+                                placeholder="Placeholder (opcional)"
+                              />
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={field.required || false}
+                                  onCheckedChange={(checked) => updateArrayItem('fields', index, 'required', checked)}
+                                />
+                                <Label className="text-xs">Campo Obrigatório</Label>
+                              </div>
+                              {field.type === 'select' && (
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Opções (uma por linha)</Label>
+                                  <Textarea
+                                    value={(field.options || []).join('\n')}
+                                    onChange={(e) => updateArrayItem('fields', index, 'options', e.target.value.split('\n').filter(o => o.trim()))}
+                                    placeholder="Opção 1&#10;Opção 2&#10;Opção 3"
+                                    rows={3}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeArrayItem('fields', index)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tabs (Interactive Showcase) */}
+                {props.tabs !== undefined && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Tabs Interativas</Label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addArrayItem('tabs', { 
+                          name: 'Nova Tab',
+                          title: 'Título da Tab',
+                          description: 'Descrição detalhada',
+                          features: ['Feature 1', 'Feature 2', 'Feature 3'],
+                          image: '',
+                          video: ''
+                        })}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Adicionar Tab
+                      </Button>
+                    </div>
+                    {(props.tabs as any[] || []).map((tab: any, index: number) => (
+                      <Card key={index}>
+                        <CardContent className="pt-4 space-y-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  value={tab.name || ''}
+                                  onChange={(e) => updateArrayItem('tabs', index, 'name', e.target.value)}
+                                  placeholder="Nome da Tab"
+                                  className="font-semibold"
+                                />
+                                <Input
+                                  value={tab.title || ''}
+                                  onChange={(e) => updateArrayItem('tabs', index, 'title', e.target.value)}
+                                  placeholder="Título"
+                                />
+                              </div>
+                              <Textarea
+                                value={tab.description || ''}
+                                onChange={(e) => updateArrayItem('tabs', index, 'description', e.target.value)}
+                                placeholder="Descrição da funcionalidade"
+                                rows={2}
+                              />
+                              <div className="space-y-1">
+                                <Label className="text-xs">Features (uma por linha)</Label>
+                                <Textarea
+                                  value={(tab.features || []).join('\n')}
+                                  onChange={(e) => updateArrayItem('tabs', index, 'features', e.target.value.split('\n').filter((f: string) => f.trim()))}
+                                  placeholder="Feature 1&#10;Feature 2&#10;Feature 3"
+                                  rows={3}
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  value={tab.image || ''}
+                                  onChange={(e) => updateArrayItem('tabs', index, 'image', e.target.value)}
+                                  placeholder="URL da Imagem"
+                                />
+                                <Input
+                                  value={tab.video || ''}
+                                  onChange={(e) => updateArrayItem('tabs', index, 'video', e.target.value)}
+                                  placeholder="URL do Vídeo"
+                                />
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeArrayItem('tabs', index)}
                             >
                               <Trash2 className="w-4 h-4 text-red-500" />
                             </Button>

@@ -25,7 +25,7 @@ export function useAutoSave(
       const savedPages = JSON.parse(localStorage.getItem('landingPages') || '[]');
       const pageIndex = savedPages.findIndex((p: LandingPageTemplate) => p.id === pageId);
 
-      const updatedPage: LandingPageTemplate = {
+      const updatedPage: any = {
         ...pageData,
         components,
         updatedAt: new Date().toISOString(),
