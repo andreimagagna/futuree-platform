@@ -15,6 +15,9 @@ export const useKeyboardShortcuts = () => {
 
       if (isTyping) return;
 
+      // Ignora se estiver usando modificadores (Ctrl, Alt, Meta/Cmd)
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
+
       // Converte para maiúscula para facilitar comparação
       const key = event.key.toUpperCase();
 

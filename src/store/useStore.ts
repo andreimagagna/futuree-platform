@@ -165,11 +165,33 @@ export interface Note {
   createdBy: string;
 }
 
+export interface Activity {
+  id: string;
+  leadId: string;
+  type: "note" | "call" | "email" | "wa" | "file" | "task" | "nextAction";
+  content: string;
+  createdAt: Date;
+  createdBy?: string;
+}
+
 export interface GameState {
   xp: number;
   level: number;
   streak: number;
   badges: string[];
+}
+
+export interface Settings {
+  leadSources: string[];
+  owners: string[];
+  goals: {
+    monthlyRevenue: number;
+    monthlyLeads: number;
+    conversionRate: number;
+    averageTicket: number;
+    monthlyMeetings: number;
+    wonDeals: number;
+  };
 }
 
 interface StoreState {
@@ -183,6 +205,7 @@ interface StoreState {
   projects: Project[];
   conversations: Conversation[];
   notes: Note[];
+  activities: Activity[];
   funnels: Funnel[];
   availableTags: string[]; // Global list of available tags
   
@@ -192,6 +215,9 @@ interface StoreState {
   
   // Agent
   agentActive: boolean;
+  
+  // Settings
+  settings: Settings;
   
   // Actions
   setDateRange: (range: DateRange) => void;
@@ -215,6 +241,7 @@ interface StoreState {
   toggleChecklistItem: (taskId: string, itemId: string) => void;
   
   addNote: (note: Note) => void;
+  addActivity: (activity: Activity) => void;
 
   addFunnel: (funnel: Funnel) => void;
   updateFunnel: (id: string, updates: Partial<Funnel>) => void;
@@ -227,6 +254,13 @@ interface StoreState {
   addTag: (tag: string) => void;
   updateTag: (oldTag: string, newTag: string) => void;
   deleteTag: (tag: string) => void;
+
+  // Settings management
+  addLeadSource: (source: string) => void;
+  removeLeadSource: (source: string) => void;
+  addOwner: (owner: string) => void;
+  removeOwner: (owner: string) => void;
+  updateGoals: (goals: Partial<Settings['goals']>) => void;
 
   toggleAgent: () => void;
   completeMission: (id: string) => void;
@@ -261,160 +295,9 @@ const mockFunnels: Funnel[] = [
   },
 ];
 
-const mockLeads: Lead[] = [
-  {
-    id: '1',
-    name: 'João Silva',
-    company: 'Tech Corp',
-    email: 'joao@techcorp.com',
-    whatsapp: '(11) 99999-0001',
-    stage: 'qualify',
-    score: 85,
-    owner: 'Você',
-    source: 'Website',
-    lastContact: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    nextAction: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    tags: ['hot', 'enterprise'],
-    notes: 'Cliente muito interessado em integração',
-    expectedCloseDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias
-  },
-  {
-    id: '2',
-    name: 'Maria Santos',
-    company: 'Innovation Labs',
-    email: 'maria@innovation.com',
-    whatsapp: '(11) 99999-0002',
-    stage: 'contact',
-    score: 92,
-    owner: 'Você',
-    source: 'LinkedIn',
-    lastContact: new Date(Date.now() - 4 * 60 * 60 * 1000),
-    nextAction: new Date(Date.now() + 2 * 60 * 60 * 1000),
-    tags: ['hot', 'startup'],
-    notes: 'Precisa de demo',
-    expectedCloseDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 dias
-  },
-  {
-    id: '3',
-  name: 'Carlos Souza',
-    company: 'Digital Solutions',
-    email: 'pedro@digital.com',
-    whatsapp: '(11) 99999-0003',
-    stage: 'proposal',
-    score: 78,
-    owner: 'Você',
-    source: 'Indicação',
-    lastContact: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    tags: ['warm'],
-    notes: 'Aguardando orçamento',
-    expectedCloseDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 dias
-  },
-];
+const mockLeads: Lead[] = [];const mockTasks: Task[] = [];
 
-const mockTasks: Task[] = [
-  {
-    id: '1',
-    title: 'Enviar proposta comercial para Tech Corp',
-    leadId: '1',
-    priority: 'P1',
-    status: 'in_progress',
-    dueDate: new Date(),
-    dueTime: '14:00',
-    assignee: 'Você',
-    tags: ['proposta', 'urgente'],
-    description: 'Incluir detalhes de integração e pricing',
-    checklist: [
-      { id: '1', text: 'Revisar preços', done: true },
-      { id: '2', text: 'Adicionar casos de uso', done: false },
-    ],
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    createdBy: 'Você',
-    activities: [
-      {
-        id: 'a1',
-        type: 'note',
-        content: 'Cliente solicitou incluir ROI detalhado',
-        createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000),
-        createdBy: 'Você',
-      },
-    ],
-    comments: [],
-    attachments: [],
-    watchers: ['Você'],
-    timeTracked: 45,
-    estimatedTime: 120,
-  },
-  {
-    id: '2',
-    title: 'Demo do produto para Innovation Labs',
-    leadId: '2',
-    priority: 'P1',
-    status: 'backlog',
-    dueDate: new Date(Date.now() + 2 * 60 * 60 * 1000),
-    dueTime: '10:00',
-    assignee: 'Você',
-    tags: ['demo'],
-    description: 'Preparar ambiente de demonstração',
-    checklist: [],
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    createdBy: 'Você',
-    activities: [],
-    comments: [],
-    attachments: [],
-    watchers: ['Você'],
-  },
-  {
-    id: '3',
-    title: 'Follow-up com Digital Solutions',
-    leadId: '3',
-    priority: 'P2',
-    status: 'backlog',
-    dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    assignee: 'Você',
-    tags: ['follow-up'],
-    description: 'Verificar se receberam a proposta',
-    checklist: [],
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    createdBy: 'Você',
-    activities: [
-      {
-        id: 'a2',
-        type: 'call',
-        content: 'Ligação realizada - cliente pediu mais 2 dias',
-        createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
-        createdBy: 'Você',
-        metadata: { duration: 8 },
-      },
-    ],
-    comments: [
-      {
-        id: 'c1',
-        content: 'Lembrar de mencionar o desconto especial',
-        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
-        createdBy: 'Você',
-      },
-    ],
-    attachments: [],
-    watchers: ['Você', 'Maria Silva'],
-  },
-];
-
-const mockNotes: Note[] = [
-  {
-    id: '1',
-    leadId: '1',
-    content: 'Cliente mencionou que o budget para o projeto é de $5k.',
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
-    createdBy: 'Você',
-  },
-  {
-    id: '2',
-    leadId: '2',
-    content: 'A decisora principal, Ana, está de férias até dia 20.',
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    createdBy: 'Você',
-  }
-];
+const mockNotes: Note[] = [];
 
 export const useStore = create<StoreState>((set) => ({
   dateRange: 'this_week',
@@ -422,8 +305,9 @@ export const useStore = create<StoreState>((set) => ({
   leads: mockLeads,
   tasks: mockTasks,
   notes: mockNotes,
+  activities: [],
   funnels: mockFunnels,
-  availableTags: ['hot', 'warm', 'cold', 'enterprise', 'startup', 'proposta', 'urgente', 'demo', 'follow-up', 'vip'],
+  availableTags: [],
   projects: [
     { id: '1', name: 'Onboarding Q1', color: '#5B8DEF', leadIds: ['1', '2'] },
     { id: '2', name: 'Enterprise Deals', color: '#34C759', leadIds: ['3'] },
@@ -465,6 +349,19 @@ export const useStore = create<StoreState>((set) => ({
   ],
   
   agentActive: true,
+  
+  settings: {
+    leadSources: ['Website', 'LinkedIn', 'Indicação', 'Cold Call', 'Evento', 'Parceiro'],
+    owners: ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Lima'],
+    goals: {
+      monthlyRevenue: 100000,
+      monthlyLeads: 50,
+      conversionRate: 25,
+      averageTicket: 5000,
+      monthlyMeetings: 30,
+      wonDeals: 10,
+    },
+  },
   
   setDateRange: (range) => set({ dateRange: range }),
   setActiveFunnel: (id) => set({ activeFunnelId: id }),
@@ -527,6 +424,7 @@ export const useStore = create<StoreState>((set) => ({
   })),
   
   addNote: (note) => set((state) => ({ notes: [note, ...state.notes] })),
+  addActivity: (activity) => set((state) => ({ activities: [activity, ...state.activities] })),
 
   addFunnel: (funnel) => set((state) => ({ funnels: [...state.funnels, funnel] })),
   updateFunnel: (id, updates) => set((state) => ({
@@ -581,6 +479,45 @@ export const useStore = create<StoreState>((set) => ({
       ...t,
       tags: t.tags.filter((tg) => tg !== tag),
     })),
+  })),
+
+  // Settings management
+  addLeadSource: (source) => set((state) => ({
+    settings: {
+      ...state.settings,
+      leadSources: state.settings.leadSources.includes(source)
+        ? state.settings.leadSources
+        : [...state.settings.leadSources, source],
+    },
+  })),
+  removeLeadSource: (source) => set((state) => ({
+    settings: {
+      ...state.settings,
+      leadSources: state.settings.leadSources.filter((s) => s !== source),
+    },
+  })),
+  addOwner: (owner) => set((state) => ({
+    settings: {
+      ...state.settings,
+      owners: state.settings.owners.includes(owner)
+        ? state.settings.owners
+        : [...state.settings.owners, owner],
+    },
+  })),
+  removeOwner: (owner) => set((state) => ({
+    settings: {
+      ...state.settings,
+      owners: state.settings.owners.filter((o) => o !== owner),
+    },
+  })),
+  updateGoals: (goals) => set((state) => ({
+    settings: {
+      ...state.settings,
+      goals: {
+        ...state.settings.goals,
+        ...goals,
+      },
+    },
   })),
 
   toggleAgent: () => set((state) => ({ agentActive: !state.agentActive })),

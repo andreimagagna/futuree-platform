@@ -248,7 +248,7 @@ export const generateForecastData = (leads: Lead[], monthsAhead: number = 6): Fo
       return sum + ((lead.dealValue || 0) * probability);
     }, 0) + actual;
     
-    const target = 150000; // Meta fixa para exemplo (em produção, seria configurável)
+    const target = 0; // Meta zerada
     const probability = forecast > 0 ? Math.min((forecast / target) * 100, 100) : 0;
     
     data.push({
@@ -321,12 +321,12 @@ export const generatePerformanceData = (leads: Lead[], tasks: Task[]): Performan
   const avgResponseTime = 2.5; // Simulado (em produção, seria calculado)
   
   return [
-    { metric: 'Leads Contatados', current: contacted, target: 150, fullMark: 200 },
-    { metric: 'Taxa Qualificação', current: qualified, target: 50, fullMark: 100 },
-    { metric: 'Deals Fechados', current: won, target: 20, fullMark: 40 },
-    { metric: 'Reuniões Realizadas', current: completedMeetings, target: 30, fullMark: 50 },
-    { metric: 'Tarefas Concluídas', current: completedTasks, target: allTasks, fullMark: allTasks },
-    { metric: 'Tempo Resposta (h)', current: Math.round(avgResponseTime), target: 4, fullMark: 8 },
+    { metric: 'Leads Contatados', current: 0, target: 0, fullMark: 200 },
+    { metric: 'Taxa Qualificação', current: 0, target: 0, fullMark: 100 },
+    { metric: 'Deals Fechados', current: 0, target: 0, fullMark: 40 },
+    { metric: 'Reuniões Realizadas', current: 0, target: 0, fullMark: 50 },
+    { metric: 'Tarefas Concluídas', current: 0, target: 0, fullMark: allTasks || 1 },
+    { metric: 'Tempo Resposta (h)', current: 0, target: 0, fullMark: 8 },
   ];
 };
 

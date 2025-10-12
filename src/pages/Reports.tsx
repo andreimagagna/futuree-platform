@@ -10,6 +10,8 @@ import {
   Award,
   ArrowUpRight,
   ArrowDownRight,
+  Users,
+  CheckCircle2,
 } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import SalesChart from "@/components/reports/SalesChart";
@@ -18,6 +20,7 @@ import MeetingsChart from "@/components/reports/MeetingsChart";
 import ForecastChart from "@/components/reports/ForecastChart";
 import ConversionFunnelChart from "@/components/reports/ConversionFunnelChart";
 import PerformanceChart from "@/components/reports/PerformanceChart";
+import { GoalProgress } from "@/components/reports/GoalProgress";
 import ReportFilters, { PeriodType } from "@/components/reports/ReportFilters";
 import {
   generateSalesData,
@@ -33,10 +36,10 @@ import {
 import { toast } from "sonner";
 
 const Reports = () => {
-  const { leads, tasks } = useStore();
+  const { leads, tasks, settings } = useStore();
   const [period, setPeriod] = useState<PeriodType>('30days');
   const [comparison, setComparison] = useState<'none' | 'previous' | 'lastYear'>('none');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('goals');
 
   // Filtra os dados pelo período selecionado
   const filteredLeads = useMemo(() => 
@@ -57,6 +60,58 @@ const Reports = () => {
   const conversionFunnelData = useMemo(() => generateConversionFunnelData(filteredLeads), [filteredLeads]);
   const performanceData = useMemo(() => generatePerformanceData(filteredLeads, filteredTasks), [filteredLeads, filteredTasks]);
   const kpis = useMemo(() => calculateKPIs(leads, tasks), [leads, tasks]); // KPIs usam todos os dados
+
+  // Calcular valores atuais para comparar com metas
+  const currentMetrics = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Filtrar leads do mês atual
+    const monthLeads = leads.filter(lead => {
+      const createdAt = lead.createdAt || new Date();
+      return createdAt.getMonth() === currentMonth && createdAt.getFullYear() === currentYear;
+    });
+    
+    // Calcular receita do mês (leads ganhos)
+    const wonLeads = monthLeads.filter(l => l.status === 'won');
+    const monthlyRevenue = wonLeads.reduce((sum, lead) => sum + (lead.dealValue || 0), 0);
+    
+    // Contar leads do mês
+    const monthlyLeads = monthLeads.length;
+    
+    // Calcular taxa de conversão (won / total)
+    const conversionRate = monthLeads.length > 0 
+      ? (wonLeads.length / monthLeads.length) * 100 
+      : 0;
+    
+    // Calcular ticket médio
+    const averageTicket = wonLeads.length > 0 
+      ? monthlyRevenue / wonLeads.length 
+      : 0;
+    
+    // Contar reuniões do mês (tarefas com 'reunião' ou 'meeting' no título)
+    const monthlyMeetings = tasks.filter(task => {
+      const dueDate = task.dueDate || new Date();
+      const isThisMonth = dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear;
+      const isMeeting = task.title.toLowerCase().includes('reunião') || 
+                       task.title.toLowerCase().includes('meeting') ||
+                       task.title.toLowerCase().includes('call');
+      return isThisMonth && isMeeting;
+    }).length;
+    
+    // Contar negócios ganhos
+    const wonDeals = wonLeads.length;
+    
+    return {
+      monthlyRevenue,
+      monthlyLeads,
+      conversionRate,
+      averageTicket,
+      monthlyMeetings,
+      wonDeals,
+    };
+  }, [leads, tasks]);
 
   const handleExport = () => {
     const periodLabels = {
@@ -189,7 +244,11 @@ const Reports = () => {
 
       {/* Gráficos em Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7">
+          <TabsTrigger value="goals">
+            <Target className="h-4 w-4 mr-2" />
+            Metas
+          </TabsTrigger>
           <TabsTrigger value="overview">
             <BarChart3 className="h-4 w-4 mr-2" />
             Visão Geral
@@ -215,6 +274,53 @@ const Reports = () => {
             Performance
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="goals" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <GoalProgress
+              title="Receita Mensal"
+              current={currentMetrics.monthlyRevenue}
+              goal={settings.goals.monthlyRevenue}
+              format="currency"
+              icon={<DollarSign className="h-5 w-5" />}
+            />
+            <GoalProgress
+              title="Leads do Mês"
+              current={currentMetrics.monthlyLeads}
+              goal={settings.goals.monthlyLeads}
+              format="number"
+              icon={<Users className="h-5 w-5" />}
+            />
+            <GoalProgress
+              title="Taxa de Conversão"
+              current={currentMetrics.conversionRate}
+              goal={settings.goals.conversionRate}
+              format="percentage"
+              icon={<TrendingUp className="h-5 w-5" />}
+            />
+            <GoalProgress
+              title="Ticket Médio"
+              current={currentMetrics.averageTicket}
+              goal={settings.goals.averageTicket}
+              format="currency"
+              icon={<DollarSign className="h-5 w-5" />}
+            />
+            <GoalProgress
+              title="Reuniões do Mês"
+              current={currentMetrics.monthlyMeetings}
+              goal={settings.goals.monthlyMeetings}
+              format="number"
+              icon={<Calendar className="h-5 w-5" />}
+            />
+            <GoalProgress
+              title="Negócios Ganhos"
+              current={currentMetrics.wonDeals}
+              goal={settings.goals.wonDeals}
+              format="number"
+              icon={<CheckCircle2 className="h-5 w-5" />}
+            />
+          </div>
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">

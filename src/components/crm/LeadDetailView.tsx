@@ -1,6 +1,6 @@
 import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { useStore, LeadStage, type Lead, type BANTMethodology, type Product } from "@/store/useStore";
+import { useStore, LeadStage, type Lead, type BANTMethodology, type Product, type Note, type Activity, type Settings } from "@/store/useStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,27 +67,17 @@ const TIMELINE_FILTERS = [
   { id: "email", label: "E-mails" },
   { id: "wa", label: "WhatsApp" },
   { id: "file", label: "Arquivos" },
+  { id: "nextAction", label: "Próximas Ações" },
 ] as const;
 
 type TimelineFilterId = (typeof TIMELINE_FILTERS)[number]["id"];
 
-type TabKey = "notes" | "activity" | "call" | "email" | "wa" | "files" | "docs" | "invoice";
+type TabKey = "focus" | "history";
 
 const TAB_LABELS: Record<TabKey, string> = {
-  activity: "Atividade",
-  notes: "Notas",
-  call: "Chamada",
-  email: "E-mail",
-  wa: "WhatsApp",
-  files: "Arquivos",
-  docs: "Documentos",
-  invoice: "Fatura",
+  focus: "Foco",
+  history: "Histórico",
 };
-
-const MOCK_FILES = [
-  { id: "file-1", name: "proposta.pdf", date: "10/10/2025" },
-  { id: "file-2", name: "contrato.docx", date: "05/10/2025" },
-];
 
 interface TimelineItem {
   id: string;
@@ -100,20 +90,25 @@ interface TimelineItem {
 export const LeadDetailView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { leads, updateLead, addLead, deleteLead } = useStore();
+  const { leads, updateLead, addLead, deleteLead, notes, addNote, activities, addActivity, settings } = useStore();
   const lead = leads.find((l) => l.id === id);
+  const leadNotes = notes.filter((n) => n.leadId === id);
+  const leadActivities = activities.filter((a) => a.leadId === id);
   const { toast } = useToast();
 
   const [lostOpen, setLostOpen] = useState(false);
   const [lostReason, setLostReason] = useState("");
   const [lostCompetitor, setLostCompetitor] = useState("");
-  const [tab, setTab] = useState<TabKey>("activity");
+  const [tab, setTab] = useState<TabKey>("focus");
   const [nextActionText, setNextActionText] = useState("");
   const [nextActionDate, setNextActionDate] = useState("");
   const [nextActionTime, setNextActionTime] = useState("");
   const [priority, setPriority] = useState("P2");
   const [filters, setFilters] = useState<TimelineFilterId[]>(["all"]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  
+  // States for notes
+  const [noteContent, setNoteContent] = useState("");
 
   const nextActionMissing = !nextActionText || !nextActionDate || !nextActionTime;
 
@@ -123,7 +118,7 @@ export const LeadDetailView = () => {
     return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [lead?.lastContact]);
 
-  const timelineItems = useMemo(() => buildTimeline(filters), [filters]);
+  const timelineItems = useMemo(() => buildTimeline(filters, leadNotes, leadActivities), [filters, leadNotes, leadActivities]);
 
   const followersCount = 3;
 
@@ -193,6 +188,18 @@ export const LeadDetailView = () => {
       nextAction: nextActionDate_obj
     });
     
+    // Adicionar ao histórico
+    const newActivity: Activity = {
+      id: `activity-${Date.now()}`,
+      leadId: lead.id,
+      type: "nextAction",
+      content: `Próxima ação: ${nextActionText} - ${format(nextActionDate_obj, "dd/MM/yyyy 'às' HH:mm")}`,
+      createdAt: new Date(),
+      createdBy: lead.owner,
+    };
+    
+    addActivity(newActivity);
+    
     // Show success message
     toast({
       title: "Próxima ação salva!",
@@ -205,6 +212,38 @@ export const LeadDetailView = () => {
     setNextActionDate("");
     setNextActionTime("");
     setPriority("P2");
+  };
+
+  const handleSaveNote = () => {
+    if (!noteContent.trim() || !lead) return;
+    
+    const newNote = {
+      id: `note-${Date.now()}`,
+      content: noteContent,
+      leadId: lead.id,
+      createdAt: new Date(),
+      createdBy: lead.owner, // Using lead owner as the creator
+    };
+    
+    addNote(newNote);
+    
+    // Adicionar também ao histórico como activity
+    const newActivity: Activity = {
+      id: `activity-${Date.now()}`,
+      leadId: lead.id,
+      type: "note",
+      content: noteContent,
+      createdAt: new Date(),
+      createdBy: lead.owner,
+    };
+    
+    addActivity(newActivity);
+    setNoteContent("");
+    
+    toast({
+      title: "Nota salva!",
+      description: "A nota foi adicionada com sucesso",
+    });
   };
 
   if (!lead) {
@@ -236,9 +275,22 @@ export const LeadDetailView = () => {
           setFilters,
           timelineItems,
           onSaveNextAction: handleSaveNextAction,
+          noteContent,
+          setNoteContent,
+          leadNotes,
+          handleSaveNote,
         })}
 
-        {renderSummaryColumn({ lead, nextActionMissing, nextActionText, nextActionDate, nextActionTime })}
+        {renderSummaryColumn({ 
+          lead, 
+          nextActionMissing, 
+          nextActionText, 
+          nextActionDate, 
+          nextActionTime,
+          daysInStage,
+          updateLead,
+          settings,
+        })}
       </div>
 
       <LostDealDialog
@@ -589,6 +641,10 @@ function renderCentralColumn(params: {
   setFilters: Dispatch<SetStateAction<TimelineFilterId[]>>;
   timelineItems: TimelineItem[];
   onSaveNextAction: () => void;
+  noteContent: string;
+  setNoteContent: (value: string) => void;
+  leadNotes: Note[];
+  handleSaveNote: () => void;
 }) {
   const {
     lead,
@@ -608,39 +664,168 @@ function renderCentralColumn(params: {
     setFilters,
     timelineItems,
     onSaveNextAction,
+    noteContent,
+    setNoteContent,
+    leadNotes,
+    handleSaveNote,
   } = params;
 
   return (
     <div className="space-y-4 xl:col-span-6">
-      {/* Menu - Tabs com Atividades, Timeline, etc */}
+      {/* Menu - Tabs: Foco e Histórico */}
       <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)} className="space-y-3">
-        <TabsList className="w-full justify-start gap-1 overflow-x-auto rounded-xl border bg-muted/30 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth snap-x snap-mandatory">
+        <TabsList className="w-full justify-start gap-1 rounded-xl border bg-muted/30 p-1">
           {(Object.keys(TAB_LABELS) as TabKey[]).map((key) => (
             <TabsTrigger
               key={key}
               value={key}
-              className="min-w-[92px] sm:min-w-[110px] flex-1 snap-start whitespace-nowrap rounded-lg px-3 py-1 text-xs sm:text-sm text-muted-foreground bg-muted/40 hover:bg-muted/50 transition-colors data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+              className="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
             >
               {TAB_LABELS[key]}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        <TabsContent value="notes">
+        {/* ABA FOCO - Próxima Ação + Notas */}
+        <TabsContent value="focus" className="space-y-4">
+          {/* Próxima Ação */}
           <Card>
-            <CardContent className="space-y-2 p-4">
-              <Textarea placeholder="Escreva uma nota com @menções e #tags..." />
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm">Salvar</Button>
-                <Button size="sm" variant="outline">
-                  Fixar no topo
-                </Button>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-semibold">Próxima Ação</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 p-5 pt-0">
+              <form
+                className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end"
+                onSubmit={e => {
+                  e.preventDefault();
+                  if (!nextActionMissing) {
+                    onSaveNextAction();
+                  }
+                }}
+              >
+                <div className="xl:col-span-2">
+                  <Field label="Tipo de ação">
+                    <Select
+                      value={nextActionText}
+                      onValueChange={v => setNextActionText(v)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Escolha o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Reunião">📅 Reunião</SelectItem>
+                        <SelectItem value="WhatsApp">💬 WhatsApp</SelectItem>
+                        <SelectItem value="E-mail">📧 E-mail</SelectItem>
+                        <SelectItem value="Ligação">📞 Ligação</SelectItem>
+                        <SelectItem value="Técnica">🔧 Técnica</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+                <div>
+                  <Field label="Data">
+                    <Input
+                      type="date"
+                      value={nextActionDate}
+                      onChange={e => setNextActionDate(e.target.value)}
+                      required
+                      placeholder="dd/mm/aaaa"
+                    />
+                  </Field>
+                </div>
+                <div>
+                  <Field label="Hora">
+                    <Input
+                      type="time"
+                      value={nextActionTime}
+                      onChange={e => setNextActionTime(e.target.value)}
+                      required
+                      placeholder="--:--"
+                    />
+                  </Field>
+                </div>
+                <div className="xl:col-span-4 flex flex-wrap items-center gap-2">
+                  <Select value={priority} onValueChange={setPriority}>
+                    <SelectTrigger className="w-[104px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="P1">P1</SelectItem>
+                      <SelectItem value="P2">P2</SelectItem>
+                      <SelectItem value="P3">P3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="submit"
+                    variant="default"
+                    disabled={nextActionMissing}
+                    className="ml-auto"
+                  >
+                    Salvar
+                  </Button>
+                </div>
+              </form>
+              {nextActionMissing && (
+                <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Preencha todos os campos para salvar a próxima ação</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Notas */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Notas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4">
+              <div className="space-y-2">
+                <Textarea 
+                  placeholder="Escreva uma nota..."
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                  rows={3}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={handleSaveNote} disabled={!noteContent.trim()}>
+                    Salvar
+                  </Button>
+                </div>
+              </div>
+
+              {/* List of notes */}
+              <div className="space-y-3 pt-2">
+                {leadNotes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nenhuma nota ainda. Adicione a primeira nota acima.
+                  </p>
+                ) : (
+                  leadNotes
+                    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+                    .map((note) => (
+                      <div key={note.id} className="rounded-lg border bg-card p-3 shadow-sm">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs">
+                              {note.createdBy}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {format(note.createdAt, "dd/MM/yyyy 'às' HH:mm")}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+                      </div>
+                    ))
+                )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="activity">
+        {/* ABA HISTÓRICO - Timeline de Atividades */}
+        <TabsContent value="history">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Timeline</CardTitle>
@@ -663,424 +848,31 @@ function renderCentralColumn(params: {
               </div>
 
               <div className="space-y-3">
-                {timelineItems.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3 rounded-lg border bg-card/80 p-3 shadow-sm">
-                    <Badge variant="secondary">{item.typeLabel}</Badge>
-                    <div className="space-y-1">
-                      <p className="text-sm text-foreground">{item.content}</p>
-                      <p className="text-xs text-muted-foreground">{format(item.date, "dd/MM/yyyy HH:mm")}</p>
-                    </div>
+                {timelineItems.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">Nenhuma atividade registrada ainda</p>
+                    <p className="text-xs mt-1">O histórico de interações aparecerá aqui</p>
                   </div>
-                ))}
+                ) : (
+                  timelineItems.map((item) => (
+                    <div key={item.id} className="flex items-start gap-3 rounded-lg border bg-card/80 p-3 shadow-sm">
+                      <Badge variant="secondary">{item.typeLabel}</Badge>
+                      <div className="space-y-1">
+                        <p className="text-sm text-foreground">{item.content}</p>
+                        <p className="text-xs text-muted-foreground">{format(item.date, "dd/MM/yyyy HH:mm")}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="call">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <Input placeholder="Resultado" />
-              <Input placeholder="Duração (min)" type="number" />
-              <Textarea placeholder="Próximo passo" />
-              <Button size="sm">Salvar chamada</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="email">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <p className="text-sm text-muted-foreground">Conversas mockadas (Responder / Template)</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="wa">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <p className="text-sm">Mensagens (Enviada/Recebida)</p>
-              <Button variant="outline" size="sm">
-                Abrir no SDR
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="files">
-          <Card>
-            <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
-              {MOCK_FILES.map((file) => (
-                <div key={file.id} className="rounded-lg border bg-card/70 p-3">
-                  <p className="text-sm font-medium text-foreground">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">{file.date}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="docs">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <p className="text-sm">Proposta: rascunho | Contrato: enviado</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="invoice">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <p className="text-sm">Status: Aguardando | Valor: R$ 10.000 | Vencimento: 30/10</p>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Próxima Ação */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg font-semibold">Próxima Ação</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 p-5 pt-0">
-          <form
-            className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end"
-            onSubmit={e => {
-              e.preventDefault();
-              if (!nextActionMissing) {
-                onSaveNextAction();
-              }
-            }}
-          >
-            <div className="xl:col-span-2">
-              <Field label="Tipo de ação">
-                <Select
-                  value={nextActionText}
-                  onValueChange={v => setNextActionText(v)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Escolha o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Reunião">📅 Reunião</SelectItem>
-                    <SelectItem value="WhatsApp">💬 WhatsApp</SelectItem>
-                    <SelectItem value="E-mail">📧 E-mail</SelectItem>
-                    <SelectItem value="Ligação">📞 Ligação</SelectItem>
-                    <SelectItem value="Técnica">🔧 Técnica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            <div>
-              <Field label="Data">
-                <Input
-                  type="date"
-                  value={nextActionDate}
-                  onChange={e => setNextActionDate(e.target.value)}
-                  required
-                  placeholder="dd/mm/aaaa"
-                />
-              </Field>
-            </div>
-            <div>
-              <Field label="Hora">
-                <Input
-                  type="time"
-                  value={nextActionTime}
-                  onChange={e => setNextActionTime(e.target.value)}
-                  required
-                  placeholder="--:--"
-                />
-              </Field>
-            </div>
-            <div className="xl:col-span-4 flex flex-wrap items-center gap-2">
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="w-[104px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="P1">P1</SelectItem>
-                  <SelectItem value="P2">P2</SelectItem>
-                  <SelectItem value="P3">P3</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                type="submit"
-                variant="default"
-                disabled={nextActionMissing}
-                className="ml-auto"
-              >
-                Salvar
-              </Button>
-            </div>
-          </form>
-          {nextActionMissing && (
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-              <AlertCircle className="h-4 w-4" />
-              <span>Preencha todos os campos para salvar a próxima ação</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Produtos */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Produtos
-            </CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                const newProduct: Product = {
-                  id: `product-${Date.now()}`,
-                  name: '',
-                  price: 0,
-                  quantity: 1,
-                  currency: 'BRL',
-                  priceType: 'fixed',
-                  discount: 0,
-                  discountType: 'fixed',
-                  taxRate: 0,
-                };
-                const currentProducts = lead.products || [];
-                updateLead(lead.id, { products: [...currentProducts, newProduct] });
-              }}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Adicionar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {(!lead.products || lead.products.length === 0) ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhum produto adicionado
-            </p>
-          ) : (
-            <>
-              {lead.products.map((product, index) => {
-                // Calcular valores
-                const basePrice = product.price || 0;
-                const qty = product.quantity || 1;
-                const subtotal = basePrice * qty;
-                
-                // Calcular desconto
-                let discountAmount = 0;
-                if (product.discountType === 'percentage') {
-                  discountAmount = subtotal * ((product.discount || 0) / 100);
-                } else {
-                  discountAmount = product.discount || 0;
-                }
-                
-                const afterDiscount = subtotal - discountAmount;
-                
-                // Calcular imposto
-                const taxAmount = afterDiscount * ((product.taxRate || 0) / 100);
-                const finalValue = afterDiscount + taxAmount;
-                
-                const currencySymbol = product.currency === 'USD' ? '$' : 'R$';
-                
-                return (
-                  <div key={product.id} className="border rounded-lg p-4 bg-card space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <Input
-                          placeholder="Nome do produto/serviço"
-                          defaultValue={product.name}
-                          onBlur={(e) => {
-                            const updatedProducts = [...(lead.products || [])];
-                            updatedProducts[index] = { ...product, name: e.target.value };
-                            updateLead(lead.id, { products: updatedProducts });
-                          }}
-                          className="h-9 font-medium"
-                        />
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          const updatedProducts = (lead.products || []).filter((_, i) => i !== index);
-                          updateLead(lead.id, { products: updatedProducts });
-                        }}
-                        className="h-9 w-9 p-0"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-                      {/* Preço */}
-                      <div className="space-y-1.5 lg:col-span-2">
-                        <Label className="text-xs">Preço</Label>
-                        <div className="flex gap-2">
-                          <Select
-                            value={product.currency}
-                            onValueChange={(value: 'BRL' | 'USD') => {
-                              const updatedProducts = [...(lead.products || [])];
-                              updatedProducts[index] = { ...product, currency: value };
-                              updateLead(lead.id, { products: updatedProducts });
-                            }}
-                          >
-                            <SelectTrigger className="w-[80px] h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="BRL">R$</SelectItem>
-                              <SelectItem value="USD">$</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            type="number"
-                            placeholder="0,00"
-                            defaultValue={product.price}
-                            step="0.01"
-                            min={0}
-                            onBlur={(e) => {
-                              const updatedProducts = [...(lead.products || [])];
-                              updatedProducts[index] = { ...product, price: parseFloat(e.target.value) || 0 };
-                              updateLead(lead.id, { products: updatedProducts });
-                            }}
-                            className="h-9 flex-1"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Quantidade */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Quantidade</Label>
-                        <Input
-                          type="number"
-                          placeholder="1"
-                          defaultValue={product.quantity}
-                          min={1}
-                          onBlur={(e) => {
-                            const updatedProducts = [...(lead.products || [])];
-                            updatedProducts[index] = { ...product, quantity: parseInt(e.target.value) || 1 };
-                            updateLead(lead.id, { products: updatedProducts });
-                          }}
-                          className="h-9"
-                        />
-                      </div>
-
-                      {/* Desconto */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Desconto</Label>
-                        <div className="flex gap-2">
-                          <Select
-                            value={product.discountType}
-                            onValueChange={(value: 'fixed' | 'percentage') => {
-                              const updatedProducts = [...(lead.products || [])];
-                              updatedProducts[index] = { ...product, discountType: value };
-                              updateLead(lead.id, { products: updatedProducts });
-                            }}
-                          >
-                            <SelectTrigger className="w-[70px] h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="fixed">{currencySymbol}</SelectItem>
-                              <SelectItem value="percentage">%</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            defaultValue={product.discount}
-                            step="0.01"
-                            min={0}
-                            onBlur={(e) => {
-                              const updatedProducts = [...(lead.products || [])];
-                              updatedProducts[index] = { ...product, discount: parseFloat(e.target.value) || 0 };
-                              updateLead(lead.id, { products: updatedProducts });
-                            }}
-                            className="h-9 flex-1"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Imposto */}
-                      <div className="space-y-1.5">
-                        <Label className="text-xs">Imposto (%)</Label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          defaultValue={product.taxRate}
-                          step="0.01"
-                          min={0}
-                          max={100}
-                          onBlur={(e) => {
-                            const updatedProducts = [...(lead.products || [])];
-                            updatedProducts[index] = { ...product, taxRate: parseFloat(e.target.value) || 0 };
-                            updateLead(lead.id, { products: updatedProducts });
-                          }}
-                          className="h-9"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Cálculo detalhado */}
-                    <div className="pt-2 border-t space-y-1 text-xs">
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Subtotal ({qty}x {currencySymbol} {basePrice.toFixed(2)}):</span>
-                        <span>{currencySymbol} {subtotal.toFixed(2)}</span>
-                      </div>
-                      {discountAmount > 0 && (
-                        <div className="flex justify-between text-muted-foreground">
-                          <span>Desconto ({product.discountType === 'percentage' ? `${product.discount}%` : `${currencySymbol} ${product.discount}`}):</span>
-                          <span className="text-destructive">- {currencySymbol} {discountAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-                      {taxAmount > 0 && (
-                        <div className="flex justify-between text-muted-foreground">
-                          <span>Imposto ({product.taxRate}%):</span>
-                          <span>+ {currencySymbol} {taxAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between font-semibold text-sm pt-1 border-t">
-                        <span>Valor Final:</span>
-                        <span className="text-primary">{currencySymbol} {finalValue.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              
-              <div className="pt-3 border-t">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-semibold">Total Geral:</span>
-                  <span className="text-xl font-bold text-primary">
-                    R$ {(lead.products || []).reduce((sum, p) => {
-                      const basePrice = p.price || 0;
-                      const qty = p.quantity || 1;
-                      const subtotal = basePrice * qty;
-                      
-                      let discountAmount = 0;
-                      if (p.discountType === 'percentage') {
-                        discountAmount = subtotal * ((p.discount || 0) / 100);
-                      } else {
-                        discountAmount = p.discount || 0;
-                      }
-                      
-                      const afterDiscount = subtotal - discountAmount;
-                      const taxAmount = afterDiscount * ((p.taxRate || 0) / 100);
-                      const finalValue = afterDiscount + taxAmount;
-                      
-                      return sum + finalValue;
-                    }, 0).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
+
 
 function renderProductsColumn(
   lead: Lead,
@@ -1346,269 +1138,25 @@ function renderProductsColumn(
   );
 }
 
-function renderMiddleColumn(params: {
-  nextActionText: string;
-  setNextActionText: (value: string) => void;
-  nextActionDate: string;
-  setNextActionDate: (value: string) => void;
-  nextActionTime: string;
-  setNextActionTime: (value: string) => void;
-  priority: string;
-  setPriority: (value: string) => void;
-  nextActionMissing: boolean;
-  tab: TabKey;
-  setTab: (value: TabKey) => void;
-  filters: TimelineFilterId[];
-  setFilters: Dispatch<SetStateAction<TimelineFilterId[]>>;
-  timelineItems: TimelineItem[];
-  onSaveNextAction: () => void;
-}) {
-  const {
-    nextActionText,
-    setNextActionText,
-    nextActionDate,
-    setNextActionDate,
-    nextActionTime,
-    setNextActionTime,
-    priority,
-    setPriority,
-    nextActionMissing,
-    tab,
-    setTab,
-    filters,
-    setFilters,
-    timelineItems,
-    onSaveNextAction,
-  } = params;
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg font-semibold">Próxima Ação</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 p-5 pt-0">
-          <form
-            className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end"
-            onSubmit={e => {
-              e.preventDefault();
-              if (!nextActionMissing) {
-                onSaveNextAction();
-              }
-            }}
-          >
-            <div className="xl:col-span-2">
-              <Field label="Tipo de ação">
-                <Select
-                  value={nextActionText}
-                  onValueChange={v => setNextActionText(v)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Escolha o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Reunião">📅 Reunião</SelectItem>
-                    <SelectItem value="WhatsApp">💬 WhatsApp</SelectItem>
-                    <SelectItem value="E-mail">📧 E-mail</SelectItem>
-                    <SelectItem value="Ligação">📞 Ligação</SelectItem>
-                    <SelectItem value="Técnica">🔧 Técnica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            <div>
-              <Field label="Data">
-                <Input
-                  type="date"
-                  value={nextActionDate}
-                  onChange={e => setNextActionDate(e.target.value)}
-                  required
-                  placeholder="dd/mm/aaaa"
-                />
-              </Field>
-            </div>
-            <div>
-              <Field label="Hora">
-                <Input
-                  type="time"
-                  value={nextActionTime}
-                  onChange={e => setNextActionTime(e.target.value)}
-                  required
-                  placeholder="--:--"
-                />
-              </Field>
-            </div>
-            <div className="xl:col-span-4 flex flex-wrap items-center gap-2">
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="w-[104px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="P1">P1</SelectItem>
-                  <SelectItem value="P2">P2</SelectItem>
-                  <SelectItem value="P3">P3</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                type="submit"
-                variant="default"
-                disabled={nextActionMissing}
-                className="ml-auto"
-              >
-                Salvar
-              </Button>
-            </div>
-          </form>
-          {nextActionMissing && (
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-              <AlertCircle className="h-4 w-4" />
-              <span>Preencha todos os campos para salvar a próxima ação</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Tabs value={tab} onValueChange={(value) => setTab(value as TabKey)} className="space-y-3">
-        <TabsList className="w-full justify-start gap-1 overflow-x-auto rounded-xl border bg-muted/30 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden scroll-smooth snap-x snap-mandatory">
-          {(Object.keys(TAB_LABELS) as TabKey[]).map((key) => (
-            <TabsTrigger
-              key={key}
-              value={key}
-              className="min-w-[92px] sm:min-w-[110px] flex-1 snap-start whitespace-nowrap rounded-lg px-3 py-1 text-xs sm:text-sm text-muted-foreground bg-muted/40 hover:bg-muted/50 transition-colors data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
-            >
-              {TAB_LABELS[key]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value="notes">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <Textarea placeholder="Escreva uma nota com @menções e #tags..." />
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm">Salvar</Button>
-                <Button size="sm" variant="outline">
-                  Fixar no topo
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="activity">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Timeline</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {TIMELINE_FILTERS.map((filter) => (
-                  <button
-                    key={filter.id}
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                      isFilterActive(filters, filter.id)
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
-                    }`}
-                    onClick={() => toggleFilter(filter.id, setFilters)}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-3">
-                {timelineItems.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3 rounded-lg border bg-card/80 p-3 shadow-sm">
-                    <Badge variant="secondary">{item.typeLabel}</Badge>
-                    <div className="space-y-1">
-                      <p className="text-sm text-foreground">{item.content}</p>
-                      <p className="text-xs text-muted-foreground">{format(item.date, "dd/MM/yyyy HH:mm")}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="call">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <Input placeholder="Resultado" />
-              <Input placeholder="Duração (min)" type="number" />
-              <Textarea placeholder="Próximo passo" />
-              <Button size="sm">Salvar chamada</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="email">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <p className="text-sm text-muted-foreground">Conversas mockadas (Responder / Template)</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="wa">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <p className="text-sm">Mensagens (Enviada/Recebida)</p>
-              <Button variant="outline" size="sm">
-                Abrir no SDR
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="files">
-          <Card>
-            <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
-              {MOCK_FILES.map((file) => (
-                <div key={file.id} className="rounded-lg border bg-card/70 p-3">
-                  <p className="text-sm font-medium text-foreground">{file.name}</p>
-                  <p className="text-xs text-muted-foreground">{file.date}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="docs">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <p className="text-sm">Proposta: rascunho | Contrato: enviado</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="invoice">
-          <Card>
-            <CardContent className="space-y-2 p-4">
-              <p className="text-sm">Status: Aguardando | Valor: R$ 10.000 | Vencimento: 30/10</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
-
 function renderSummaryColumn({
   lead,
   nextActionMissing,
   nextActionText,
   nextActionDate,
   nextActionTime,
+  daysInStage,
+  updateLead,
+  settings,
 }: {
   lead: Lead;
   nextActionMissing: boolean;
   nextActionText: string;
   nextActionDate: string;
   nextActionTime: string;
+  daysInStage: number;
+  updateLead: (id: string, updates: Partial<Lead>) => void;
+  settings: Settings;
 }) {
-  const { updateLead } = useStore();
   
   const getScoreColor = (score: number) => {
     if (score >= 75) return 'text-success';
@@ -1788,6 +1336,20 @@ function renderSummaryColumn({
             label="Próxima ação"
             value={nextActionMissing ? "—" : `${nextActionText} · ${nextActionDate} ${nextActionTime}`}
           />
+          <SummaryRow
+            label="Idade do negócio"
+            value={lead.createdAt 
+              ? formatDistanceToNow(lead.createdAt, { addSuffix: false, locale: ptBR })
+              : "—"
+            }
+          />
+          <SummaryRow
+            label="Criado em"
+            value={lead.createdAt 
+              ? format(lead.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+              : "—"
+            }
+          />
         </CardContent>
       </Card>
 
@@ -1796,7 +1358,21 @@ function renderSummaryColumn({
           <CardTitle className="text-lg">Fontes</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <SourceBadge source={lead.source} />
+          <Select 
+            value={lead.source} 
+            onValueChange={(value) => updateLead(lead.id, { source: value })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {settings.leadSources.map((source) => (
+                <SelectItem key={source} value={source}>
+                  {source}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
 
@@ -1806,9 +1382,22 @@ function renderSummaryColumn({
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {nextActionMissing && <AlertRow text="Sem próxima ação (crítico)" />}
-          <AlertRow text="Parado há X dias no estágio" />
-          <AlertRow text="Sem resposta há Y horas/dias" />
-          <AlertRow text="Probabilidade baixa vs valor alto" />
+          {daysInStage > 7 && <AlertRow text={`Parado há ${daysInStage} dias no estágio`} />}
+          {lead.lastContact && (
+            (() => {
+              const hoursSinceContact = Math.floor((Date.now() - lead.lastContact.getTime()) / (1000 * 60 * 60));
+              if (hoursSinceContact > 48) {
+                const days = Math.floor(hoursSinceContact / 24);
+                return <AlertRow text={`Sem resposta há ${days} dias`} />;
+              } else if (hoursSinceContact > 24) {
+                return <AlertRow text={`Sem resposta há ${hoursSinceContact} horas`} />;
+              }
+              return null;
+            })()
+          )}
+          {lead.dealValue && lead.dealValue > 50000 && (!lead.bant || Object.values(lead.bant).filter(v => v === true).length < 3) && (
+            <AlertRow text="Probabilidade baixa vs valor alto" />
+          )}
         </CardContent>
       </Card>
     </div>
@@ -1903,46 +1492,39 @@ function LostDealDialog({
   );
 }
 
-function buildTimeline(filters: TimelineFilterId[]): TimelineItem[] {
-  const items: TimelineItem[] = [
-    {
-      id: "n1",
-      type: "note",
-      typeLabel: "Nota",
-      content: "Cliente mencionou budget de 5k.",
-      date: new Date(Date.now() - 3 * 60 * 60 * 1000),
-    },
-    {
-      id: "w1",
-      type: "wa",
-      typeLabel: "WhatsApp",
-      content: "Mensagem enviada com proposta.",
-      date: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    },
-    {
-      id: "e1",
-      type: "email",
-      typeLabel: "E-mail",
-      content: "Follow-up enviado com materiais.",
-      date: new Date(Date.now() - 90 * 60 * 1000),
-    },
-    {
-      id: "c1",
-      type: "call",
-      typeLabel: "Chamada",
-      content: "Ligação de qualificação (10min).",
-      date: new Date(Date.now() - 60 * 60 * 1000),
-    },
-    {
-      id: "f1",
-      type: "file",
-      typeLabel: "Arquivo",
-      content: "Proposta.pdf anexada.",
-      date: new Date(Date.now() - 30 * 60 * 1000),
-    },
-  ];
+function buildTimeline(filters: TimelineFilterId[], notes: Note[], activities: Activity[]): TimelineItem[] {
+  // Construir itens do histórico a partir das notas e activities
+  const noteItems: TimelineItem[] = notes.map((note) => ({
+    id: note.id,
+    type: "note" as const,
+    typeLabel: "Nota",
+    content: note.content,
+    date: note.createdAt,
+  }));
+  
+  const activityItems: TimelineItem[] = activities.map((activity) => {
+    const typeLabels = {
+      note: "Nota",
+      call: "Chamada",
+      email: "E-mail",
+      wa: "WhatsApp",
+      file: "Arquivo",
+      task: "Tarefa",
+      nextAction: "Próxima Ação",
+    };
+    
+    return {
+      id: activity.id,
+      type: activity.type as Exclude<TimelineFilterId, "all">,
+      typeLabel: typeLabels[activity.type],
+      content: activity.content,
+      date: activity.createdAt,
+    };
+  });
+  
+  const items = [...noteItems, ...activityItems];
 
-  const activeFilters = filters.includes("all") ? ["note", "call", "email", "wa", "file"] : filters;
+  const activeFilters = filters.includes("all") ? ["note", "call", "email", "wa", "file", "task", "nextAction"] : filters;
   return items
     .filter((item) => activeFilters.includes(item.type))
     .sort((a, b) => b.date.getTime() - a.date.getTime());

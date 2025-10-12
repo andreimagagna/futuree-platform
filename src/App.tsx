@@ -14,7 +14,9 @@ import Guide from "./pages/Guide";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
-import { Campaigns } from "./pages/marketing/Campaigns";
+import { Campanhas } from "./pages/marketing/Campanhas";
+import MarketingTasks from "./pages/marketing/MarketingTasks";
+import ConstrutorFunil from "./pages/marketing/ConstrutorFunil";
 import { Analytics } from "./pages/business/Analytics";
 
 const queryClient = new QueryClient();
@@ -37,7 +39,9 @@ const App = () => (
           <Route path="/guide" element={<Guide />} />
           
           {/* Marketing Solution */}
-          <Route path="/marketing/campaigns" element={<AppLayout currentView="campaigns"><Campaigns /></AppLayout>} />
+          <Route path="/marketing/campanhas" element={<AppLayout currentView="campanhas"><Campanhas /></AppLayout>} />
+          <Route path="/marketing/tasks" element={<AppLayout currentView="marketing-tasks"><MarketingTasks /></AppLayout>} />
+          <Route path="/marketing/construtor-funil" element={<ConstrutorFunil />} />
           
           {/* Business Solution */}
           <Route path="/business/analytics" element={<AppLayout currentView="analytics"><Analytics /></AppLayout>} />

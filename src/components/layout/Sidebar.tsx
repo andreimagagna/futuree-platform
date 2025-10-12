@@ -1,8 +1,8 @@
-import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen } from "lucide-react";
+import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SidebarProps {
@@ -79,10 +79,22 @@ const solutions: SolutionGroup[] = [
     icon: Radio,
     items: [
       {
-        id: "campaigns",
+        id: "campanhas",
         label: "Campanhas",
-        icon: Target,
-        path: "/marketing/campaigns",
+        icon: Megaphone,
+        path: "/marketing/campanhas",
+      },
+      {
+        id: "marketing-tasks",
+        label: "Tasks",
+        icon: CheckSquare,
+        path: "/marketing/tasks",
+      },
+      {
+        id: "construtor-funil",
+        label: "Construtor de Funis",
+        icon: GitBranch,
+        path: "/marketing/construtor-funil",
       },
     ],
   },
@@ -102,6 +114,7 @@ const solutions: SolutionGroup[] = [
 
 export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse }: SidebarProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -182,7 +195,7 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
                       ],
                       !isActive(item.path) && "text-muted-foreground hover:text-foreground"
                     )}
-                    onClick={() => onViewChange(item.id)}
+                    onClick={() => navigate(item.path)}
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className={cn(
@@ -207,7 +220,7 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
               "w-full justify-start rounded-lg hover:bg-muted/80 transition-colors", 
               collapsed ? "px-2" : "px-3"
             )}
-            onClick={() => onViewChange("settings")}
+            onClick={() => navigate("/settings")}
           >
             <Settings className="w-5 h-5 text-muted-foreground" />
             {!collapsed && <span className="ml-3 text-sm text-muted-foreground">Configurações</span>}

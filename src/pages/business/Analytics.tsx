@@ -21,9 +21,9 @@ export const Analytics = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">32%</div>
-            <p className="text-xs text-success mt-1">
-              +8% vs objetivo
+            <div className="text-2xl font-bold">0%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Sem dados
             </p>
           </CardContent>
         </Card>
@@ -36,9 +36,9 @@ export const Analytics = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R$ 1.2M</div>
-            <p className="text-xs text-success mt-1">
-              +15% vs último mês
+            <div className="text-2xl font-bold">R$ 0</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Sem dados
             </p>
           </CardContent>
         </Card>
@@ -51,9 +51,9 @@ export const Analytics = () => {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">284</div>
+            <div className="text-2xl font-bold">0</div>
             <p className="text-xs text-muted-foreground mt-1">
-              12 novos este mês
+              Nenhum cliente
             </p>
           </CardContent>
         </Card>
@@ -66,9 +66,9 @@ export const Analytics = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">72</div>
-            <p className="text-xs text-success mt-1">
-              +5 pontos vs Q3
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Sem dados
             </p>
           </CardContent>
         </Card>
