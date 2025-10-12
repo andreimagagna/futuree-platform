@@ -18,6 +18,7 @@ import { Campanhas } from "./pages/marketing/Campanhas";
 import MarketingTasks from "./pages/marketing/MarketingTasks";
 import ConstrutorFunil from "./pages/marketing/ConstrutorFunil";
 import { Analytics } from "./pages/business/Analytics";
+import Automations from "./pages/Automations";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/tasks" element={<AppLayout currentView="tasks"><Tasks /></AppLayout>} />
           <Route path="/funnel" element={<AppLayout currentView="funnel"><Funnel /></AppLayout>} />
           <Route path="/reports" element={<AppLayout currentView="reports"><Reports /></AppLayout>} />
+          <Route path="/automations" element={<AppLayout currentView="automations"><Automations /></AppLayout>} />
           <Route path="/agent" element={<Agent />} />
           <Route path="/guide" element={<Guide />} />
           

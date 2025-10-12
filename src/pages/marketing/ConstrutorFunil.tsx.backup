@@ -167,7 +167,6 @@ const NODE_TEMPLATES = {
     category: 'system',
     label: 'Plataforma de Automação',
     icon: 'Zap',
-    color: 'from-[hsl(35,60%,55%)] to-[hsl(35,60%,50%)]',
     textColor: 'text-[hsl(35,60%,45%)]',
     bgColor: 'bg-[hsl(35,60%,95%)]',
     borderColor: 'border-[hsl(35,60%,85%)]',
@@ -421,17 +420,12 @@ export default function ConstrutorFunil() {
     // O zoom foi removido para simplificar a interação
   };
 
-  const addNode = (type: string) => {
-    const template = NODE_TEMPLATES[type as keyof typeof NODE_TEMPLATES];
-    if (!template) return;
-
+  const addNode = (type: FunnelNode['type']) => {
     const newNode: FunnelNode = {
-      id: `node-${Date.now()}`,
+      id: `${type}-${Date.now()}`,
       type,
-      category: template.category,
-      label: template.label,
-      description: template.description,
-      icon: template.icon,
+      label: NODE_TYPES[type].label,
+      description: `Nova etapa de ${NODE_TYPES[type].label.toLowerCase()}`,
       position: { x: 200, y: 200 },
       config: {},
       connections: []
@@ -442,46 +436,7 @@ export default function ConstrutorFunil() {
 
     toast({
       title: "Nó adicionado!",
-      description: `${template.label} foi adicionado ao funil.`,
-    });
-  };
-
-  const addCustomNode = () => {
-    if (!customNodeLabel.trim()) {
-      toast({
-        title: "Erro",
-        description: "Preencha o nome do nó",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const newNode: FunnelNode = {
-      id: `custom-${Date.now()}`,
-      type: 'custom',
-      category: newNodeCategory,
-      label: customNodeLabel,
-      description: customNodeDescription || 'Nó personalizado',
-      icon: customNodeIcon,
-      color: customNodeColor,
-      position: { x: 200, y: 200 },
-      config: {},
-      connections: []
-    };
-
-    setNodes(prev => [...prev, newNode]);
-    setShowCustomNodeDialog(false);
-    
-    // Reset form
-    setCustomNodeLabel('');
-    setCustomNodeDescription('');
-    setCustomNodeIcon('Plus');
-    setCustomNodeColor('from-gray-500 to-gray-600');
-    setNewNodeCategory('custom');
-
-    toast({
-      title: "Nó personalizado criado!",
-      description: `${customNodeLabel} foi adicionado ao funil.`,
+      description: `${NODE_TYPES[type].label} foi adicionado ao funil.`,
     });
   };
 
@@ -623,17 +578,11 @@ export default function ConstrutorFunil() {
   };
 
   const renderNode = (node: FunnelNode) => {
-    const template = NODE_TEMPLATES[node.type as keyof typeof NODE_TEMPLATES];
-    const IconComponent = ICON_MAP[node.icon || 'Plus'];
+    const nodeType = NODE_TYPES[node.type];
+    const Icon = nodeType.icon;
     const isSelected = selectedNode?.id === node.id;
     const isConnectingFrom = isConnecting === node.id;
     const isHovered = hoveredNode === node.id;
-
-    // Usar template se existir, senão usar valores do próprio nó (customizado)
-    const nodeColor = node.color || template?.color || 'from-gray-500 to-gray-600';
-    const nodeBgColor = template?.bgColor || 'bg-gray-50';
-    const nodeBorderColor = template?.borderColor || 'border-gray-300';
-    const nodeTextColor = template?.textColor || 'text-gray-700';
 
     return (
       <div
@@ -663,31 +612,30 @@ export default function ConstrutorFunil() {
             ? 'border-primary shadow-2xl shadow-primary/30 ring-4 ring-primary/20' 
             : isConnectingFrom
             ? 'border-[hsl(140,30%,40%)] shadow-2xl shadow-[hsl(140,30%,40%)]/30 animate-pulse'
-            : `${nodeBorderColor} hover:shadow-xl hover:scale-[1.02]`
+            : `${nodeType.borderColor} hover:shadow-xl hover:scale-[1.02]`
         }`}>
           
           {/* Header do nó com cor */}
-          <div className={`relative bg-gradient-to-r ${nodeColor} p-4 text-white`}>
+          <div className={`relative bg-gradient-to-r ${nodeType.color} p-4 text-white`}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg">
-                {IconComponent && <IconComponent className="w-5 h-5 text-white" />}
+                <Icon className="w-5 h-5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-base truncate">{node.label}</h3>
-                <p className="text-xs text-white/80 truncate">{node.description}</p>
+                <p className="text-xs text-white/80 truncate">{nodeType.description}</p>
               </div>
             </div>
 
-            {/* Badge de categoria */}
-            <div className="absolute top-2 right-2">
-              <div className="bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] font-medium shadow-md">
-                {node.category === 'acquisition' && 'Aquisição'}
-                {node.category === 'system' && 'Sistema'}
-                {node.category === 'communication' && 'Comunicação'}
-                {node.category === 'conversion' && 'Conversão'}
-                {node.category === 'custom' && 'Personalizado'}
+            {/* Badge de automação */}
+            {node.config.automation && (
+              <div className="absolute top-2 right-2">
+                <div className="flex items-center gap-1 bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full text-xs font-bold shadow-md">
+                  <Zap className="w-3 h-3" />
+                  <span>Auto</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Corpo do nó */}
@@ -698,10 +646,22 @@ export default function ConstrutorFunil() {
 
             {/* Metadados */}
             <div className="flex flex-wrap gap-2 pt-2">
+              {node.config.delay && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                  <Calendar className="w-3 h-3" />
+                  <span>{node.config.delay}d</span>
+                </div>
+              )}
               {node.connections.length > 0 && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
                   <GitBranch className="w-3 h-3" />
                   <span>{node.connections.length}</span>
+                </div>
+              )}
+              {node.config.conditions && node.config.conditions.length > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">
+                  <Target className="w-3 h-3" />
+                  <span>{node.config.conditions.length}</span>
                 </div>
               )}
             </div>
@@ -1140,139 +1100,33 @@ export default function ConstrutorFunil() {
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Grid3x3 className="w-4 h-4 text-primary" />
-                <h3 className="font-bold text-sm">Biblioteca de Nós</h3>
+                <h3 className="font-bold text-sm">Tipos de Nós</h3>
               </div>
-
-              {/* Categorias */}
-              <div className="space-y-3">
-                {/* Aquisição */}
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground mb-2">Aquisição</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(NODE_TEMPLATES)
-                      .filter(([_, config]) => config.category === 'acquisition')
-                      .map(([type, config]) => {
-                        const IconComp = ICON_MAP[config.icon || 'Plus'];
-                        return (
-                          <button
-                            key={type}
-                            className="group relative overflow-hidden rounded-xl border-2 border-border hover:border-primary/50 bg-background p-2.5 transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95"
-                            onClick={() => addNode(type)}
-                            title={config.description}
-                          >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${config.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
-                            <div className="relative flex flex-col items-center gap-1.5">
-                              <div className={`w-9 h-9 bg-gradient-to-br ${config.color} rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow`}>
-                                {IconComp && <IconComp className="w-4 h-4 text-white" />}
-                              </div>
-                              <span className={`text-[11px] font-medium ${config.textColor} group-hover:font-bold transition-all leading-tight text-center`}>
-                                {config.label}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                    })}
-                  </div>
-                </div>
-
-                {/* Sistemas */}
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground mb-2">Sistemas</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(NODE_TEMPLATES)
-                      .filter(([_, config]) => config.category === 'system')
-                      .map(([type, config]) => {
-                        const IconComp = ICON_MAP[config.icon || 'Plus'];
-                        return (
-                          <button
-                            key={type}
-                            className="group relative overflow-hidden rounded-xl border-2 border-border hover:border-primary/50 bg-background p-2.5 transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95"
-                            onClick={() => addNode(type)}
-                            title={config.description}
-                          >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${config.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
-                            <div className="relative flex flex-col items-center gap-1.5">
-                              <div className={`w-9 h-9 bg-gradient-to-br ${config.color} rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow`}>
-                                {IconComp && <IconComp className="w-4 h-4 text-white" />}
-                              </div>
-                              <span className={`text-[11px] font-medium ${config.textColor} group-hover:font-bold transition-all leading-tight text-center`}>
-                                {config.label}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                    })}
-                  </div>
-                </div>
-
-                {/* Comunicação */}
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground mb-2">Comunicação</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(NODE_TEMPLATES)
-                      .filter(([_, config]) => config.category === 'communication')
-                      .map(([type, config]) => {
-                        const IconComp = ICON_MAP[config.icon || 'Plus'];
-                        return (
-                          <button
-                            key={type}
-                            className="group relative overflow-hidden rounded-xl border-2 border-border hover:border-primary/50 bg-background p-2.5 transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95"
-                            onClick={() => addNode(type)}
-                            title={config.description}
-                          >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${config.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
-                            <div className="relative flex flex-col items-center gap-1.5">
-                              <div className={`w-9 h-9 bg-gradient-to-br ${config.color} rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow`}>
-                                {IconComp && <IconComp className="w-4 h-4 text-white" />}
-                              </div>
-                              <span className={`text-[11px] font-medium ${config.textColor} group-hover:font-bold transition-all leading-tight text-center`}>
-                                {config.label}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                    })}
-                  </div>
-                </div>
-
-                {/* Conversão */}
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground mb-2">Conversão</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {Object.entries(NODE_TEMPLATES)
-                      .filter(([_, config]) => config.category === 'conversion')
-                      .map(([type, config]) => {
-                        const IconComp = ICON_MAP[config.icon || 'Plus'];
-                        return (
-                          <button
-                            key={type}
-                            className="group relative overflow-hidden rounded-xl border-2 border-border hover:border-primary/50 bg-background p-2.5 transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95"
-                            onClick={() => addNode(type)}
-                            title={config.description}
-                          >
-                            <div className={`absolute inset-0 bg-gradient-to-br ${config.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
-                            <div className="relative flex flex-col items-center gap-1.5">
-                              <div className={`w-9 h-9 bg-gradient-to-br ${config.color} rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow`}>
-                                {IconComp && <IconComp className="w-4 h-4 text-white" />}
-                              </div>
-                              <span className={`text-[11px] font-medium ${config.textColor} group-hover:font-bold transition-all leading-tight text-center`}>
-                                {config.label}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                    })}
-                  </div>
-                </div>
-
-                {/* Botão Criar Personalizado */}
-                <button
-                  className="w-full py-3 border-2 border-dashed border-primary/30 rounded-xl hover:border-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-sm font-medium text-primary"
-                  onClick={() => setShowCustomNodeDialog(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  Criar Nó Personalizado
-                </button>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(NODE_TYPES).map(([type, config]) => {
+                  const Icon = config.icon;
+                  return (
+                    <button
+                      key={type}
+                      className={`group relative overflow-hidden rounded-xl border-2 border-border hover:border-primary/50 bg-background p-2.5 transition-all duration-300 hover:scale-105 hover:shadow-lg active:scale-95`}
+                      onClick={() => addNode(type as FunnelNode['type'])}
+                      title={config.description}
+                    >
+                      {/* Gradiente de fundo */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${config.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
+                      
+                      {/* Conteúdo */}
+                      <div className="relative flex flex-col items-center gap-1.5">
+                        <div className={`w-9 h-9 bg-gradient-to-br ${config.color} rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow`}>
+                          <Icon className="w-4 h-4 text-white" />
+                        </div>
+                        <span className={`text-[11px] font-medium ${config.textColor} group-hover:font-bold transition-all leading-tight text-center`}>
+                          {config.label}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
               <p className="text-[11px] text-muted-foreground text-center pt-1">
                 Clique para adicionar ao canvas
@@ -1297,15 +1151,15 @@ export default function ConstrutorFunil() {
                   </div>
                   <div className="bg-background/50 rounded-lg p-3 border border-border/50">
                     <div className="text-2xl font-bold text-[hsl(140,30%,40%)]">
-                      {nodes.filter(n => n.category === 'acquisition').length}
+                      {nodes.filter(n => n.config.automation).length}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">Aquisição</div>
+                    <div className="text-[10px] text-muted-foreground">Automatizados</div>
                   </div>
                   <div className="bg-background/50 rounded-lg p-3 border border-border/50">
                     <div className="text-2xl font-bold text-[hsl(35,60%,45%)]">
-                      {nodes.filter(n => n.category === 'conversion').length}
+                      {connections.reduce((sum, c) => sum + (c.label ? 1 : 0), 0)}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">Conversão</div>
+                    <div className="text-[10px] text-muted-foreground">Com Rótulo</div>
                   </div>
                 </div>
               </div>
@@ -1362,16 +1216,35 @@ export default function ConstrutorFunil() {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="node-category" className="text-xs font-bold">Categoria</Label>
-                    <Badge variant="outline" className="w-full justify-center py-2">
-                      {selectedNode.category === 'acquisition' && '🎯 Aquisição'}
-                      {selectedNode.category === 'system' && '⚙️ Sistema'}
-                      {selectedNode.category === 'communication' && '💬 Comunicação'}
-                      {selectedNode.category === 'conversion' && '✅ Conversão'}
-                      {selectedNode.category === 'custom' && '✨ Personalizado'}
-                    </Badge>
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-yellow-500" />
+                      <Label htmlFor="automation" className="text-xs font-medium cursor-pointer">
+                        Automação Ativa
+                      </Label>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="automation"
+                      checked={selectedNode.config.automation || false}
+                      onChange={(e) => updateNodeConfig(selectedNode.id, { automation: e.target.checked })}
+                      className="w-4 h-4 cursor-pointer"
+                    />
                   </div>
+
+                  {selectedNode.config.automation && (
+                    <div className="space-y-2 animate-in slide-in-from-top duration-200">
+                      <Label htmlFor="delay" className="text-xs font-bold">Atraso (dias)</Label>
+                      <Input
+                        id="delay"
+                        type="number"
+                        min="0"
+                        value={selectedNode.config.delay || 0}
+                        onChange={(e) => updateNodeConfig(selectedNode.id, { delay: parseInt(e.target.value) })}
+                        className="h-9"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1645,98 +1518,67 @@ export default function ConstrutorFunil() {
         </div>
       </div>
 
-      {/* Dialog para criar nó personalizado */}
-      <Dialog open={showCustomNodeDialog} onOpenChange={setShowCustomNodeDialog}>
+      {/* Dialog aprimorado para adicionar nó */}
+      <Dialog open={showNodeDialog} onOpenChange={setShowNodeDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Edit3 className="w-5 h-5 text-primary" />
-              Criar Nó Personalizado
+              <Plus className="w-5 h-5 text-primary" />
+              Adicionar Novo Nó
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="custom-label">Nome do Nó*</Label>
-              <Input
-                id="custom-label"
-                placeholder="Ex: Reunião Comercial"
-                value={customNodeLabel}
-                onChange={(e) => setCustomNodeLabel(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="custom-description">Descrição</Label>
-              <Textarea
-                id="custom-description"
-                placeholder="Descreva a função deste nó..."
-                value={customNodeDescription}
-                onChange={(e) => setCustomNodeDescription(e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="custom-category">Categoria</Label>
-              <Select value={newNodeCategory} onValueChange={(value: FunnelNode['category']) => setNewNodeCategory(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="acquisition">🎯 Aquisição</SelectItem>
-                  <SelectItem value="system">⚙️ Sistema</SelectItem>
-                  <SelectItem value="communication">💬 Comunicação</SelectItem>
-                  <SelectItem value="conversion">✅ Conversão</SelectItem>
-                  <SelectItem value="custom">✨ Personalizado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="custom-icon">Ícone</Label>
-                <Select value={customNodeIcon} onValueChange={setCustomNodeIcon}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Plus">➕ Plus</SelectItem>
-                    <SelectItem value="Target">🎯 Target</SelectItem>
-                    <SelectItem value="Users">👥 Users</SelectItem>
-                    <SelectItem value="Share2">↗️ Share</SelectItem>
-                    <SelectItem value="Cloud">☁️ Cloud</SelectItem>
-                    <SelectItem value="Edit3">✏️ Edit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="custom-color">Cor</Label>
-                <Select value={customNodeColor} onValueChange={setCustomNodeColor}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="from-blue-500 to-blue-600">🔵 Azul</SelectItem>
-                    <SelectItem value="from-green-500 to-green-600">🟢 Verde</SelectItem>
-                    <SelectItem value="from-purple-500 to-purple-600">🟣 Roxo</SelectItem>
-                    <SelectItem value="from-orange-500 to-orange-600">🟠 Laranja</SelectItem>
-                    <SelectItem value="from-red-500 to-red-600">🔴 Vermelho</SelectItem>
-                    <SelectItem value="from-gray-500 to-gray-600">⚫ Cinza</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-3">
+              <Label className="text-sm font-bold">Selecione o tipo de nó</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(NODE_TYPES).map(([type, config]) => {
+                  const Icon = config.icon;
+                  const isSelected = newNodeType === type;
+                  return (
+                    <button
+                      key={type}
+                      className={`relative overflow-hidden rounded-xl border-2 p-4 transition-all duration-200 ${
+                        isSelected 
+                          ? 'border-primary bg-primary/10 shadow-lg scale-105' 
+                          : 'border-border hover:border-primary/50 hover:bg-muted/50 hover:scale-102'
+                      }`}
+                      onClick={() => setNewNodeType(type as FunnelNode['type'])}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <div className={`w-12 h-12 bg-gradient-to-br ${config.color} rounded-xl flex items-center justify-center shadow-md`}>
+                          <Icon className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="text-center">
+                          <span className={`text-xs font-medium block ${isSelected ? 'text-primary font-bold' : config.textColor}`}>
+                            {config.label}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground block mt-0.5">
+                            {config.description}
+                          </span>
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div className="absolute top-2 right-2">
+                          <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                            <CheckCircle className="w-3 h-3 text-white" />
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowCustomNodeDialog(false)}>
+            <Button variant="outline" onClick={() => setShowNodeDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={addCustomNode} className="bg-gradient-to-r from-primary to-primary/80">
+            <Button onClick={() => addNode(newNodeType)} className="bg-gradient-to-r from-primary to-primary/80">
               <Plus className="w-4 h-4 mr-2" />
-              Criar Nó
+              Adicionar Nó
             </Button>
           </DialogFooter>
         </DialogContent>
