@@ -367,6 +367,8 @@ export default function ConstrutorFunil() {
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
   const [showNodeDialog, setShowNodeDialog] = useState(false);
   const [showCustomNodeDialog, setShowCustomNodeDialog] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [funnelName, setFunnelName] = useState('');
   const [newNodeType, setNewNodeType] = useState<string>('facebook_ads');
   const [newNodeCategory, setNewNodeCategory] = useState<FunnelNode['category']>('acquisition');
   const [customNodeLabel, setCustomNodeLabel] = useState('');
@@ -384,6 +386,12 @@ export default function ConstrutorFunil() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Carregar funis salvos ao montar o componente
+  useEffect(() => {
+    const funnels = JSON.parse(localStorage.getItem('savedFunnels') || '[]');
+    setSavedFunnels(funnels);
+  }, []);
 
   const handleNodeDrag = useCallback((nodeId: string, deltaX: number, deltaY: number) => {
     setNodes(prev => prev.map(node =>
@@ -417,13 +425,48 @@ export default function ConstrutorFunil() {
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    // Permitir scroll normal sem interferência
-    // O zoom foi removido para simplificar a interação
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl/Cmd + Scroll para zoom
+      e.preventDefault();
+      const delta = -e.deltaY * 0.001;
+      setViewport(prev => ({
+        ...prev,
+        zoom: Math.min(Math.max(prev.zoom + delta, 0.3), 2)
+      }));
+    }
+    // Scroll normal para pan vertical/horizontal
   };
 
-  const addNode = (type: string) => {
+  const getCanvasPosition = (clientX: number, clientY: number) => {
+    if (!canvasRef.current) return { x: 200, y: 200 };
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (clientX - rect.left - viewport.x) / viewport.zoom;
+    const y = (clientY - rect.top - viewport.y) / viewport.zoom;
+    
+    return { x, y };
+  };
+
+  const addNode = (type: string, clientX?: number, clientY?: number) => {
     const template = NODE_TEMPLATES[type as keyof typeof NODE_TEMPLATES];
     if (!template) return;
+
+    // Se não forneceu coordenadas, usar centro do viewport
+    let position;
+    if (clientX !== undefined && clientY !== undefined) {
+      position = getCanvasPosition(clientX, clientY);
+    } else {
+      // Centro da tela visível
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        position = getCanvasPosition(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2
+        );
+      } else {
+        position = { x: 200, y: 200 };
+      }
+    }
 
     const newNode: FunnelNode = {
       id: `node-${Date.now()}`,
@@ -432,7 +475,7 @@ export default function ConstrutorFunil() {
       label: template.label,
       description: template.description,
       icon: template.icon,
-      position: { x: 200, y: 200 },
+      position: position,
       config: {},
       connections: []
     };
@@ -446,7 +489,7 @@ export default function ConstrutorFunil() {
     });
   };
 
-  const addCustomNode = () => {
+  const addCustomNode = (clientX?: number, clientY?: number) => {
     if (!customNodeLabel.trim()) {
       toast({
         title: "Erro",
@@ -454,6 +497,22 @@ export default function ConstrutorFunil() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Se não forneceu coordenadas, usar centro do viewport
+    let position;
+    if (clientX !== undefined && clientY !== undefined) {
+      position = getCanvasPosition(clientX, clientY);
+    } else {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        position = getCanvasPosition(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2
+        );
+      } else {
+        position = { x: 200, y: 200 };
+      }
     }
 
     const newNode: FunnelNode = {
@@ -464,7 +523,7 @@ export default function ConstrutorFunil() {
       description: customNodeDescription || 'Nó personalizado',
       icon: customNodeIcon,
       color: customNodeColor,
-      position: { x: 200, y: 200 },
+      position: position,
       config: {},
       connections: []
     };
@@ -536,8 +595,14 @@ export default function ConstrutorFunil() {
   };
 
   const saveFunnel = () => {
-    const funnelName = prompt('Digite um nome para o funil:');
-    if (!funnelName) return;
+    if (!funnelName.trim()) {
+      toast({
+        title: "Erro",
+        description: "Digite um nome para o funil",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const funnelData = {
       nodes,
@@ -547,13 +612,30 @@ export default function ConstrutorFunil() {
     };
 
     const existingFunnels = JSON.parse(localStorage.getItem('savedFunnels') || '[]');
-    const updatedFunnels = [...existingFunnels, funnelData];
-    localStorage.setItem('savedFunnels', JSON.stringify(updatedFunnels));
+    
+    // Verificar se já existe um funil com esse nome
+    const duplicateIndex = existingFunnels.findIndex((f: any) => f.name === funnelName);
+    if (duplicateIndex >= 0) {
+      // Sobrescrever
+      existingFunnels[duplicateIndex] = funnelData;
+    } else {
+      existingFunnels.push(funnelData);
+    }
+    
+    localStorage.setItem('savedFunnels', JSON.stringify(existingFunnels));
+    setSavedFunnels(existingFunnels);
+    setShowSaveDialog(false);
+    setFunnelName('');
 
     toast({
       title: "Funil salvo!",
-      description: `"${funnelName}" foi salvo com sucesso.`,
+      description: `"${funnelData.name}" foi salvo com sucesso.`,
     });
+  };
+
+  const openSaveDialog = () => {
+    setFunnelName('');
+    setShowSaveDialog(true);
   };
 
   const loadFunnels = () => {
@@ -1112,16 +1194,22 @@ export default function ConstrutorFunil() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Indicador de Zoom */}
+          <div className="flex items-center gap-2 px-3 py-1 bg-muted rounded-lg text-xs">
+            <span className="text-muted-foreground">Zoom:</span>
+            <span className="font-mono font-bold">{Math.round(viewport.zoom * 100)}%</span>
+          </div>
+
           {/* Botões principais */}
-          <Button variant="outline" size="sm" onClick={() => setShowNodeDialog(true)}>
+          <Button variant="outline" size="sm" onClick={() => setShowCustomNodeDialog(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Novo Nó
+            Criar Nó
           </Button>
           <Button variant="outline" size="sm" onClick={loadFunnels}>
             <FolderOpen className="w-4 h-4 mr-2" />
             Carregar
           </Button>
-          <Button size="sm" onClick={saveFunnel}>
+          <Button size="sm" onClick={openSaveDialog}>
             <Save className="w-4 h-4 mr-2" />
             Salvar
           </Button>
@@ -1562,6 +1650,17 @@ export default function ConstrutorFunil() {
               onMouseDown={handleCanvasMouseDown}
               onWheel={handleWheel}
             >
+              {/* Wrapper com zoom/pan */}
+              <div
+                style={{
+                  transform: `scale(${viewport.zoom})`,
+                  transformOrigin: '0 0',
+                  transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+                  position: 'relative',
+                  width: '100%',
+                  height: '100%'
+                }}
+              >
             {/* SVG para conexões - usar largura/altura fixas para cobrir toda a área */}
             <svg 
               className="absolute top-0 left-0 pointer-events-none" 
@@ -1640,10 +1739,11 @@ export default function ConstrutorFunil() {
                 </div>
               </div>
             )}
-            </div>
-          </div>
-        </div>
-      </div>
+              </div> {/* Fecha wrapper de zoom */}
+            </div> {/* Fecha canvas interativo */}
+          </div> {/* Fecha container com grid */}
+        </div> {/* Fecha canvas aprimorado */}
+      </div> {/* Fecha flex container (sidebar + canvas) */}
 
       {/* Dialog para criar nó personalizado */}
       <Dialog open={showCustomNodeDialog} onOpenChange={setShowCustomNodeDialog}>
@@ -1734,9 +1834,53 @@ export default function ConstrutorFunil() {
             <Button variant="outline" onClick={() => setShowCustomNodeDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={addCustomNode} className="bg-gradient-to-r from-primary to-primary/80">
+            <Button onClick={() => addCustomNode()} className="bg-gradient-to-r from-primary to-primary/80">
               <Plus className="w-4 h-4 mr-2" />
               Criar Nó
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para salvar funil */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Save className="w-5 h-5 text-primary" />
+              Salvar Funil
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="funnel-name">Nome do Funil*</Label>
+              <Input
+                id="funnel-name"
+                placeholder="Ex: Funil de Marketing Q1 2025"
+                value={funnelName}
+                onChange={(e) => setFunnelName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    saveFunnel();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>• {nodes.length} nós</p>
+              <p>• {connections.length} conexões</p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveFunnel} className="bg-gradient-to-r from-primary to-primary/80">
+              <Save className="w-4 h-4 mr-2" />
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
