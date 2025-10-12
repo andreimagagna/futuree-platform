@@ -54,6 +54,8 @@ import {
   Filter,
   CheckSquare,
   Edit3,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -95,10 +97,10 @@ const NODE_TEMPLATES = {
     category: 'acquisition',
     label: 'Facebook Ads',
     icon: 'Facebook',
-    color: 'from-[#1877F2] to-[#0c63d4]',
-    textColor: 'text-[#1877F2]',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
+    color: 'from-[hsl(200,15%,45%)] to-[hsl(200,15%,40%)]',
+    textColor: 'text-[hsl(200,15%,45%)]',
+    bgColor: 'bg-[hsl(200,15%,95%)]',
+    borderColor: 'border-[hsl(200,15%,85%)]',
     description: 'Campanha de anúncios no Facebook'
   },
   instagram_ads: {
@@ -115,20 +117,20 @@ const NODE_TEMPLATES = {
     category: 'acquisition',
     label: 'LinkedIn Ads',
     icon: 'Linkedin',
-    color: 'from-[#0A66C2] to-[#004182]',
-    textColor: 'text-[#0A66C2]',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-300',
+    color: 'from-[hsl(18,25%,30%)] to-[hsl(18,25%,25%)]',
+    textColor: 'text-[hsl(18,25%,30%)]',
+    bgColor: 'bg-[hsl(18,25%,95%)]',
+    borderColor: 'border-[hsl(18,25%,85%)]',
     description: 'Campanha de anúncios no LinkedIn'
   },
   google_ads: {
     category: 'acquisition',
     label: 'Google Ads',
     icon: 'Search',
-    color: 'from-[#4285F4] to-[#1967D2]',
-    textColor: 'text-[#4285F4]',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
+    color: 'from-[hsl(20,10%,50%)] to-[hsl(20,10%,45%)]',
+    textColor: 'text-[hsl(20,10%,45%)]',
+    bgColor: 'bg-[hsl(20,10%,95%)]',
+    borderColor: 'border-[hsl(20,10%,85%)]',
     description: 'Campanha de Google Ads'
   },
   organic_search: {
@@ -199,10 +201,10 @@ const NODE_TEMPLATES = {
     category: 'communication',
     label: 'WhatsApp',
     icon: 'MessageSquare',
-    color: 'from-[#25D366] to-[#128C7E]',
-    textColor: 'text-[#25D366]',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
+    color: 'from-[hsl(140,30%,40%)] to-[hsl(140,30%,35%)]',
+    textColor: 'text-[hsl(140,30%,40%)]',
+    bgColor: 'bg-[hsl(140,30%,95%)]',
+    borderColor: 'border-[hsl(140,30%,85%)]',
     description: 'Envio via WhatsApp'
   },
   email: {
@@ -374,7 +376,7 @@ export default function ConstrutorFunil() {
   const [customNodeLabel, setCustomNodeLabel] = useState('');
   const [customNodeDescription, setCustomNodeDescription] = useState('');
   const [customNodeIcon, setCustomNodeIcon] = useState('Plus');
-  const [customNodeColor, setCustomNodeColor] = useState('from-gray-500 to-gray-600');
+  const [customNodeColor, setCustomNodeColor] = useState('from-[hsl(20,10%,50%)] to-[hsl(20,10%,45%)]');
   const [editingConnection, setEditingConnection] = useState<string | null>(null);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [savedFunnels, setSavedFunnels] = useState<{name: string, data: any, date: string}[]>([]);
@@ -383,6 +385,7 @@ export default function ConstrutorFunil() {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [hoveredConnection, setHoveredConnection] = useState<string | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -535,7 +538,7 @@ export default function ConstrutorFunil() {
     setCustomNodeLabel('');
     setCustomNodeDescription('');
     setCustomNodeIcon('Plus');
-    setCustomNodeColor('from-gray-500 to-gray-600');
+    setCustomNodeColor('from-[hsl(20,10%,50%)] to-[hsl(20,10%,45%)]');
     setNewNodeCategory('custom');
 
     toast({
@@ -1213,17 +1216,33 @@ export default function ConstrutorFunil() {
             <Save className="w-4 h-4 mr-2" />
             Salvar
           </Button>
-          <Button variant="default" size="sm" className="bg-gradient-to-r from-primary to-primary/80">
-            <Play className="w-4 h-4 mr-2" />
-            Executar
-          </Button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden min-h-0">
-        {/* Sidebar redesenhada */}
-        <div className="w-80 border-r bg-gradient-to-b from-muted/30 to-muted/10 backdrop-blur-sm overflow-y-auto flex-shrink-0">
-          <div className="p-4 space-y-6 h-full">
+      <div className="flex flex-1 overflow-hidden min-h-0 relative">
+        {/* Botão de toggle da sidebar - fora da sidebar para sempre ficar visível */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`absolute top-4 z-50 h-8 w-8 rounded-full bg-background border shadow-md hover:bg-muted transition-all duration-300 ${
+            isSidebarCollapsed ? 'left-2' : 'left-[310px]'
+          }`}
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        >
+          {isSidebarCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
+
+        {/* Sidebar redesenhada com collapse */}
+        <div 
+          className={`border-r bg-gradient-to-b from-muted/30 to-muted/10 backdrop-blur-sm overflow-y-auto flex-shrink-0 transition-all duration-300 ${
+            isSidebarCollapsed ? 'w-0' : 'w-80'
+          }`}
+        >
+          <div className={`p-4 space-y-6 h-full ${isSidebarCollapsed ? 'hidden' : ''}`}>
             {/* Paleta de Nós */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -1784,11 +1803,11 @@ export default function ConstrutorFunil() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="acquisition">🎯 Aquisição</SelectItem>
-                  <SelectItem value="system">⚙️ Sistema</SelectItem>
-                  <SelectItem value="communication">💬 Comunicação</SelectItem>
-                  <SelectItem value="conversion">✅ Conversão</SelectItem>
-                  <SelectItem value="custom">✨ Personalizado</SelectItem>
+                  <SelectItem value="acquisition">Aquisição</SelectItem>
+                  <SelectItem value="system">Sistema</SelectItem>
+                  <SelectItem value="communication">Comunicação</SelectItem>
+                  <SelectItem value="conversion">Conversão</SelectItem>
+                  <SelectItem value="custom">Personalizado</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1801,12 +1820,12 @@ export default function ConstrutorFunil() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Plus">➕ Plus</SelectItem>
-                    <SelectItem value="Target">🎯 Target</SelectItem>
-                    <SelectItem value="Users">👥 Users</SelectItem>
-                    <SelectItem value="Share2">↗️ Share</SelectItem>
-                    <SelectItem value="Cloud">☁️ Cloud</SelectItem>
-                    <SelectItem value="Edit3">✏️ Edit</SelectItem>
+                    <SelectItem value="Plus">Plus</SelectItem>
+                    <SelectItem value="Target">Target</SelectItem>
+                    <SelectItem value="Users">Users</SelectItem>
+                    <SelectItem value="Share2">Share</SelectItem>
+                    <SelectItem value="Cloud">Cloud</SelectItem>
+                    <SelectItem value="Edit3">Edit</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1818,12 +1837,42 @@ export default function ConstrutorFunil() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="from-blue-500 to-blue-600">🔵 Azul</SelectItem>
-                    <SelectItem value="from-green-500 to-green-600">🟢 Verde</SelectItem>
-                    <SelectItem value="from-purple-500 to-purple-600">🟣 Roxo</SelectItem>
-                    <SelectItem value="from-orange-500 to-orange-600">🟠 Laranja</SelectItem>
-                    <SelectItem value="from-red-500 to-red-600">🔴 Vermelho</SelectItem>
-                    <SelectItem value="from-gray-500 to-gray-600">⚫ Cinza</SelectItem>
+                    <SelectItem value="from-[hsl(18,30%,25%)] to-[hsl(18,30%,20%)]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[hsl(18,30%,25%)] to-[hsl(18,30%,20%)]" />
+                        Marrom Escuro
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="from-[hsl(18,25%,30%)] to-[hsl(18,25%,25%)]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[hsl(18,25%,30%)] to-[hsl(18,25%,25%)]" />
+                        Marrom Médio
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="from-[hsl(35,60%,55%)] to-[hsl(35,60%,50%)]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[hsl(35,60%,55%)] to-[hsl(35,60%,50%)]" />
+                        Laranja/Âmbar
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="from-[hsl(140,30%,40%)] to-[hsl(140,30%,35%)]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[hsl(140,30%,40%)] to-[hsl(140,30%,35%)]" />
+                        Verde Musgo
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="from-[hsl(200,15%,45%)] to-[hsl(200,15%,40%)]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[hsl(200,15%,45%)] to-[hsl(200,15%,40%)]" />
+                        Cinza Azulado
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="from-[hsl(20,10%,50%)] to-[hsl(20,10%,45%)]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[hsl(20,10%,50%)] to-[hsl(20,10%,45%)]" />
+                        Cinza Neutro
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>

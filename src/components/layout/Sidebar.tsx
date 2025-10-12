@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap } from "lucide-react";
+import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap, Layout } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -101,6 +101,12 @@ const solutions: SolutionGroup[] = [
         label: "Construtor de Funis",
         icon: GitBranch,
         path: "/marketing/construtor-funil",
+      },
+      {
+        id: "landing-pages",
+        label: "Landing Pages",
+        icon: Layout,
+        path: "/marketing/landing-pages",
       },
     ],
   },

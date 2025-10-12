@@ -368,7 +368,7 @@ export default function Automations() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-[hsl(18,30%,25%)]">Automações</h1>
+          <h1 className="text-3xl font-bold text-primary">Automações</h1>
         </div>
         <div className="flex gap-2">
           <Dialog open={showSettings} onOpenChange={setShowSettings}>
@@ -469,7 +469,7 @@ export default function Automations() {
                   Cancelar
                 </Button>
                 <Button 
-                  className="bg-[hsl(18,30%,25%)] hover:bg-[hsl(18,30%,20%)]"
+                  className="bg-primary hover:bg-primary-hover text-primary-foreground"
                   onClick={() => {
                     setShowSettings(false);
                     localStorage.setItem('automation-settings', JSON.stringify({
@@ -494,7 +494,7 @@ export default function Automations() {
 
           <Dialog open={showNewAutomation} onOpenChange={setShowNewAutomation}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-[hsl(18,30%,25%)] hover:bg-[hsl(18,30%,20%)]">
+              <Button size="sm" className="bg-primary hover:bg-primary-hover text-primary-foreground">
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Automação
               </Button>
@@ -755,7 +755,7 @@ export default function Automations() {
                   Cancelar
                 </Button>
                 <Button 
-                  className="bg-[hsl(18,30%,25%)] hover:bg-[hsl(18,30%,20%)]"
+                  className="bg-primary hover:bg-primary-hover text-primary-foreground"
                   onClick={handleCreateAutomation}
                 >
                   Criar Automação
@@ -1025,7 +1025,7 @@ export default function Automations() {
               Cancelar
             </Button>
             <Button 
-              className="bg-[hsl(18,30%,25%)] hover:bg-[hsl(18,30%,20%)]"
+              className="bg-primary hover:bg-primary-hover text-primary-foreground"
               onClick={handleUpdateAutomation}
             >
               Salvar Alterações
@@ -1078,7 +1078,7 @@ export default function Automations() {
                     <Card key={index}>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[hsl(18,30%,25%)] text-white text-sm font-medium">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-medium">
                             {index + 1}
                           </div>
                           <div className="flex-1 space-y-2">
@@ -1178,7 +1178,7 @@ export default function Automations() {
               Fechar
             </Button>
             <Button 
-              className="bg-[hsl(18,30%,25%)] hover:bg-[hsl(18,30%,20%)]"
+              className="bg-primary hover:bg-primary-hover text-primary-foreground"
               onClick={() => selectedTemplate && handleUseTemplate(selectedTemplate)}
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -1266,7 +1266,7 @@ export default function Automations() {
                     Ver Templates
                   </Button>
                   <Button
-                    className="bg-[hsl(18,30%,25%)] hover:bg-[hsl(18,30%,20%)]"
+                    className="bg-primary hover:bg-primary-hover text-primary-foreground"
                     onClick={() => setShowNewAutomation(true)}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -1284,7 +1284,7 @@ export default function Automations() {
                     <div className="flex items-center gap-2 mb-2">
                       <CardTitle className="text-lg">{rule.name}</CardTitle>
                       {rule.isActive ? (
-                        <Badge variant="default" className="bg-[hsl(140,30%,40%)]">
+                        <Badge variant="default" className="bg-success text-success-foreground">
                           <Play className="h-3 w-3 mr-1" />
                           Ativa
                         </Badge>
@@ -1395,83 +1395,100 @@ export default function Automations() {
         <TabsContent value="templates" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {templates.map((template) => (
-              <Card key={template.id} className="hover:shadow-lg transition-all">
-                <CardHeader>
+              <Card key={template.id} className="hover:shadow-lg transition-all group relative overflow-hidden">
+                {/* Gradient Background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                
+                <CardHeader className="relative">
                   <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-2xl">{template.icon}</span>
-                        <CardTitle className="text-lg">{template.name}</CardTitle>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center shadow-md">
+                          <Workflow className="h-5 w-5 text-primary-foreground" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">{template.name}</CardTitle>
+                          <Badge variant="outline" className="text-xs capitalize mt-1">
+                            {template.category}
+                          </Badge>
+                        </div>
                       </div>
-                      <CardDescription>{template.description}</CardDescription>
+                      <CardDescription className="mt-2">{template.description}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {template.category}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {getTriggerLabel(template.rule.trigger)}
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Zap className="h-4 w-4" />
-                        {template.rule.actions?.length || 0} ações
+                <CardContent className="relative">
+                  <div className="space-y-4">
+                    {/* Stats compactas */}
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+                          <Zap className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-foreground">{template.rule.actions?.length || 0}</div>
+                          <div className="text-xs">ações</div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        {Math.max(...(template.rule.actions?.map(a => a.delay) || [0])) >= 1440
-                          ? `${Math.floor(Math.max(...(template.rule.actions?.map(a => a.delay) || [0])) / 1440)} dias`
-                          : `${Math.floor(Math.max(...(template.rule.actions?.map(a => a.delay) || [0])) / 60)} horas`
-                        }
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+                          <Clock className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-foreground">
+                            {Math.max(...(template.rule.actions?.map(a => a.delay) || [0])) >= 1440
+                              ? `${Math.floor(Math.max(...(template.rule.actions?.map(a => a.delay) || [0])) / 1440)}d`
+                              : `${Math.floor(Math.max(...(template.rule.actions?.map(a => a.delay) || [0])) / 60)}h`
+                            }
+                          </div>
+                          <div className="text-xs">duração</div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t">
-                      <div className="text-xs text-muted-foreground mb-3">Tipos de contato:</div>
+                    {/* Tipos de contato */}
+                    <div className="pt-3 border-t">
+                      <div className="text-xs font-medium text-muted-foreground mb-2">Canais de contato</div>
                       <div className="flex gap-2">
                         {template.rule.actions?.some(a => a.config.taskType === 'call') && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Phone className="h-3 w-3 mr-1" />
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[hsl(200,15%,45%)]/10 text-[hsl(200,15%,35%)] dark:text-[hsl(200,15%,70%)] text-xs font-medium">
+                            <Phone className="h-3 w-3" />
                             Ligação
-                          </Badge>
+                          </div>
                         )}
                         {template.rule.actions?.some(a => a.config.taskType === 'whatsapp') && (
-                          <Badge variant="secondary" className="text-xs">
-                            <MessageSquare className="h-3 w-3 mr-1" />
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[hsl(140,30%,40%)]/10 text-[hsl(140,30%,30%)] dark:text-[hsl(140,30%,65%)] text-xs font-medium">
+                            <MessageSquare className="h-3 w-3" />
                             WhatsApp
-                          </Badge>
+                          </div>
                         )}
                         {template.rule.actions?.some(a => a.config.taskType === 'email') && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Mail className="h-3 w-3 mr-1" />
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[hsl(18,25%,30%)]/10 text-[hsl(18,25%,25%)] dark:text-[hsl(18,25%,70%)] text-xs font-medium">
+                            <Mail className="h-3 w-3" />
                             Email
-                          </Badge>
+                          </div>
                         )}
                       </div>
                     </div>
                     
+                    {/* Action buttons */}
                     <div className="grid grid-cols-2 gap-2 pt-2">
                       <Button 
                         size="sm" 
                         variant="outline"
                         onClick={() => handlePreviewTemplate(template)}
+                        className="w-full"
                       >
                         <Activity className="h-4 w-4 mr-2" />
                         Visualizar
                       </Button>
                       <Button 
                         size="sm" 
-                        className="bg-[hsl(18,30%,25%)] hover:bg-[hsl(18,30%,20%)]"
+                        className="w-full bg-primary hover:bg-primary-hover text-primary-foreground"
                         onClick={() => handleUseTemplate(template)}
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Usar
+                        Usar Template
                       </Button>
                     </div>
                   </div>
@@ -1525,7 +1542,7 @@ export default function Automations() {
                     {execution.actions.map((action, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-sm">
                         {action.status === 'completed' && (
-                          <CheckCircle2 className="h-4 w-4 text-[hsl(140,30%,40%)]" />
+                          <CheckCircle2 className="h-4 w-4 text-success" />
                         )}
                         {action.status === 'pending' && (
                           <Clock className="h-4 w-4 text-muted-foreground" />

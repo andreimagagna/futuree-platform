@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import { Campanhas } from "./pages/marketing/Campanhas";
 import MarketingTasks from "./pages/marketing/MarketingTasks";
 import ConstrutorFunil from "./pages/marketing/ConstrutorFunil";
+import EditorLandingPage from "./pages/marketing/EditorLandingPage";
 import { Analytics } from "./pages/business/Analytics";
 import Automations from "./pages/Automations";
 
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/marketing/campanhas" element={<AppLayout currentView="campanhas"><Campanhas /></AppLayout>} />
           <Route path="/marketing/tasks" element={<AppLayout currentView="marketing-tasks"><MarketingTasks /></AppLayout>} />
           <Route path="/marketing/construtor-funil" element={<ConstrutorFunil />} />
+          <Route path="/marketing/landing-pages" element={<EditorLandingPage />} />
           
           {/* Business Solution */}
           <Route path="/business/analytics" element={<AppLayout currentView="analytics"><Analytics /></AppLayout>} />
