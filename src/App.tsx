@@ -18,6 +18,7 @@ import { Campanhas } from "./pages/marketing/Campanhas";
 import MarketingTasks from "./pages/marketing/MarketingTasks";
 import ConstrutorFunil from "./pages/marketing/ConstrutorFunil";
 import EditorLandingPage from "./pages/marketing/EditorLandingPage";
+import { CreatorSolutions } from "./pages/marketing/CreatorSolutions";
 import { Analytics } from "./pages/business/Analytics";
 import Automations from "./pages/Automations";
 
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/marketing/tasks" element={<AppLayout currentView="marketing-tasks"><MarketingTasks /></AppLayout>} />
           <Route path="/marketing/construtor-funil" element={<ConstrutorFunil />} />
           <Route path="/marketing/landing-pages" element={<EditorLandingPage />} />
+          <Route path="/marketing/creator-solutions" element={<AppLayout currentView="creator-solutions"><CreatorSolutions /></AppLayout>} />
           
           {/* Business Solution */}
           <Route path="/business/analytics" element={<AppLayout currentView="analytics"><Analytics /></AppLayout>} />
