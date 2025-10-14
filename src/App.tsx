@@ -23,6 +23,7 @@ import { BaseLeads } from "./pages/marketing/BaseLeads";
 import { Branding } from "./pages/marketing/Branding";
 import { MarketingGuide } from "./pages/marketing/MarketingGuide";
 import { Analytics } from "./pages/business/Analytics";
+import { CustomerSuccess } from "./pages/business/CustomerSuccess";
 import Automations from "./pages/Automations";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
           
           {/* Business Solution */}
           <Route path="/business/analytics" element={<AppLayout currentView="analytics"><Analytics /></AppLayout>} />
+          <Route path="/business/cs" element={<AppLayout currentView="cs"><CustomerSuccess /></AppLayout>} />
           
           {/* Profile & Settings */}
           <Route path="/profile" element={<AppLayout currentView="profile"><Profile /></AppLayout>} />

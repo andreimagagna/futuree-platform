@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap, Layout, Sparkles, Database, Palette } from "lucide-react";
+import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap, Layout, Sparkles, Database, Palette, HeartHandshake } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -146,6 +146,12 @@ const solutions: SolutionGroup[] = [
         label: "Analytics",
         icon: BarChart4,
         path: "/business/analytics",
+      },
+      {
+        id: "cs",
+        label: "Customer Success",
+        icon: HeartHandshake,
+        path: "/business/cs",
       },
     ],
   },
