@@ -125,11 +125,11 @@ export function CreatorIdentityForm() {
     return (
       <div className="space-y-6">
         {/* Header Card */}
-        <Card className="border-2 border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
+        <Card className="border-2 border-primary/20 bg-muted/50">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold text-xl">
+                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
                   {identity.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
@@ -239,7 +239,7 @@ export function CreatorIdentityForm() {
                 <ul className="space-y-1">
                   {identity.storytelling.differentials.map((diff, idx) => (
                     <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <span className="text-purple-500 mt-1">•</span>
+                      <span className="text-primary mt-1">•</span>
                       <span>{diff}</span>
                     </li>
                   ))}
@@ -447,7 +447,7 @@ export function CreatorIdentityForm() {
               <ul className="space-y-1 mt-2">
                 {formData.storytelling?.differentials.map((diff, idx) => (
                   <li key={idx} className="flex items-center gap-2 text-sm">
-                    <span className="text-purple-500">•</span>
+                    <span className="text-primary">•</span>
                     <span className="flex-1">{diff}</span>
                     <X className="w-4 h-4 cursor-pointer text-muted-foreground hover:text-destructive" onClick={() => removeDifferential(diff)} />
                   </li>

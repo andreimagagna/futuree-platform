@@ -9,6 +9,7 @@ import {
   BarChart4, 
   CheckSquare, 
   Bot,
+  Zap,
   TrendingUp,
   Calendar,
   Filter,
@@ -19,7 +20,6 @@ import {
   Play,
   MessageSquare,
   FileSpreadsheet,
-  Zap,
   Settings,
   BookOpen
 } from "lucide-react";
@@ -113,12 +113,28 @@ export const GuideView = ({ onNavigate }: GuideViewProps = {}) => {
       ]
     },
     {
+      id: 'automations',
+      title: 'Automações',
+      icon: Zap,
+      description: 'Automatize processos e workflows',
+      color: 'text-warning',
+      path: '/automations',
+      items: [
+        { title: 'Triggers Inteligentes', desc: 'Ative ações baseadas em eventos' },
+        { title: 'Workflows Visuais', desc: 'Crie fluxos de automação com drag-and-drop' },
+        { title: 'Ações Customizadas', desc: 'Email, WhatsApp, tarefas, notificações' },
+        { title: 'Condições', desc: 'Lógica condicional (if/then/else)' },
+        { title: 'Templates Prontos', desc: 'Automações pré-configuradas' },
+        { title: 'Histórico de Execução', desc: 'Veja todas automações executadas' },
+      ]
+    },
+    {
       id: 'agent',
       title: 'Agente Virtual',
       icon: Bot,
       description: 'Conversas automatizadas com IA',
       color: 'text-cyan-500',
-      path: '/agent',
+      comingSoon: true,
       items: [
         { title: 'Chat Interface', desc: 'Interface de 3 colunas (leads/chat/detalhes)' },
         { title: 'Conversas Ativas', desc: 'Lista de leads sendo atendidos' },

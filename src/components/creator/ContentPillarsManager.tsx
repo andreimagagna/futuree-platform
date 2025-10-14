@@ -12,25 +12,21 @@ import { Plus, Target, TrendingUp, Users, DollarSign, Edit, Trash2, X } from 'lu
 import type { ContentPillar } from '@/types/creator';
 
 const OBJECTIVE_CONFIG = {
-  attraction: { label: 'Atração', icon: Users, color: 'bg-blue-500' },
-  authority: { label: 'Autoridade', icon: Target, color: 'bg-purple-500' },
-  engagement: { label: 'Engajamento', icon: TrendingUp, color: 'bg-green-500' },
-  conversion: { label: 'Conversão', icon: DollarSign, color: 'bg-orange-500' },
+  attraction: { label: 'Atração', icon: Users, color: 'bg-primary' },
+  authority: { label: 'Autoridade', icon: Target, color: 'bg-accent' },
+  engagement: { label: 'Engajamento', icon: TrendingUp, color: 'bg-success' },
+  conversion: { label: 'Conversão', icon: DollarSign, color: 'bg-warning' },
 };
 
 const PILLAR_COLORS = [
-  { value: '#ef4444', label: 'Vermelho' },
-  { value: '#f97316', label: 'Laranja' },
-  { value: '#f59e0b', label: 'Amarelo' },
-  { value: '#84cc16', label: 'Verde Lima' },
-  { value: '#10b981', label: 'Verde' },
-  { value: '#14b8a6', label: 'Turquesa' },
-  { value: '#06b6d4', label: 'Ciano' },
-  { value: '#3b82f6', label: 'Azul' },
-  { value: '#6366f1', label: 'Índigo' },
-  { value: '#8b5cf6', label: 'Roxo' },
-  { value: '#a855f7', label: 'Púrpura' },
-  { value: '#ec4899', label: 'Rosa' },
+  { value: 'hsl(0, 50%, 45%)', label: 'Vermelho Terroso' },
+  { value: 'hsl(35, 60%, 55%)', label: 'Laranja' },
+  { value: 'hsl(45, 70%, 50%)', label: 'Amarelo' },
+  { value: 'hsl(140, 30%, 40%)', label: 'Verde' },
+  { value: 'hsl(180, 25%, 45%)', label: 'Turquesa' },
+  { value: 'hsl(200, 15%, 45%)', label: 'Cinza Azulado' },
+  { value: 'hsl(25, 40%, 35%)', label: 'Marrom Quente' },
+  { value: 'hsl(30, 10%, 45%)', label: 'Cinza-Marrom' },
 ];
 
 export function ContentPillarsManager() {
@@ -266,7 +262,7 @@ export function ContentPillarsManager() {
                 <ul className="space-y-1 mt-2">
                   {formData.examples?.map((example, idx) => (
                     <li key={idx} className="flex items-center gap-2 text-sm">
-                      <span className="text-purple-500">•</span>
+                      <span className="text-primary">•</span>
                       <span className="flex-1">{example}</span>
                       <X
                         className="w-4 h-4 cursor-pointer text-muted-foreground hover:text-destructive"

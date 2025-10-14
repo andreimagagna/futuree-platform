@@ -33,28 +33,25 @@ export function CreatorSolutions() {
   };
 
   const OBJECTIVE_CONFIG = {
-    attraction: { label: 'Atração', icon: Users, color: 'text-blue-500' },
-    authority: { label: 'Autoridade', icon: Target, color: 'text-purple-500' },
-    engagement: { label: 'Engajamento', icon: TrendingUp, color: 'text-green-500' },
-    conversion: { label: 'Conversão', icon: DollarSign, color: 'text-orange-500' },
+    attraction: { label: 'Atração', icon: Users, color: 'text-primary' },
+    authority: { label: 'Autoridade', icon: Target, color: 'text-accent' },
+    engagement: { label: 'Engajamento', icon: TrendingUp, color: 'text-success' },
+    conversion: { label: 'Conversão', icon: DollarSign, color: 'text-warning' },
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 dark:from-gray-950 dark:via-purple-950/20 dark:to-gray-950">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold text-foreground">
                 Creator Solutions
               </h1>
-              <p className="text-muted-foreground">
-                Construa, organize e otimize todo o seu fluxo criativo
-              </p>
             </div>
           </div>
         </div>
@@ -68,8 +65,8 @@ export function CreatorSolutions() {
                   <p className="text-sm text-muted-foreground">Pilares Ativos</p>
                   <p className="text-2xl font-bold">{stats.pillars}</p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center">
-                  <Target className="w-5 h-5 text-purple-600" />
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-primary" />
                 </div>
               </div>
             </CardContent>
@@ -82,8 +79,8 @@ export function CreatorSolutions() {
                   <p className="text-sm text-muted-foreground">Conteúdos Planejados</p>
                   <p className="text-2xl font-bold">{stats.scheduledContent}</p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-blue-600" />
+                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-accent" />
                 </div>
               </div>
             </CardContent>
@@ -96,8 +93,8 @@ export function CreatorSolutions() {
                   <p className="text-sm text-muted-foreground">Publicados</p>
                   <p className="text-2xl font-bold">{stats.publishedContent}</p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-green-600" />
+                <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-success" />
                 </div>
               </div>
             </CardContent>
@@ -110,8 +107,8 @@ export function CreatorSolutions() {
                   <p className="text-sm text-muted-foreground">Ideias</p>
                   <p className="text-2xl font-bold">{stats.activeIdeas}</p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
-                  <Lightbulb className="w-5 h-5 text-yellow-600" />
+                <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+                  <Lightbulb className="w-5 h-5 text-warning" />
                 </div>
               </div>
             </CardContent>
@@ -148,7 +145,7 @@ export function CreatorSolutions() {
             
             {/* Quick Tips */}
             {!identity && (
-              <Card className="border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50/50 to-pink-50/50 dark:from-purple-950/20 dark:to-pink-950/20">
+              <Card className="border-primary/20 bg-muted/50">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <Sparkles className="w-5 h-5" />
@@ -158,19 +155,19 @@ export function CreatorSolutions() {
                 <CardContent>
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-start gap-2">
-                      <span className="text-purple-500 font-bold mt-0.5">•</span>
+                      <span className="text-primary font-bold mt-0.5">•</span>
                       <span>Clareza sobre quem você é e o que representa</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-purple-500 font-bold mt-0.5">•</span>
+                      <span className="text-primary font-bold mt-0.5">•</span>
                       <span>Consistência na comunicação em todos os canais</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-purple-500 font-bold mt-0.5">•</span>
+                      <span className="text-primary font-bold mt-0.5">•</span>
                       <span>Conexão mais profunda com sua audiência</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-purple-500 font-bold mt-0.5">•</span>
+                      <span className="text-primary font-bold mt-0.5">•</span>
                       <span>Base para criar storytelling autêntico e impactante</span>
                     </li>
                   </ul>
@@ -227,10 +224,10 @@ export function CreatorSolutions() {
 
         {/* Onboarding Guide */}
         {!identity && pillars.length === 0 && (
-          <Card className="border-2 border-dashed border-purple-300 dark:border-purple-700">
+          <Card className="border-2 border-dashed border-primary/30">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-500" />
+                <Sparkles className="w-5 h-5 text-primary" />
                 Comece sua jornada criativa!
               </CardTitle>
               <CardDescription>Siga esses passos para configurar seu workspace completo</CardDescription>
@@ -238,7 +235,7 @@ export function CreatorSolutions() {
             <CardContent>
               <div className="space-y-3">
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold flex-shrink-0">
                     1
                   </div>
                   <div>
@@ -247,7 +244,7 @@ export function CreatorSolutions() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold flex-shrink-0">
                     2
                   </div>
                   <div>
@@ -256,7 +253,7 @@ export function CreatorSolutions() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold flex-shrink-0">
                     3
                   </div>
                   <div>
@@ -265,7 +262,7 @@ export function CreatorSolutions() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold flex-shrink-0">
                     4
                   </div>
                   <div>
@@ -274,7 +271,7 @@ export function CreatorSolutions() {
                   </div>
                 </div>
                 <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold flex-shrink-0">
                     5
                   </div>
                   <div>

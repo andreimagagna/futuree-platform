@@ -19,6 +19,9 @@ import MarketingTasks from "./pages/marketing/MarketingTasks";
 import ConstrutorFunil from "./pages/marketing/ConstrutorFunil";
 import EditorLandingPage from "./pages/marketing/EditorLandingPage";
 import { CreatorSolutions } from "./pages/marketing/CreatorSolutions";
+import { BaseLeads } from "./pages/marketing/BaseLeads";
+import { Branding } from "./pages/marketing/Branding";
+import { MarketingGuide } from "./pages/marketing/MarketingGuide";
 import { Analytics } from "./pages/business/Analytics";
 import Automations from "./pages/Automations";
 
@@ -48,6 +51,9 @@ const App = () => (
           <Route path="/marketing/construtor-funil" element={<ConstrutorFunil />} />
           <Route path="/marketing/landing-pages" element={<EditorLandingPage />} />
           <Route path="/marketing/creator-solutions" element={<AppLayout currentView="creator-solutions"><CreatorSolutions /></AppLayout>} />
+          <Route path="/marketing/base-leads" element={<AppLayout currentView="base-leads"><BaseLeads /></AppLayout>} />
+          <Route path="/marketing/branding" element={<AppLayout currentView="branding"><Branding /></AppLayout>} />
+          <Route path="/marketing/guide" element={<AppLayout currentView="marketing-guide"><MarketingGuide /></AppLayout>} />
           
           {/* Business Solution */}
           <Route path="/business/analytics" element={<AppLayout currentView="analytics"><Analytics /></AppLayout>} />

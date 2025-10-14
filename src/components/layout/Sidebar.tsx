@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap, Layout, Sparkles } from "lucide-react";
+import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap, Layout, Sparkles, Database, Palette } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -105,17 +105,35 @@ const solutions: SolutionGroup[] = [
         path: "/marketing/construtor-funil",
       },
       {
+        id: "creator-solutions",
+        label: "Creator Solutions",
+        icon: Sparkles,
+        path: "/marketing/creator-solutions",
+      },
+      {
+        id: "base-leads",
+        label: "Base de Leads",
+        icon: Database,
+        path: "/marketing/base-leads",
+      },
+      {
+        id: "branding",
+        label: "Branding",
+        icon: Palette,
+        path: "/marketing/branding",
+      },
+      {
+        id: "marketing-guide",
+        label: "Guia",
+        icon: BookOpen,
+        path: "/marketing/guide",
+      },
+      {
         id: "landing-pages",
         label: "Landing Pages",
         icon: Layout,
         path: "/marketing/landing-pages",
         comingSoon: true,
-      },
-      {
-        id: "creator-solutions",
-        label: "Creator Solutions",
-        icon: Sparkles,
-        path: "/marketing/creator-solutions",
       },
     ],
   },

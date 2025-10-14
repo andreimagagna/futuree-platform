@@ -8,20 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreatorSolutions } from '@/store/creatorSolutionsStore';
-import { Lightbulb, Plus, ArrowRight, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Lightbulb, Plus, Star, Zap, Brain, Sparkles, Filter } from 'lucide-react';
 import type { ContentIdea, ContentStatus } from '@/types/creator';
-
-const STATUS_CONFIG: Record<ContentStatus, { label: string; color: string; icon: any }> = {
-  idea: { label: 'Ideia', color: 'bg-yellow-500', icon: Lightbulb },
-  draft: { label: 'Rascunho', color: 'bg-blue-500', icon: Clock },
-  produced: { label: 'Produzido', color: 'bg-purple-500', icon: AlertCircle },
-  published: { label: 'Publicado', color: 'bg-green-500', icon: CheckCircle2 },
-};
 
 export function IdeasBoard() {
   const { ideas, pillars, addIdea, updateIdea, deleteIdea } = useCreatorSolutions();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingIdea, setEditingIdea] = useState<ContentIdea | null>(null);
+  const [filterPriority, setFilterPriority] = useState<string>('all');
+  const [filterPillar, setFilterPillar] = useState<string>('all');
 
   const [formData, setFormData] = useState<Partial<ContentIdea>>({
     title: '',
@@ -85,10 +80,6 @@ export function IdeasBoard() {
     resetForm();
   };
 
-  const handleStatusChange = (ideaId: string, newStatus: ContentStatus) => {
-    updateIdea(ideaId, { status: newStatus });
-  };
-
   const addTag = () => {
     if (!newTag.trim()) return;
     setFormData({
@@ -105,10 +96,6 @@ export function IdeasBoard() {
     });
   };
 
-  const getIdeasByStatus = (status: ContentStatus) => {
-    return ideas.filter((idea) => idea.status === status);
-  };
-
   const getPillarName = (pillarId?: string) => {
     if (!pillarId) return null;
     return pillars.find((p) => p.id === pillarId)?.name;
@@ -119,18 +106,33 @@ export function IdeasBoard() {
     return pillars.find((p) => p.id === pillarId)?.color;
   };
 
-  const PRIORITY_COLORS = {
-    low: 'border-gray-300',
-    medium: 'border-yellow-400',
-    high: 'border-red-500',
+  const filteredIdeas = ideas.filter((idea) => {
+    if (filterPriority !== 'all' && idea.priority !== filterPriority) return false;
+    if (filterPillar !== 'all' && idea.pillarId !== filterPillar) return false;
+    return true;
+  });
+
+  const priorityCount = {
+    high: ideas.filter(i => i.priority === 'high').length,
+    medium: ideas.filter(i => i.priority === 'medium').length,
+    low: ideas.filter(i => i.priority === 'low').length,
+  };
+
+  const PRIORITY_CONFIG = {
+    high: { label: 'Alta Prioridade', icon: Zap, color: 'text-destructive', bgColor: 'bg-destructive/10', borderColor: 'border-destructive' },
+    medium: { label: 'Média Prioridade', icon: Star, color: 'text-warning', bgColor: 'bg-warning/10', borderColor: 'border-warning' },
+    low: { label: 'Baixa Prioridade', icon: Brain, color: 'text-muted-foreground', bgColor: 'bg-muted', borderColor: 'border-muted-foreground' },
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Board de Ideias</h2>
-          <p className="text-muted-foreground">Gerencie o fluxo das suas ideias até a publicação</p>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Brain className="w-8 h-8 text-primary" />
+            Brainstorm de Ideias
+          </h2>
+          <p className="text-muted-foreground">Capture e organize todas as suas ideias criativas</p>
         </div>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="w-4 h-4 mr-2" />
@@ -138,34 +140,120 @@ export function IdeasBoard() {
         </Button>
       </div>
 
-      {/* Kanban Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {Object.entries(STATUS_CONFIG).map(([status, config]) => {
-          const ideasInStatus = getIdeasByStatus(status as ContentStatus);
-          const StatusIcon = config.icon;
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total de Ideias</p>
+                <p className="text-2xl font-bold">{ideas.length}</p>
+              </div>
+              <Brain className="w-8 h-8 text-primary/20" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Alta Prioridade</p>
+                <p className="text-2xl font-bold">{priorityCount.high}</p>
+              </div>
+              <Zap className="w-8 h-8 text-destructive/20" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Média Prioridade</p>
+                <p className="text-2xl font-bold">{priorityCount.medium}</p>
+              </div>
+              <Star className="w-8 h-8 text-warning/20" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Baixa Prioridade</p>
+                <p className="text-2xl font-bold">{priorityCount.low}</p>
+              </div>
+              <Lightbulb className="w-8 h-8 text-muted-foreground/20" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs">Filtrar por Prioridade</Label>
+                <Select value={filterPriority} onValueChange={setFilterPriority}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as Prioridades</SelectItem>
+                    <SelectItem value="high">Alta Prioridade</SelectItem>
+                    <SelectItem value="medium">Média Prioridade</SelectItem>
+                    <SelectItem value="low">Baixa Prioridade</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Filtrar por Pilar</Label>
+                <Select value={filterPillar} onValueChange={setFilterPillar}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Pilares</SelectItem>
+                    {pillars.map((pillar) => (
+                      <SelectItem key={pillar.id} value={pillar.id}>
+                        {pillar.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Brainstorm Board */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Object.entries(PRIORITY_CONFIG).map(([priority, config]) => {
+          const ideasByPriority = filteredIdeas.filter((idea) => idea.priority === priority);
+          const Icon = config.icon;
 
           return (
-            <div key={status} className="space-y-3">
-              <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-                <div className={`w-2 h-2 rounded-full ${config.color}`} />
-                <StatusIcon className="w-4 h-4" />
-                <span className="font-semibold text-sm">{config.label}</span>
+            <div key={priority} className="space-y-3">
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${config.bgColor}`}>
+                <Icon className={`w-4 h-4 ${config.color}`} />
+                <span className={`font-semibold text-sm ${config.color}`}>{config.label}</span>
                 <Badge variant="secondary" className="ml-auto">
-                  {ideasInStatus.length}
+                  {ideasByPriority.length}
                 </Badge>
               </div>
 
               <div className="space-y-2">
-                {ideasInStatus.map((idea) => {
+                {ideasByPriority.map((idea) => {
                   const pillarColor = getPillarColor(idea.pillarId);
                   const pillarName = getPillarName(idea.pillarId);
 
                   return (
                     <Card
                       key={idea.id}
-                      className={`border-l-4 cursor-pointer hover:shadow-md transition-shadow ${
-                        PRIORITY_COLORS[idea.priority]
-                      }`}
+                      className={`border-l-4 cursor-pointer hover:shadow-md transition-shadow ${config.borderColor}`}
                       onClick={() => handleOpenDialog(idea)}
                     >
                       <CardContent className="p-3 space-y-2">
@@ -185,50 +273,35 @@ export function IdeasBoard() {
                           </div>
                         )}
 
+                        {idea.inspiration && (
+                          <div className="flex items-start gap-1">
+                            <Sparkles className="w-3 h-3 text-muted-foreground mt-0.5" />
+                            <span className="text-xs text-muted-foreground line-clamp-1">{idea.inspiration}</span>
+                          </div>
+                        )}
+
                         {idea.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1">
-                            {idea.tags.slice(0, 2).map((tag) => (
+                            {idea.tags.slice(0, 3).map((tag) => (
                               <Badge key={tag} variant="outline" className="text-xs">
                                 {tag}
                               </Badge>
                             ))}
-                            {idea.tags.length > 2 && (
+                            {idea.tags.length > 3 && (
                               <Badge variant="outline" className="text-xs">
-                                +{idea.tags.length - 2}
+                                +{idea.tags.length - 3}
                               </Badge>
                             )}
                           </div>
                         )}
-
-                        {/* Status Navigation */}
-                        <div className="flex gap-1 pt-2 border-t">
-                          {status !== 'published' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 text-xs flex-1"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const statuses: ContentStatus[] = ['idea', 'draft', 'produced', 'published'];
-                                const currentIndex = statuses.indexOf(status as ContentStatus);
-                                if (currentIndex < statuses.length - 1) {
-                                  handleStatusChange(idea.id, statuses[currentIndex + 1]);
-                                }
-                              }}
-                            >
-                              <ArrowRight className="w-3 h-3 mr-1" />
-                              Avançar
-                            </Button>
-                          )}
-                        </div>
                       </CardContent>
                     </Card>
                   );
                 })}
 
-                {ideasInStatus.length === 0 && (
+                {ideasByPriority.length === 0 && (
                   <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                    <p className="text-xs text-muted-foreground">Nenhuma ideia neste estágio</p>
+                    <p className="text-xs text-muted-foreground">Nenhuma ideia</p>
                   </div>
                 )}
               </div>
@@ -237,12 +310,44 @@ export function IdeasBoard() {
         })}
       </div>
 
+      {/* Tips */}
+      {ideas.length === 0 && (
+        <Card className="border-primary/20 bg-muted/50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Brain className="w-5 h-5" />
+              Dicas para um Brainstorm Efetivo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm">
+              <li className="flex items-start gap-2">
+                <span className="text-primary font-bold mt-0.5">•</span>
+                <span>Capture todas as ideias sem filtro - quantidade antes de qualidade</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary font-bold mt-0.5">•</span>
+                <span>Use tags para agrupar ideias relacionadas</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary font-bold mt-0.5">•</span>
+                <span>Defina prioridades para focar nas ideias mais promissoras</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary font-bold mt-0.5">•</span>
+                <span>Anote a inspiração - de onde veio a ideia</span>
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingIdea ? 'Editar Ideia' : 'Nova Ideia de Conteúdo'}</DialogTitle>
-            <DialogDescription>Capture e organize suas ideias criativas</DialogDescription>
+            <DialogTitle>{editingIdea ? 'Editar Ideia' : 'Nova Ideia'}</DialogTitle>
+            <DialogDescription>Capture sua ideia criativa</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -252,18 +357,18 @@ export function IdeasBoard() {
                 id="idea-title"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Ex: 5 dicas para aumentar a produtividade"
+                placeholder="Ex: Como organizar tarefas usando método Pomodoro"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="idea-description">Descrição</Label>
+              <Label htmlFor="idea-description">Descrição / Notas</Label>
               <Textarea
                 id="idea-description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descreva a ideia com mais detalhes..."
-                rows={3}
+                placeholder="Desenvolva a ideia, adicione detalhes, insights, possíveis abordagens..."
+                rows={4}
               />
             </div>
 
@@ -309,23 +414,23 @@ export function IdeasBoard() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="inspiration">Fonte de Inspiração</Label>
+              <Label htmlFor="inspiration">Fonte de Inspiração / Contexto</Label>
               <Input
                 id="inspiration"
                 value={formData.inspiration}
                 onChange={(e) => setFormData({ ...formData, inspiration: e.target.value })}
-                placeholder="Ex: Tendência no TikTok, concorrente X, artigo Y..."
+                placeholder="Ex: Conversa com cliente, tendência no Instagram, problema comum..."
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Tags</Label>
+              <Label>Tags (para organizar e filtrar)</Label>
               <div className="flex gap-2">
                 <Input
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                  placeholder="Adicione tags"
+                  placeholder="Ex: tutorial, dica rápida, caso real"
                 />
                 <Button type="button" onClick={addTag} size="icon">
                   <Plus className="w-4 h-4" />
@@ -340,27 +445,6 @@ export function IdeasBoard() {
                 ))}
               </div>
             </div>
-
-            {editingIdea && (
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: any) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        {config.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             <div className="flex gap-3 pt-4">
               {editingIdea && (
