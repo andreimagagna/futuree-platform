@@ -123,17 +123,17 @@ const solutions: SolutionGroup[] = [
         path: "/marketing/branding",
       },
       {
-        id: "marketing-guide",
-        label: "Guia",
-        icon: BookOpen,
-        path: "/marketing/guide",
-      },
-      {
         id: "landing-pages",
         label: "Landing Pages",
         icon: Layout,
         path: "/marketing/landing-pages",
         comingSoon: true,
+      },
+      {
+        id: "marketing-guide",
+        label: "Guia",
+        icon: BookOpen,
+        path: "/marketing/guide",
       },
     ],
   },

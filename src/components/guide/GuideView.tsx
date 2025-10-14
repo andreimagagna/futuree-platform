@@ -281,14 +281,20 @@ export const GuideView = ({ onNavigate }: GuideViewProps = {}) => {
                           </p>
                         </div>
                       </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleNavigate(feature.path)}
-                      >
-                        Acessar
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
+                      {feature.comingSoon ? (
+                        <Badge variant="secondary" className="text-xs">
+                          Em Breve
+                        </Badge>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleNavigate(feature.path)}
+                        >
+                          Acessar
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent>
