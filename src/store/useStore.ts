@@ -351,15 +351,15 @@ export const useStore = create<StoreState>((set) => ({
   agentActive: true,
   
   settings: {
-    leadSources: ['Website', 'LinkedIn', 'Indicação', 'Cold Call', 'Evento', 'Parceiro'],
-    owners: ['João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Lima'],
+    leadSources: [],
+    owners: [],
     goals: {
-      monthlyRevenue: 100000,
-      monthlyLeads: 50,
-      conversionRate: 25,
-      averageTicket: 5000,
-      monthlyMeetings: 30,
-      wonDeals: 10,
+      monthlyRevenue: 0,
+      monthlyLeads: 0,
+      conversionRate: 0,
+      averageTicket: 0,
+      monthlyMeetings: 0,
+      wonDeals: 0,
     },
   },
   

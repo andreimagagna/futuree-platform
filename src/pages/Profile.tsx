@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import { useStore } from "@/store/useStore";
 import {
   User,
   Mail,
@@ -15,20 +18,171 @@ import {
   Calendar,
   Award,
   TrendingUp,
+  TrendingDown,
   Target,
   Upload,
   Edit,
 } from "lucide-react";
 
+interface ProfileData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  department: string;
+  location: string;
+  bio: string;
+  avatar?: string;
+}
+
 const Profile = () => {
+  const { toast } = useToast();
+  const { leads } = useStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [profileData, setProfileData] = useState<ProfileData>({
+    firstName: "Vendedor",
+    lastName: "Campeão",
+    email: "vendedor@triadesolutions.com",
+    phone: "(11) 98765-4321",
+    department: "Sales Development",
+    location: "São Paulo, SP",
+    bio: "SDR com 2 anos de experiência em vendas B2B, especializado em prospecção e qualificação de leads.",
+  });
+
+  // Carregar dados do localStorage
+  useEffect(() => {
+    const savedProfile = localStorage.getItem("profileData");
+    if (savedProfile) {
+      setProfileData(JSON.parse(savedProfile));
+    }
+  }, []);
+
+  // Calcular estatísticas dinamicamente baseadas nos leads
+  const stats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+    // Filtrar leads do mês atual
+    const currentMonthLeads = leads.filter((lead) => {
+      const createdAt = lead.createdAt ? new Date(lead.createdAt) : new Date();
+      return createdAt.getMonth() === currentMonth && createdAt.getFullYear() === currentYear;
+    });
+
+    // Filtrar leads do mês passado
+    const lastMonthLeads = leads.filter((lead) => {
+      const createdAt = lead.createdAt ? new Date(lead.createdAt) : new Date();
+      return createdAt.getMonth() === lastMonth && createdAt.getFullYear() === lastMonthYear;
+    });
+
+    // Leads qualificados (stages: qualify, contact, proposal, closing ou BANT completo)
+    const currentQualified = currentMonthLeads.filter(
+      (lead) =>
+        lead.stage !== 'captured' ||
+        (lead.bant &&
+          lead.bant.budget &&
+          lead.bant.authority &&
+          lead.bant.need &&
+          lead.bant.timeline)
+    ).length;
+
+    const lastQualified = lastMonthLeads.filter(
+      (lead) =>
+        lead.stage !== 'captured' ||
+        (lead.bant &&
+          lead.bant.budget &&
+          lead.bant.authority &&
+          lead.bant.need &&
+          lead.bant.timeline)
+    ).length;
+
+    // Negócios fechados (status won)
+    const currentWon = currentMonthLeads.filter(
+      (lead) => lead.status === 'won'
+    ).length;
+
+    const lastWon = lastMonthLeads.filter(
+      (lead) => lead.status === 'won'
+    ).length;
+
+    // Taxa de conversão (won / total de leads qualificados)
+    const currentConversionRate =
+      currentQualified > 0 ? Math.round((currentWon / currentQualified) * 100) : 0;
+
+    const lastConversionRate =
+      lastQualified > 0 ? Math.round((lastWon / lastQualified) * 100) : 0;
+
+    // Calcular variações percentuais
+    const leadsVariacao =
+      lastQualified > 0
+        ? Math.round(((currentQualified - lastQualified) / lastQualified) * 100)
+        : currentQualified > 0
+        ? 100
+        : 0;
+
+    const conversionVariacao = currentConversionRate - lastConversionRate;
+
+    const wonVariacao =
+      lastWon > 0
+        ? Math.round(((currentWon - lastWon) / lastWon) * 100)
+        : currentWon > 0
+        ? 100
+        : 0;
+
+    return {
+      leadsQualificados: currentQualified,
+      leadsQualificadosVariacao: leadsVariacao,
+      taxaConversao: currentConversionRate,
+      taxaConversaoVariacao: conversionVariacao,
+      negociosFechados: currentWon,
+      negociosFechadosVariacao: wonVariacao,
+    };
+  }, [leads]);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { id, value } = e.target;
+    setProfileData((prev) => ({
+      ...prev,
+      [id]: value,
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Salvar no localStorage
+    localStorage.setItem("profileData", JSON.stringify(profileData));
+    
+    toast({
+      title: "Perfil atualizado",
+      description: "Suas informações foram salvas com sucesso.",
+    });
+    
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    // Recarregar dados salvos
+    const savedProfile = localStorage.getItem("profileData");
+    if (savedProfile) {
+      setProfileData(JSON.parse(savedProfile));
+    }
+    setIsEditing(false);
+  };
+
+  const getInitials = () => {
+    return `${profileData.firstName.charAt(0)}${profileData.lastName.charAt(0)}`.toUpperCase();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Meu Perfil</h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie suas informações pessoais e preferências
-          </p>
         </div>
       </div>
 
@@ -42,9 +196,9 @@ const Profile = () => {
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center space-y-4">
               <Avatar className="h-32 w-32">
-                <AvatarImage src="" alt="Foto de perfil" />
+                <AvatarImage src={profileData.avatar || ""} alt="Foto de perfil" />
                 <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
-                  VC
+                  {getInitials()}
                 </AvatarFallback>
               </Avatar>
               <Button variant="outline" className="w-full">
@@ -59,12 +213,6 @@ const Profile = () => {
             <Separator />
 
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="gap-1">
-                  <Award className="h-3 w-3" />
-                  SDR Senior
-                </Badge>
-              </div>
               <div className="text-sm space-y-1">
                 <p className="text-muted-foreground">Membro desde</p>
                 <p className="font-medium flex items-center gap-2">
@@ -83,7 +231,7 @@ const Profile = () => {
             <CardDescription>Atualize seus dados pessoais</CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">Nome</Label>
@@ -92,8 +240,10 @@ const Profile = () => {
                     <Input
                       id="firstName"
                       placeholder="Seu nome"
-                      defaultValue="Vendedor"
+                      value={profileData.firstName}
+                      onChange={handleInputChange}
                       className="pl-9"
+                      disabled={!isEditing}
                     />
                   </div>
                 </div>
@@ -102,7 +252,9 @@ const Profile = () => {
                   <Input
                     id="lastName"
                     placeholder="Seu sobrenome"
-                    defaultValue="Campeão"
+                    value={profileData.lastName}
+                    onChange={handleInputChange}
+                    disabled={!isEditing}
                   />
                 </div>
               </div>
@@ -115,8 +267,10 @@ const Profile = () => {
                     id="email"
                     type="email"
                     placeholder="seu@email.com"
-                    defaultValue="vendedor@tríadesolutions.com"
+                    value={profileData.email}
+                    onChange={handleInputChange}
                     className="pl-9"
+                    disabled={!isEditing}
                   />
                 </div>
               </div>
@@ -129,8 +283,10 @@ const Profile = () => {
                     id="phone"
                     type="tel"
                     placeholder="(11) 99999-9999"
-                    defaultValue="(11) 98765-4321"
+                    value={profileData.phone}
+                    onChange={handleInputChange}
                     className="pl-9"
+                    disabled={!isEditing}
                   />
                 </div>
               </div>
@@ -143,8 +299,10 @@ const Profile = () => {
                     <Input
                       id="department"
                       placeholder="Vendas"
-                      defaultValue="Sales Development"
+                      value={profileData.department}
+                      onChange={handleInputChange}
                       className="pl-9"
+                      disabled={!isEditing}
                     />
                   </div>
                 </div>
@@ -155,8 +313,10 @@ const Profile = () => {
                     <Input
                       id="location"
                       placeholder="Cidade, Estado"
-                      defaultValue="São Paulo, SP"
+                      value={profileData.location}
+                      onChange={handleInputChange}
                       className="pl-9"
+                      disabled={!isEditing}
                     />
                   </div>
                 </div>
@@ -167,17 +327,30 @@ const Profile = () => {
                 <Textarea
                   id="bio"
                   placeholder="Conte um pouco sobre você..."
-                  defaultValue="SDR com 2 anos de experiência em vendas B2B, especializado em prospecção e qualificação de leads."
+                  value={profileData.bio}
+                  onChange={handleInputChange}
                   rows={4}
+                  disabled={!isEditing}
                 />
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
-                <Button variant="outline">Cancelar</Button>
-                <Button type="submit">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Salvar Alterações
-                </Button>
+                {isEditing ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={handleCancel}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit">
+                      <Edit className="h-4 w-4 mr-2" />
+                      Salvar Alterações
+                    </Button>
+                  </>
+                ) : (
+                  <Button type="button" onClick={() => setIsEditing(true)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Editar Perfil
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>
@@ -199,10 +372,18 @@ const Profile = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Leads Qualificados</p>
-                  <p className="text-2xl font-bold">47</p>
-                  <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 mt-1">
-                    <TrendingUp className="h-3 w-3" />
-                    +12% vs mês anterior
+                  <p className="text-2xl font-bold">{stats.leadsQualificados}</p>
+                  <p className={`text-xs flex items-center gap-1 mt-1 ${
+                    stats.leadsQualificadosVariacao >= 0 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {stats.leadsQualificadosVariacao >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {stats.leadsQualificadosVariacao >= 0 ? '+' : ''}{stats.leadsQualificadosVariacao}% vs mês anterior
                   </p>
                 </div>
               </div>
@@ -215,10 +396,18 @@ const Profile = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Taxa de Conversão</p>
-                  <p className="text-2xl font-bold">68%</p>
-                  <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 mt-1">
-                    <TrendingUp className="h-3 w-3" />
-                    +5% vs mês anterior
+                  <p className="text-2xl font-bold">{stats.taxaConversao}%</p>
+                  <p className={`text-xs flex items-center gap-1 mt-1 ${
+                    stats.taxaConversaoVariacao >= 0 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {stats.taxaConversaoVariacao >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {stats.taxaConversaoVariacao >= 0 ? '+' : ''}{stats.taxaConversaoVariacao}% vs mês anterior
                   </p>
                 </div>
               </div>
@@ -231,10 +420,18 @@ const Profile = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Negócios Fechados</p>
-                  <p className="text-2xl font-bold">23</p>
-                  <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1 mt-1">
-                    <TrendingUp className="h-3 w-3" />
-                    +8% vs mês anterior
+                  <p className="text-2xl font-bold">{stats.negociosFechados}</p>
+                  <p className={`text-xs flex items-center gap-1 mt-1 ${
+                    stats.negociosFechadosVariacao >= 0 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {stats.negociosFechadosVariacao >= 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    {stats.negociosFechadosVariacao >= 0 ? '+' : ''}{stats.negociosFechadosVariacao}% vs mês anterior
                   </p>
                 </div>
               </div>

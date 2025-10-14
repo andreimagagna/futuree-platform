@@ -864,3 +864,5 @@ export const CustomerSuccess = () => {
     </div>
   );
 };
+
+export default CustomerSuccess;

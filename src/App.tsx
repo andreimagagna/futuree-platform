@@ -22,9 +22,13 @@ import { CreatorSolutions } from "./pages/marketing/CreatorSolutions";
 import { BaseLeads } from "./pages/marketing/BaseLeads";
 import { Branding } from "./pages/marketing/Branding";
 import { MarketingGuide } from "./pages/marketing/MarketingGuide";
-import { CustomerSuccess } from "./pages/business/CustomerSuccess";
-import { Financas } from "./pages/business/Financas";
-import { Estrategico } from "./pages/business/Estrategico";
+import CustomerSuccess from './pages/business/CustomerSuccess';
+import Financas from './pages/business/Financas';
+import Estrategico from './pages/business/Estrategico';
+import Operacional from './pages/business/Operacional';
+import Arquivos from './pages/business/Arquivos';
+import NotionSolutions from './pages/business/NotionSolutions';
+import GuiaBusiness from './pages/business/GuiaBusiness';
 import Automations from "./pages/Automations";
 
 const queryClient = new QueryClient();
@@ -61,6 +65,10 @@ const App = () => (
           <Route path="/business/cs" element={<AppLayout currentView="cs"><CustomerSuccess /></AppLayout>} />
           <Route path="/business/financas" element={<AppLayout currentView="financas"><Financas /></AppLayout>} />
           <Route path="/business/estrategico" element={<AppLayout currentView="estrategico"><Estrategico /></AppLayout>} />
+          <Route path="/business/operacional" element={<AppLayout currentView="operacional"><Operacional /></AppLayout>} />
+          <Route path="/business/arquivos" element={<AppLayout currentView="arquivos"><Arquivos /></AppLayout>} />
+          <Route path="/business/notion" element={<AppLayout currentView="notion"><NotionSolutions /></AppLayout>} />
+          <Route path="/business/guia" element={<AppLayout currentView="business-guide"><GuiaBusiness /></AppLayout>} />
           
           {/* Profile & Settings */}
           <Route path="/profile" element={<AppLayout currentView="profile"><Profile /></AppLayout>} />

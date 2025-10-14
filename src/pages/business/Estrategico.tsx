@@ -47,6 +47,10 @@ import {
   Calendar,
   Award,
   Globe,
+  Download,
+  Filter,
+  Search,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -60,6 +64,9 @@ interface Objective {
   deadline: string;
   progress: number;
   responsible?: string;
+  createdAt: string;
+  updatedAt: string;
+  tags?: string[];
   keyResults: KeyResult[];
 }
 
@@ -160,6 +167,12 @@ export const Estrategico = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("deadline"); // deadline, priority, progress, created
+  
   const [swot, setSwot] = useState<SWOT>({
     strengths: [],
     weaknesses: [],
@@ -246,10 +259,14 @@ export const Estrategico = () => {
         description: "O objetivo foi atualizado com sucesso.",
       });
     } else {
+      const now = new Date().toISOString();
       const newObjective: Objective = {
         id: Date.now().toString(),
         ...formData,
         keyResults: [],
+        createdAt: now,
+        updatedAt: now,
+        tags: [],
       };
       setObjectives([...objectives, newObjective]);
       toast({
@@ -278,6 +295,63 @@ export const Estrategico = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  // Filtros
+  const filteredObjectives = objectives.filter((obj) => {
+    const matchesSearch =
+      obj.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      obj.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (obj.responsible && obj.responsible.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const matchesCategory = filterCategory === "all" || obj.category === filterCategory;
+    const matchesStatus = filterStatus === "all" || obj.status === filterStatus;
+    const matchesPriority = filterPriority === "all" || obj.priority === filterPriority;
+
+    return matchesSearch && matchesCategory && matchesStatus && matchesPriority;
+  });
+
+  // Ordenação
+  const sortedObjectives = [...filteredObjectives].sort((a, b) => {
+    switch (sortBy) {
+      case 'deadline':
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      case 'priority':
+        const priorityOrder = { alta: 0, media: 1, baixa: 2 };
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      case 'progress':
+        return b.progress - a.progress;
+      case 'created':
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      default:
+        return 0;
+    }
+  });
+
+  // Função de exportar para JSON
+  const handleExport = () => {
+    const exportData = {
+      objectives,
+      swot,
+      vision,
+      mission,
+      values,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `plano-estrategico-${new Date().toISOString().split("T")[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Exportado com sucesso",
+      description: "Plano estratégico exportado em JSON.",
+    });
+  };
+
   // Métricas
   const totalObjectives = objectives.length;
   const completedObjectives = objectives.filter((obj) => obj.status === "concluido").length;
@@ -288,6 +362,21 @@ export const Estrategico = () => {
       : 0;
 
   const highPriorityObjectives = objectives.filter((obj) => obj.priority === "alta").length;
+  
+  // Objetivos atrasados
+  const overdueObjectives = objectives.filter((obj) => {
+    if (!obj.deadline || obj.status === "concluido") return false;
+    return new Date(obj.deadline) < new Date();
+  }).length;
+
+  // Objetivos próximos do prazo (próximos 7 dias)
+  const upcomingDeadlines = objectives.filter((obj) => {
+    if (!obj.deadline || obj.status === "concluido") return false;
+    const deadline = new Date(obj.deadline);
+    const today = new Date();
+    const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return diffDays > 0 && diffDays <= 7;
+  }).length;
 
   return (
     <div className="space-y-6">
@@ -296,7 +385,7 @@ export const Estrategico = () => {
         <h1 className="text-3xl font-bold">Estratégico</h1>
       </div>
 
-      {/* Métricas */}
+      {/* Métricas Principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -364,6 +453,58 @@ export const Estrategico = () => {
         </Card>
       </div>
 
+      {/* Métricas Secundárias */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-l-4 border-l-destructive">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Objetivos Atrasados
+            </CardTitle>
+            <Clock className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{overdueObjectives}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Prazo vencido
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-warning">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Prazos Próximos
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-warning" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-warning">{upcomingDeadlines}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Próximos 7 dias
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-primary">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Taxa de Sucesso
+            </CardTitle>
+            <Award className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {totalObjectives > 0
+                ? `${((completedObjectives / totalObjectives) * 100).toFixed(0)}%`
+                : "0%"}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Objetivos finalizados
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
@@ -385,33 +526,105 @@ export const Estrategico = () => {
         <TabsContent value="okrs" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row justify-between gap-4">
                 <div>
                   <CardTitle>Objetivos e Resultados-Chave (OKRs)</CardTitle>
                   <CardDescription>Defina e acompanhe seus objetivos estratégicos</CardDescription>
                 </div>
-                <Button onClick={() => handleOpenDialog()}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Objetivo
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {objectives.length === 0 ? (
-                <div className="text-center py-12">
-                  <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Nenhum objetivo definido</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Comece adicionando seus objetivos estratégicos
-                  </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleExport}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar
+                  </Button>
                   <Button onClick={() => handleOpenDialog()}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Criar Primeiro Objetivo
+                    Novo Objetivo
                   </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Filtros */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar objetivos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas Categorias</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="crescimento">Crescimento</SelectItem>
+                    <SelectItem value="produto">Produto</SelectItem>
+                    <SelectItem value="operacional">Operacional</SelectItem>
+                    <SelectItem value="pessoas">Pessoas</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os Status</SelectItem>
+                    <SelectItem value="nao-iniciado">Não Iniciado</SelectItem>
+                    <SelectItem value="em-andamento">Em Andamento</SelectItem>
+                    <SelectItem value="concluido">Concluído</SelectItem>
+                    <SelectItem value="pausado">Pausado</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterPriority} onValueChange={setFilterPriority}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Prioridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas Prioridades</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="baixa">Baixa</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ordenar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="deadline">Prazo</SelectItem>
+                    <SelectItem value="priority">Prioridade</SelectItem>
+                    <SelectItem value="progress">Progresso</SelectItem>
+                    <SelectItem value="created">Mais Recentes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {sortedObjectives.length === 0 ? (
+                <div className="text-center py-12">
+                  <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">
+                    {objectives.length === 0 ? "Nenhum objetivo definido" : "Nenhum objetivo encontrado"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {objectives.length === 0
+                      ? "Comece adicionando seus objetivos estratégicos"
+                      : "Tente ajustar os filtros de busca"}
+                  </p>
+                  {objectives.length === 0 && (
+                    <Button onClick={() => handleOpenDialog()}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar Primeiro Objetivo
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {objectives.map((objective) => {
+                  {sortedObjectives.map((objective) => {
                     const categoryInfo = categoryConfig[objective.category];
                     const priorityInfo = priorityConfig[objective.priority];
                     const statusInfo = statusConfig[objective.status];
@@ -876,3 +1089,5 @@ export const Estrategico = () => {
     </div>
   );
 };
+
+export default Estrategico;

@@ -742,3 +742,5 @@ export const Financas = () => {
     </div>
   );
 };
+
+export default Financas;

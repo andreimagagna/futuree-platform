@@ -1,5 +1,5 @@
-import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap, Layout, Sparkles, Database, Palette, HeartHandshake, DollarSign } from "lucide-react";
-
+import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap, Layout, Sparkles, Database, Palette, HeartHandshake, DollarSign, Settings as SettingsIcon, FileText, Layers, ChevronDown, TrendingUpIcon } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -29,7 +29,7 @@ interface NavItem {
 const solutions: SolutionGroup[] = [
   {
     title: "Sales Solution",
-    icon: Target,
+    icon: TrendingUpIcon,
     items: [
       {
         id: "dashboard",
@@ -159,6 +159,30 @@ const solutions: SolutionGroup[] = [
         icon: Target,
         path: "/business/estrategico",
       },
+      {
+        id: "operacional",
+        label: "Processos",
+        icon: SettingsIcon,
+        path: "/business/operacional",
+      },
+      {
+        id: "arquivos",
+        label: "Arquivos",
+        icon: FileText,
+        path: "/business/arquivos",
+      },
+      {
+        id: "notion",
+        label: "Notion Solutions",
+        icon: Layers,
+        path: "/business/notion",
+      },
+      {
+        id: "business-guide",
+        label: "Guia",
+        icon: BookOpen,
+        path: "/business/guia",
+      },
     ],
   },
 ];
@@ -166,6 +190,7 @@ const solutions: SolutionGroup[] = [
 export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse }: SidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [expandedSolutions, setExpandedSolutions] = useState<string[]>(['Sales Solution', 'Marketing Solution', 'Business Solution']);
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -176,6 +201,14 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
 
   const isSolutionActive = (solution: SolutionGroup) => {
     return solution.items.some(item => isActive(item.path));
+  };
+
+  const toggleSolution = (title: string) => {
+    setExpandedSolutions(prev =>
+      prev.includes(title)
+        ? prev.filter(t => t !== title)
+        : [...prev, title]
+    );
   };
 
   return (
@@ -189,47 +222,54 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
     >
       <div className="flex flex-col h-full">
         <ScrollArea className="flex-1 py-4">
-          {solutions.map((solution) => (
-            <div 
-              key={solution.title} 
-              className={cn(
-                "mb-8 px-3 relative",
-                isSolutionActive(solution) && "before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-gradient-to-b before:from-primary before:to-accent before:rounded-r"
-              )}
-            >
-              <div
+          {solutions.map((solution) => {
+            const isExpanded = expandedSolutions.includes(solution.title);
+            
+            return (
+              <div 
+                key={solution.title} 
                 className={cn(
-                  "flex items-center gap-3 mb-3",
-                  collapsed ? "justify-center px-2" : "px-3"
+                  "mb-4 px-3 relative",
+                  isSolutionActive(solution) && "before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-gradient-to-b before:from-primary before:to-accent before:rounded-r"
                 )}
               >
-                {/* Light mode: fundo marrom, ícone branco */}
-                {/* Dark mode: fundo bege, ícone marrom */}
-                <div className={cn(
-                  "p-2 rounded-xl transition-all duration-200 shadow-sm",
-                  isSolutionActive(solution) 
-                    ? "bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-md ring-1 ring-primary/20" 
-                    : "bg-muted text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 group-hover:shadow"
-                )}>
-                  <solution.icon className="w-5 h-5" />
-                </div>
-                {!collapsed && (
-                  <div>
-                    <span className={cn(
-                      "text-sm font-semibold tracking-tight",
-                      isSolutionActive(solution) ? "text-primary" : "text-muted-foreground"
-                    )}>
-                      {solution.title}
-                    </span>
+                <button
+                  onClick={() => !collapsed && toggleSolution(solution.title)}
+                  className={cn(
+                    "w-full flex items-center gap-3 mb-2 hover:bg-muted/50 rounded-lg transition-colors p-2",
+                    collapsed ? "justify-center" : "px-3"
+                  )}
+                >
+                  <div className={cn(
+                    "p-2 rounded-xl transition-all duration-200 shadow-sm",
+                    isSolutionActive(solution) 
+                      ? "bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-md ring-1 ring-primary/20" 
+                      : "bg-muted text-muted-foreground hover:text-primary hover:bg-primary/10 hover:shadow"
+                  )}>
+                    <solution.icon className="w-5 h-5" />
                   </div>
-                )}
-              </div>
+                  {!collapsed && (
+                    <>
+                      <span className={cn(
+                        "text-sm font-semibold tracking-tight flex-1 text-left",
+                        isSolutionActive(solution) ? "text-primary" : "text-muted-foreground"
+                      )}>
+                        {solution.title}
+                      </span>
+                      <ChevronDown className={cn(
+                        "w-4 h-4 transition-transform",
+                        isExpanded ? "rotate-180" : ""
+                      )} />
+                    </>
+                  )}
+                </button>
 
-              <div className={cn(
-                "space-y-1",
-                collapsed ? "px-2" : "ml-4"
-              )}>
-                {solution.items.map((item) => (
+                {(!collapsed && isExpanded) && (
+                  <div className={cn(
+                    "space-y-1",
+                    "ml-4"
+                  )}>
+                    {solution.items.map((item) => (
                   <Button
                     key={item.id}
                     variant="ghost"
@@ -267,8 +307,10 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
                   </Button>
                 ))}
               </div>
+            )}
             </div>
-          ))}
+          );
+          })}
         </ScrollArea>
 
         <div className="p-2 border-t border-border/50">
