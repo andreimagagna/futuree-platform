@@ -24,6 +24,7 @@ import { Branding } from "./pages/marketing/Branding";
 import { MarketingGuide } from "./pages/marketing/MarketingGuide";
 import { CustomerSuccess } from "./pages/business/CustomerSuccess";
 import { Financas } from "./pages/business/Financas";
+import { Estrategico } from "./pages/business/Estrategico";
 import Automations from "./pages/Automations";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const App = () => (
           {/* Business Solution */}
           <Route path="/business/cs" element={<AppLayout currentView="cs"><CustomerSuccess /></AppLayout>} />
           <Route path="/business/financas" element={<AppLayout currentView="financas"><Financas /></AppLayout>} />
+          <Route path="/business/estrategico" element={<AppLayout currentView="estrategico"><Estrategico /></AppLayout>} />
           
           {/* Profile & Settings */}
           <Route path="/profile" element={<AppLayout currentView="profile"><Profile /></AppLayout>} />

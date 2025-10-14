@@ -153,6 +153,12 @@ const solutions: SolutionGroup[] = [
         icon: DollarSign,
         path: "/business/financas",
       },
+      {
+        id: "estrategico",
+        label: "Estratégico",
+        icon: Target,
+        path: "/business/estrategico",
+      },
     ],
   },
 ];
