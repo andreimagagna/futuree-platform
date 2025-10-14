@@ -45,6 +45,11 @@ import {
   XCircle,
   Clock,
   BarChart3,
+  TrendingDown,
+  UserCheck,
+  DollarSign,
+  Target,
+  Activity,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -61,6 +66,9 @@ interface Customer {
   lastContact: string;
   csm: string;
   notes: string;
+  nps?: number;
+  contractEndDate?: string;
+  lastInteraction?: string;
 }
 
 const healthScoreConfig = {
@@ -124,6 +132,8 @@ export const CustomerSuccess = () => {
     status: "active" | "at-risk" | "churned";
     csm: string;
     notes: string;
+    nps?: number;
+    contractEndDate?: string;
   }>({
     name: "",
     email: "",
@@ -134,6 +144,8 @@ export const CustomerSuccess = () => {
     status: "active",
     csm: "",
     notes: "",
+    nps: undefined,
+    contractEndDate: "",
   });
 
   const getHealthScoreCategory = (score: number) => {
@@ -169,6 +181,8 @@ export const CustomerSuccess = () => {
         status: customer.status,
         csm: customer.csm,
         notes: customer.notes,
+        nps: customer.nps,
+        contractEndDate: customer.contractEndDate || "",
       });
     } else {
       setSelectedCustomer(null);
@@ -182,6 +196,8 @@ export const CustomerSuccess = () => {
         status: "active",
         csm: "",
         notes: "",
+        nps: undefined,
+        contractEndDate: "",
       });
     }
     setIsDialogOpen(true);
@@ -251,25 +267,60 @@ export const CustomerSuccess = () => {
   const totalCustomers = customers.length;
   const activeCustomers = customers.filter((c) => c.status === "active").length;
   const atRiskCustomers = customers.filter((c) => c.status === "at-risk").length;
+  const churnedCustomers = customers.filter((c) => c.status === "churned").length;
+  
   const totalMRR = customers
     .filter((c) => c.status === "active")
     .reduce((sum, c) => sum + c.mrr, 0);
+  
   const avgHealthScore =
     totalCustomers > 0
       ? Math.round(customers.reduce((sum, c) => sum + c.healthScore, 0) / totalCustomers)
       : 0;
 
+  // Churn Rate (últimos 30 dias simulado)
+  const churnRate = totalCustomers > 0 
+    ? ((churnedCustomers / totalCustomers) * 100).toFixed(1)
+    : "0.0";
+
+  // Retention Rate
+  const retentionRate = totalCustomers > 0
+    ? (((totalCustomers - churnedCustomers) / totalCustomers) * 100).toFixed(1)
+    : "100.0";
+
+  // NPS Médio (Net Promoter Score)
+  const customersWithNPS = customers.filter((c) => c.nps !== undefined);
+  const avgNPS = customersWithNPS.length > 0
+    ? Math.round(customersWithNPS.reduce((sum, c) => sum + (c.nps || 0), 0) / customersWithNPS.length)
+    : 0;
+
+  // ARPU (Average Revenue Per User)
+  const arpu = activeCustomers > 0
+    ? totalMRR / activeCustomers
+    : 0;
+
+  // Clientes que precisam de atenção (health score < 50 ou sem contato há mais de 30 dias)
+  const needsAttention = customers.filter((c) => {
+    if (c.status !== "active") return false;
+    const daysSinceContact = c.lastContact 
+      ? Math.floor((new Date().getTime() - new Date(c.lastContact).getTime()) / (1000 * 60 * 60 * 24))
+      : 999;
+    return c.healthScore < 50 || daysSinceContact > 30;
+  }).length;
+
+  // Segmentação por Health Score
+  const healthyCustomers = customers.filter((c) => c.status === "active" && c.healthScore >= 80).length;
+  const mediumHealthCustomers = customers.filter((c) => c.status === "active" && c.healthScore >= 50 && c.healthScore < 80).length;
+  const lowHealthCustomers = customers.filter((c) => c.status === "active" && c.healthScore < 50).length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold mb-2">Customer Success</h1>
-        <p className="text-muted-foreground">
-          Gerencie o sucesso e a saúde dos seus clientes
-        </p>
+        <h1 className="text-3xl font-bold">Customer Success</h1>
       </div>
 
-      {/* Métricas */}
+      {/* Métricas Principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -291,7 +342,7 @@ export const CustomerSuccess = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               MRR Total
             </CardTitle>
-            <BarChart3 className="h-4 w-4 text-success" />
+            <DollarSign className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -301,7 +352,22 @@ export const CustomerSuccess = () => {
               })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Receita recorrente mensal
+              ARPU: {arpu.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Retention Rate
+            </CardTitle>
+            <UserCheck className="h-4 w-4 text-success" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-success">{retentionRate}%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Churn: {churnRate}%
             </p>
           </CardContent>
         </Card>
@@ -316,12 +382,15 @@ export const CustomerSuccess = () => {
           <CardContent>
             <div className="text-2xl font-bold">{avgHealthScore}%</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Saúde geral da base
+              {healthyCustomers} saudáveis, {lowHealthCustomers} em risco
             </p>
           </CardContent>
         </Card>
+      </div>
 
-        <Card>
+      {/* Métricas Secundárias */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-destructive">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Clientes em Risco
@@ -331,8 +400,63 @@ export const CustomerSuccess = () => {
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{atRiskCustomers}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Requerem atenção imediata
+              Status marcado como risco
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-warning">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Precisam Atenção
+            </CardTitle>
+            <Activity className="h-4 w-4 text-warning" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-warning">{needsAttention}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Health baixo ou sem contato
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-accent">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              NPS Médio
+            </CardTitle>
+            <Target className="h-4 w-4 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{avgNPS}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {customersWithNPS.length} respostas
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-primary">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Segmentação
+            </CardTitle>
+            <BarChart3 className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-success">Saudável:</span>
+                <span className="font-semibold">{healthyCustomers}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-warning">Atenção:</span>
+                <span className="font-semibold">{mediumHealthCustomers}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-destructive">Risco:</span>
+                <span className="font-semibold">{lowHealthCustomers}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -460,15 +584,46 @@ export const CustomerSuccess = () => {
                             </div>
                             <div>
                               <p className="text-xs text-muted-foreground mb-1">Segmento</p>
-                              <p className="text-sm font-semibold">{customer.segment}</p>
+                              <p className="text-sm font-semibold">{customer.segment || "N/A"}</p>
                             </div>
                             <div>
                               <p className="text-xs text-muted-foreground mb-1">CSM</p>
-                              <p className="text-sm font-semibold">{customer.csm}</p>
+                              <p className="text-sm font-semibold">{customer.csm || "N/A"}</p>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {customer.nps !== undefined && (
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">NPS</p>
+                                <div className="flex items-center gap-1">
+                                  <p className="text-sm font-semibold">{customer.nps}/10</p>
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      customer.nps >= 9
+                                        ? "bg-success/10 text-success border-transparent"
+                                        : customer.nps >= 7
+                                        ? "bg-warning/10 text-warning border-transparent"
+                                        : "bg-destructive/10 text-destructive border-transparent"
+                                    }
+                                  >
+                                    {customer.nps >= 9 ? "Promotor" : customer.nps >= 7 ? "Passivo" : "Detrator"}
+                                  </Badge>
+                                </div>
+                              </div>
+                            )}
+                            {customer.contractEndDate && (
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Renovação</p>
+                                <p className="text-sm font-semibold">
+                                  {new Date(customer.contractEndDate).toLocaleDateString("pt-BR")}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
                               Onboarding: {new Date(customer.onboardingDate).toLocaleDateString("pt-BR")}
@@ -618,6 +773,39 @@ export const CustomerSuccess = () => {
                   />
                   <p className="text-xs text-muted-foreground">
                     Receita recorrente mensal
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">NPS (0-10)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="10"
+                    placeholder="8"
+                    value={formData.nps || ""}
+                    onChange={(e) =>
+                      setFormData({ 
+                        ...formData, 
+                        nps: e.target.value ? Number(e.target.value) : undefined 
+                      })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Net Promoter Score (opcional)
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Término do Contrato</label>
+                  <Input
+                    type="date"
+                    value={formData.contractEndDate || ""}
+                    onChange={(e) => setFormData({ ...formData, contractEndDate: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Data de renovação (opcional)
                   </p>
                 </div>
               </div>
