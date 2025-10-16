@@ -1,14 +1,6 @@
 // ============================================================================
 // SUPABASE DATABASE TYPES
-// Gerado automaticamente pelo Supabase
-// ============================================================================
-// 
-// INSTRUÇÕES:
-// 1. Vá para: https://supabase.com/dashboard/project/SEU_PROJECT_ID/api
-// 2. Encontre a seção "TypeScript Types" ou "Type Definitions"
-// 3. Copie TODO o código TypeScript
-// 4. Cole AQUI, substituindo este comentário
-// 
+// Gerado baseado na estrutura do banco de dados
 // ============================================================================
 
 export type Json =
@@ -22,7 +14,199 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      // COLE OS TIPOS AQUI
+      user_preferences: {
+        Row: {
+          id: string
+          first_name: string | null
+          last_name: string | null
+          phone: string | null
+          department: string | null
+          location: string | null
+          bio: string | null
+          avatar_url: string | null
+          theme: string | null
+          language: string | null
+          notifications_enabled: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id: string
+          first_name?: string | null
+          last_name?: string | null
+          phone?: string | null
+          department?: string | null
+          location?: string | null
+          bio?: string | null
+          avatar_url?: string | null
+          theme?: string | null
+          language?: string | null
+          notifications_enabled?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          first_name?: string | null
+          last_name?: string | null
+          phone?: string | null
+          department?: string | null
+          location?: string | null
+          bio?: string | null
+          avatar_url?: string | null
+          theme?: string | null
+          language?: string | null
+          notifications_enabled?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
+      company_settings: {
+        Row: {
+          id: string
+          company_name: string | null
+          company_size: string | null
+          industry: string | null
+          website: string | null
+          address: string | null
+          city: string | null
+          state: string | null
+          country: string | null
+          postal_code: string | null
+          tax_id: string | null
+          logo_url: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          font_family: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id: string
+          company_name?: string | null
+          company_size?: string | null
+          industry?: string | null
+          website?: string | null
+          address?: string | null
+          city?: string | null
+          state?: string | null
+          country?: string | null
+          postal_code?: string | null
+          tax_id?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          font_family?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_name?: string | null
+          company_size?: string | null
+          industry?: string | null
+          website?: string | null
+          address?: string | null
+          city?: string | null
+          state?: string | null
+          country?: string | null
+          postal_code?: string | null
+          tax_id?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          font_family?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
+      saved_funnels: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          description: string | null
+          funnel_data: Json
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          description?: string | null
+          funnel_data: Json
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          description?: string | null
+          funnel_data?: Json
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
+      landing_pages: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          slug: string
+          content: Json
+          published: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          slug: string
+          content: Json
+          published?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          slug?: string
+          content?: Json
+          published?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
+      automation_settings: {
+        Row: {
+          id: string
+          user_id: string
+          setting_key: string
+          setting_value: Json
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          setting_key: string
+          setting_value: Json
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          setting_key?: string
+          setting_value?: Json
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

@@ -67,7 +67,7 @@ export function useSupabaseStorage<T>(
             .from('automation_settings')
             .select('*')
             .eq('user_id', user.id)
-            .eq('settings_key', key)
+            .eq('setting_key', key)
             .single();
 
           if (error && error.code !== 'PGRST116') {
@@ -76,7 +76,7 @@ export function useSupabaseStorage<T>(
           }
 
           if (data) {
-            setValue(data.settings_value as T);
+            setValue((data as any).setting_value as T);
           }
         }
       } catch (err) {
@@ -106,9 +106,9 @@ export function useSupabaseStorage<T>(
             .from('user_preferences')
             .upsert({
               id: user.id,
-              ...(valueToSave as object),
+              ...(valueToSave as any),
               updated_at: new Date().toISOString()
-            }, {
+            } as any, {
               onConflict: 'id'
             });
 
@@ -119,11 +119,11 @@ export function useSupabaseStorage<T>(
           const { error } = await supabase
             .from('company_settings')
             .upsert({
-              user_id: user.id,
-              ...(valueToSave as object),
+              id: user.id,
+              ...(valueToSave as any),
               updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'user_id'
+            } as any, {
+              onConflict: 'id'
             });
 
           if (error) {
@@ -134,11 +134,11 @@ export function useSupabaseStorage<T>(
             .from('automation_settings')
             .upsert({
               user_id: user.id,
-              settings_key: key,
-              settings_value: valueToSave,
+              setting_key: key,
+              setting_value: valueToSave as any,
               updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'user_id,settings_key'
+            } as any, {
+              onConflict: 'user_id,setting_key'
             });
 
           if (error) {
@@ -158,9 +158,20 @@ export function useSupabaseStorage<T>(
 /**
  * Hook especializado para landing pages
  */
+interface LandingPage {
+  id: string;
+  user_id: string;
+  title: string;
+  slug: string;
+  content: any;
+  published: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 export function useLandingPages() {
   const { user } = useAuthContext();
-  const [landingPages, setLandingPages] = useState<any[]>([]);
+  const [landingPages, setLandingPages] = useState<LandingPage[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -215,14 +226,20 @@ export function useLandingPages() {
           return;
         }
 
+        if (!data) {
+          console.error('Nenhum dado retornado após upsert');
+          return;
+        }
+
         setLandingPages(prev => {
-          const index = prev.findIndex(p => p.id === data.id);
+          const typedData = data as LandingPage;
+          const index = prev.findIndex(p => p.id === typedData.id);
           if (index >= 0) {
             const updated = [...prev];
-            updated[index] = data;
+            updated[index] = typedData;
             return updated;
           }
-          return [data, ...prev];
+          return [typedData, ...prev];
         });
 
         return data;
@@ -268,9 +285,19 @@ export function useLandingPages() {
 /**
  * Hook especializado para funis salvos
  */
+interface SavedFunnel {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  funnel_data: any;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 export function useSavedFunnels() {
   const { user } = useAuthContext();
-  const [funnels, setFunnels] = useState<any[]>([]);
+  const [funnels, setFunnels] = useState<SavedFunnel[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -325,14 +352,20 @@ export function useSavedFunnels() {
           return;
         }
 
+        if (!data) {
+          console.error('Nenhum dado retornado após upsert');
+          return;
+        }
+
         setFunnels(prev => {
-          const index = prev.findIndex(f => f.id === data.id);
+          const typedData = data as SavedFunnel;
+          const index = prev.findIndex(f => f.id === typedData.id);
           if (index >= 0) {
             const updated = [...prev];
-            updated[index] = data;
+            updated[index] = typedData;
             return updated;
           }
-          return [data, ...prev];
+          return [typedData, ...prev];
         });
 
         return data;
