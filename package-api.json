@@ -1,0 +1,21 @@
+{
+  "name": "futuree-api-agent",
+  "version": "1.0.0",
+  "description": "API REST para funcionalidades do Agent (WhatsApp)",
+  "main": "exemplo-api-rest.js",
+  "scripts": {
+    "start": "node exemplo-api-rest.js",
+    "dev": "nodemon exemplo-api-rest.js",
+    "test": "echo \"API funcionando\" && curl -s http://localhost:3001/health"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": ["api", "whatsapp", "agent", "crm"],
+  "author": "Futuree Solutions",
+  "license": "MIT"
+}

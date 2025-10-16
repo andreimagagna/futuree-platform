@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type {
   CreatorWorkspace,
   CreatorIdentity,
@@ -104,8 +103,7 @@ const initialState: CreatorWorkspace = {
 };
 
 export const useCreatorSolutions = create<CreatorSolutionsStore>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       ...initialState,
 
       // Identity
@@ -220,9 +218,5 @@ export const useCreatorSolutions = create<CreatorSolutionsStore>()(
       clearAll: () => set(initialState),
       exportData: () => get(),
       importData: (data) => set((state) => ({ ...state, ...data })),
-    }),
-    {
-      name: 'creator-solutions-storage',
-    }
-  )
+    })
 );

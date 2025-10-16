@@ -14,7 +14,6 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { NotificationsPanel } from "./NotificationsPanel";
-import { useLocalStorage } from "@/hooks/use-local-storage";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/store/useStore";
 
@@ -23,7 +22,7 @@ interface TopbarProps {
 }
 
 export const Topbar = ({ onOpenSearch }: TopbarProps) => {
-  const [theme, setTheme] = useLocalStorage<string>("theme", "light");
+  const [theme, setTheme] = useState<string>("light");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { leads, tasks } = useStore();
   const navigate = useNavigate();

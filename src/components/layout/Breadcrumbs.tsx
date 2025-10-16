@@ -1,3 +1,4 @@
+import React from "react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -34,16 +35,18 @@ export const Breadcrumbs = ({ className }: { className?: string }) => {
           const isLast = idx === items.length - 1;
           const label = LABELS[seg] ?? (seg.charAt(0).toUpperCase() + seg.slice(1));
           return (
-            <BreadcrumbItem key={`${seg}-${idx}`}>
-              {isLast ? (
-                <BreadcrumbPage>{label}</BreadcrumbPage>
-              ) : (
-                <BreadcrumbLink asChild>
-                  <Link to={buildHref(idx)}>{label}</Link>
-                </BreadcrumbLink>
-              )}
+            <React.Fragment key={`${seg}-${idx}`}>
+              <BreadcrumbItem>
+                {isLast ? (
+                  <BreadcrumbPage>{label}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink asChild>
+                    <Link to={buildHref(idx)}>{label}</Link>
+                  </BreadcrumbLink>
+                )}
+              </BreadcrumbItem>
               {!isLast && <BreadcrumbSeparator />}
-            </BreadcrumbItem>
+            </React.Fragment>
           );
         })}
       </BreadcrumbList>

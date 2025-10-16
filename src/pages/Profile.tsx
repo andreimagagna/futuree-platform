@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/store/useStore";
-import { useSupabaseStorage } from "@/hooks/use-supabase-storage";
+import { useUserPreferences, useUpdateUserPreferences } from "@/hooks/use-api-cache";
 import {
   User,
   Mail,
@@ -41,8 +41,15 @@ const Profile = () => {
   const { leads } = useStore();
   const [isEditing, setIsEditing] = useState(false);
   
-  // 🚀 MIGRADO PARA SUPABASE - substituindo localStorage
-  const [profileData, setProfileData, profileLoading] = useSupabaseStorage<ProfileData>('user_preferences', {
+  // 🚀 USANDO NOVA API ESCALÁVEL
+  const { data: profileData, isLoading: profileLoading } = useUserPreferences('current-user-id'); // TODO: usar ID real do usuário
+  const updateProfileMutation = useUpdateUserPreferences();
+  
+  // State local para edição
+  const [editedProfile, setEditedProfile] = useState<ProfileData | null>(null);
+  
+  // Dados para exibição (profileData ou editedProfile)
+  const displayProfile = (editedProfile || profileData || {
     first_name: "",
     last_name: "",
     email: "",
@@ -50,7 +57,7 @@ const Profile = () => {
     department: "",
     location: "",
     bio: "",
-  });
+  }) as ProfileData;
 
   // Calcular estatísticas dinamicamente baseadas nos leads
   const stats = useMemo(() => {
@@ -140,8 +147,8 @@ const Profile = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
-    setProfileData((prev) => ({
-      ...prev,
+    setEditedProfile((prev) => ({
+      ...prev!,
       [id]: value,
     }));
   };
@@ -149,8 +156,13 @@ const Profile = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 🚀 Salva automaticamente no Supabase via hook
-    await setProfileData(profileData);
+    if (!editedProfile) return;
+    
+    // 🚀 Salva automaticamente no Supabase via mutation
+    await updateProfileMutation.mutateAsync({
+      userId: 'current-user-id', // TODO: usar ID real do usuário
+      preferences: editedProfile
+    });
     
     toast({
       title: "Perfil atualizado",
@@ -166,7 +178,7 @@ const Profile = () => {
   };
 
   const getInitials = () => {
-    return `${profileData.first_name?.charAt(0) || ''}${profileData.last_name?.charAt(0) || ''}`.toUpperCase();
+    return `${displayProfile.first_name?.charAt(0) || ''}${displayProfile.last_name?.charAt(0) || ''}`.toUpperCase();
   };
 
   return (
@@ -187,7 +199,7 @@ const Profile = () => {
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center space-y-4">
               <Avatar className="h-32 w-32">
-                <AvatarImage src={profileData.avatar_url || ""} alt="Foto de perfil" />
+                <AvatarImage src={displayProfile.avatar_url || ""} alt="Foto de perfil" />
                 <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
                   {getInitials()}
                 </AvatarFallback>
@@ -231,7 +243,7 @@ const Profile = () => {
                     <Input
                       id="first_name"
                       placeholder="Seu nome"
-                      value={profileData.first_name}
+                      value={displayProfile.first_name}
                       onChange={handleInputChange}
                       className="pl-9"
                       disabled={!isEditing}
@@ -243,7 +255,7 @@ const Profile = () => {
                   <Input
                     id="last_name"
                     placeholder="Seu sobrenome"
-                    value={profileData.last_name}
+                    value={displayProfile.last_name}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                   />
@@ -258,7 +270,7 @@ const Profile = () => {
                     id="email"
                     type="email"
                     placeholder="seu@email.com"
-                    value={profileData.email}
+                    value={displayProfile.email}
                     onChange={handleInputChange}
                     className="pl-9"
                     disabled={!isEditing}
@@ -274,7 +286,7 @@ const Profile = () => {
                     id="phone"
                     type="tel"
                     placeholder="(11) 99999-9999"
-                    value={profileData.phone}
+                    value={displayProfile.phone}
                     onChange={handleInputChange}
                     className="pl-9"
                     disabled={!isEditing}
@@ -290,7 +302,7 @@ const Profile = () => {
                     <Input
                       id="department"
                       placeholder="Vendas"
-                      value={profileData.department}
+                      value={displayProfile.department}
                       onChange={handleInputChange}
                       className="pl-9"
                       disabled={!isEditing}
@@ -304,7 +316,7 @@ const Profile = () => {
                     <Input
                       id="location"
                       placeholder="Cidade, Estado"
-                      value={profileData.location}
+                      value={displayProfile.location}
                       onChange={handleInputChange}
                       className="pl-9"
                       disabled={!isEditing}
@@ -318,7 +330,7 @@ const Profile = () => {
                 <Textarea
                   id="bio"
                   placeholder="Conte um pouco sobre você..."
-                  value={profileData.bio}
+                  value={displayProfile.bio}
                   onChange={handleInputChange}
                   rows={4}
                   disabled={!isEditing}

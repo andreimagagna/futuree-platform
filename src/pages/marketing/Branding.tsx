@@ -21,7 +21,6 @@ import {
   Check,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 
 interface PrimalBranding {
   creationStory: string;
@@ -108,7 +107,7 @@ const initialData: BrandingData = {
 };
 
 export function Branding() {
-  const [data, setData] = useLocalStorage<BrandingData>('branding-data', initialData);
+  const [data, setData] = useState<BrandingData>(initialData);
   const [activeTab, setActiveTab] = useState('primal');
   const { toast } = useToast();
 

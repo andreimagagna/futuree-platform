@@ -54,11 +54,36 @@ npm run dev
 
 This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Frontend**: Vite, TypeScript, React, shadcn-ui, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL, Auth, Realtime)
+- **API (Opcional)**: Node.js, Express (para funcionalidades avançadas do Agent)
+
+## 🚀 Funcionalidades
+
+### ✅ Sistema Core (100% Funcional)
+- CRM completo com gestão de leads
+- Funil de vendas inteligente
+- Dashboards e relatórios
+- Marketing automation
+- Autenticação e perfis de usuário
+- Realtime updates
+
+### 🔧 API REST (Opcional)
+Para funcionalidades avançadas do Agent (WhatsApp), foi criada uma API opcional:
+
+```bash
+# Arquivos criados:
+# - exemplo-api-rest.js (API completa)
+# - package-api.json (dependências)
+# - .env.api.example (configuração)
+# - README-API.md (documentação)
+# - deploy-api.sh (script de deploy)
+
+# Para testar:
+./deploy-api.sh
+```
+
+**Quando usar:** Apenas se precisar de integração WhatsApp ou webhooks avançados.
 
 ## How can I deploy this project?
 

@@ -223,6 +223,9 @@ interface StoreState {
   setDateRange: (range: DateRange) => void;
   setActiveFunnel: (id: string) => void;
 
+  // Replace leads list (from DB loader)
+  setLeads: (leads: Lead[]) => void;
+
   addLead: (lead: Lead) => void;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
@@ -366,11 +369,22 @@ export const useStore = create<StoreState>((set) => ({
   setDateRange: (range) => set({ dateRange: range }),
   setActiveFunnel: (id) => set({ activeFunnelId: id }),
 
-  addLead: (lead) => set((state) => ({ leads: [...state.leads, lead] })),
-  updateLead: (id, updates) => set((state) => ({
-    leads: state.leads.map((l) => (l.id === id ? { ...l, ...updates } : l)),
-  })),
-  deleteLead: (id) => set((state) => ({ leads: state.leads.filter((l) => l.id !== id) })),
+  setLeads: (leads) => set(() => ({ leads })),
+
+  addLead: (lead) => {
+    // Apenas estado local; persistência é feita fora da store
+    set((state) => ({ leads: [...state.leads, lead] }));
+  },
+  updateLead: (id, updates) => {
+    // Optimistic
+    set((state) => ({
+      leads: state.leads.map((l) => (l.id === id ? { ...l, ...updates } : l)),
+    }));
+  },
+  deleteLead: (id) => {
+    // Optimistic
+    set((state) => ({ leads: state.leads.filter((l) => l.id !== id) }));
+  },
   
   addTask: (task) => set((state) => ({ tasks: [...state.tasks, task] })),
   updateTask: (id, updates) => set((state) => ({

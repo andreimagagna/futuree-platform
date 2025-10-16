@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useStore } from "@/store/useStore";
-import { useSupabaseStorage } from "@/hooks/use-supabase-storage";
+import { useCompanySettings, useUpdateCompanySettings } from "@/hooks/use-api-cache";
 import { 
   Settings as SettingsIcon, 
   Plus, 
@@ -53,8 +53,15 @@ const Settings = () => {
   const [newSource, setNewSource] = useState("");
   const [newOwner, setNewOwner] = useState("");
   
-  // 🚀 MIGRADO PARA SUPABASE - substituindo localStorage
-  const [companyData, setCompanyData, companyLoading] = useSupabaseStorage<CompanyData>('company_settings', {
+  // 🚀 USANDO NOVA API ESCALÁVEL
+  const { data: companyData, isLoading: companyLoading } = useCompanySettings('current-company-id'); // TODO: usar ID real da empresa
+  const updateCompanyMutation = useUpdateCompanySettings();
+  
+  // State local para edição
+  const [editedCompanyData, setEditedCompanyData] = useState<CompanyData | null>(null);
+  
+  // Dados para exibição
+  const displayCompanyData = (editedCompanyData || companyData || {
     company_name: "",
     cnpj: "",
     website: "",
@@ -63,7 +70,7 @@ const Settings = () => {
     state: "",
     postal_code: "",
     country: "Brasil",
-  });
+  }) as CompanyData;
 
   // Estado para aba Segurança
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -108,8 +115,13 @@ const Settings = () => {
   };
 
   const handleSaveCompanyData = async () => {
-    // 🚀 Salva automaticamente no Supabase via hook
-    await setCompanyData(companyData);
+    if (!displayCompanyData) return;
+    
+    // 🚀 Salva automaticamente no Supabase via mutation
+    await updateCompanyMutation.mutateAsync({
+      companyId: 'current-company-id', // TODO: usar ID real da empresa
+      settings: displayCompanyData
+    });
     toast({
       title: "Sucesso",
       description: "Informações da empresa salvas com sucesso",
@@ -494,16 +506,16 @@ const Settings = () => {
                     <Label>Nome da Empresa</Label>
                     <Input 
                       placeholder="Tríade Solutions" 
-                      value={companyData.company_name}
-                      onChange={(e) => setCompanyData({ ...companyData, company_name: e.target.value })}
+                      value={displayCompanyData.company_name}
+                      onChange={(e) => setEditedCompanyData({ ...displayCompanyData, company_name: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>CNPJ</Label>
                     <Input 
                       placeholder="00.000.000/0000-00" 
-                      value={companyData.cnpj}
-                      onChange={(e) => setCompanyData({ ...companyData, cnpj: e.target.value })}
+                      value={displayCompanyData.cnpj}
+                      onChange={(e) => setEditedCompanyData({ ...displayCompanyData, cnpj: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -511,24 +523,24 @@ const Settings = () => {
                     <Input 
                       type="url" 
                       placeholder="https://empresa.com" 
-                      value={companyData.website}
-                      onChange={(e) => setCompanyData({ ...companyData, website: e.target.value })}
+                      value={displayCompanyData.website}
+                      onChange={(e) => setEditedCompanyData({ ...displayCompanyData, website: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Cidade</Label>
                     <Input 
                       placeholder="São Paulo" 
-                      value={companyData.city}
-                      onChange={(e) => setCompanyData({ ...companyData, city: e.target.value })}
+                      value={displayCompanyData.city}
+                      onChange={(e) => setEditedCompanyData({ ...displayCompanyData, city: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label>Endereço</Label>
                     <Input 
                       placeholder="Rua, Número, Bairro" 
-                      value={companyData.address}
-                      onChange={(e) => setCompanyData({ ...companyData, address: e.target.value })}
+                      value={displayCompanyData.address}
+                      onChange={(e) => setEditedCompanyData({ ...displayCompanyData, address: e.target.value })}
                     />
                   </div>
                 </div>

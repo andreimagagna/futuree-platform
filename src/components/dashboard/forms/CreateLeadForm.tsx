@@ -25,7 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore } from "@/store/useStore";
+import { useStore, type Lead } from "@/store/useStore";
+import { useLeadsAPI } from "@/hooks/use-api";
 import { toast } from "sonner";
 
 const leadSchema = z.object({
@@ -72,7 +73,7 @@ interface CreateLeadFormProps {
 }
 
 export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
-  const { addLead } = useStore();
+  const { createLead } = useLeadsAPI();
 
   const form = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
@@ -89,11 +90,13 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
     },
   });
 
-  const onSubmit = (data: LeadFormValues) => {
+  const onSubmit = async (data: LeadFormValues) => {
     try {
-      addLead({
-        id: crypto.randomUUID(),
+      console.log('[CreateLeadForm] 📝 Submetendo formulário:', data);
+      
+      const leadData: any = {
         name: data.name,
+        nome: data.name, // Campo adicional para compatibilidade com banco
         company: data.company,
         email: data.email,
         whatsapp: data.phone || '',
@@ -106,13 +109,17 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
         notes: data.notes || '',
         dealValue: data.dealValue ? Number(data.dealValue) : undefined,
         expectedCloseDate: data.expectedCloseDate,
-      });
+      };
 
-      toast.success("Lead criado com sucesso!");
+      console.log('[CreateLeadForm] 🚀 Chamando createLead...');
+      await createLead(leadData);
+      
+      console.log('[CreateLeadForm] ✅ Lead criado!');
       form.reset();
       onSuccess();
     } catch (error) {
-      toast.error("Erro ao criar lead. Tente novamente.");
+      console.error('[CreateLeadForm] ❌ Erro ao criar lead:', error);
+      toast.error("Erro ao criar lead. Verifique o console para detalhes.");
     }
   };
 

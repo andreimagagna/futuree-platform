@@ -14,6 +14,56 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      leads: {
+        Row: {
+          id: string
+          company_id: string | null
+          nome: string
+          email: string | null
+          whatsapp: string | null
+          origem: string | null
+          etapa: string | null
+          qualification_stage: string | null
+          score: number | null
+          owner_id: string | null
+          proxima_acao_at: string | null
+          tags: string[] | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          company_id?: string | null
+          nome: string
+          email?: string | null
+          whatsapp?: string | null
+          origem?: string | null
+          etapa?: string | null
+          qualification_stage?: string | null
+          score?: number | null
+          owner_id?: string | null
+          proxima_acao_at?: string | null
+          tags?: string[] | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          company_id?: string | null
+          nome?: string
+          email?: string | null
+          whatsapp?: string | null
+          origem?: string | null
+          etapa?: string | null
+          qualification_stage?: string | null
+          score?: number | null
+          owner_id?: string | null
+          proxima_acao_at?: string | null
+          tags?: string[] | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
       user_preferences: {
         Row: {
           id: string
