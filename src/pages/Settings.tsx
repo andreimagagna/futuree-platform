@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useStore } from "@/store/useStore";
+import { useSupabaseStorage } from "@/hooks/use-supabase-storage";
 import { 
   Settings as SettingsIcon, 
   Plus, 
@@ -29,11 +30,14 @@ import { useToast } from "@/hooks/use-toast";
 
 // Interfaces
 interface CompanyData {
-  name: string;
+  company_name: string;
   cnpj: string;
-  email: string;
-  phone: string;
+  website: string;
   address: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country: string;
 }
 
 interface PaymentMethod {
@@ -49,13 +53,16 @@ const Settings = () => {
   const [newSource, setNewSource] = useState("");
   const [newOwner, setNewOwner] = useState("");
   
-  // Estado para aba Empresa
-  const [companyData, setCompanyData] = useState<CompanyData>({
-    name: "",
+  // 🚀 MIGRADO PARA SUPABASE - substituindo localStorage
+  const [companyData, setCompanyData, companyLoading] = useSupabaseStorage<CompanyData>('company_settings', {
+    company_name: "",
     cnpj: "",
-    email: "",
-    phone: "",
+    website: "",
     address: "",
+    city: "",
+    state: "",
+    postal_code: "",
+    country: "Brasil",
   });
 
   // Estado para aba Segurança
@@ -63,14 +70,6 @@ const Settings = () => {
   
   // Estado para aba Pagamentos
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-
-  // Carregar dados salvos do localStorage
-  useEffect(() => {
-    const savedCompanyData = localStorage.getItem("companyData");
-    if (savedCompanyData) {
-      setCompanyData(JSON.parse(savedCompanyData));
-    }
-  }, []);
 
   const handleAddSource = () => {
     if (!newSource.trim()) {
@@ -108,9 +107,9 @@ const Settings = () => {
     });
   };
 
-  const handleSaveCompanyData = () => {
-    // Salvar dados da empresa no localStorage
-    localStorage.setItem("companyData", JSON.stringify(companyData));
+  const handleSaveCompanyData = async () => {
+    // 🚀 Salva automaticamente no Supabase via hook
+    await setCompanyData(companyData);
     toast({
       title: "Sucesso",
       description: "Informações da empresa salvas com sucesso",
@@ -495,8 +494,8 @@ const Settings = () => {
                     <Label>Nome da Empresa</Label>
                     <Input 
                       placeholder="Tríade Solutions" 
-                      value={companyData.name}
-                      onChange={(e) => setCompanyData({ ...companyData, name: e.target.value })}
+                      value={companyData.company_name}
+                      onChange={(e) => setCompanyData({ ...companyData, company_name: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -508,26 +507,26 @@ const Settings = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email Corporativo</Label>
+                    <Label>Website</Label>
                     <Input 
-                      type="email" 
-                      placeholder="contato@empresa.com" 
-                      value={companyData.email}
-                      onChange={(e) => setCompanyData({ ...companyData, email: e.target.value })}
+                      type="url" 
+                      placeholder="https://empresa.com" 
+                      value={companyData.website}
+                      onChange={(e) => setCompanyData({ ...companyData, website: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Telefone</Label>
+                    <Label>Cidade</Label>
                     <Input 
-                      placeholder="(11) 0000-0000" 
-                      value={companyData.phone}
-                      onChange={(e) => setCompanyData({ ...companyData, phone: e.target.value })}
+                      placeholder="São Paulo" 
+                      value={companyData.city}
+                      onChange={(e) => setCompanyData({ ...companyData, city: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label>Endereço</Label>
                     <Input 
-                      placeholder="Rua, Número, Bairro, Cidade - Estado" 
+                      placeholder="Rua, Número, Bairro" 
                       value={companyData.address}
                       onChange={(e) => setCompanyData({ ...companyData, address: e.target.value })}
                     />

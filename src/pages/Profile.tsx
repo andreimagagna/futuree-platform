@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/store/useStore";
+import { useSupabaseStorage } from "@/hooks/use-supabase-storage";
 import {
   User,
   Mail,
@@ -25,37 +26,31 @@ import {
 } from "lucide-react";
 
 interface ProfileData {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string;
   department: string;
   location: string;
   bio: string;
-  avatar?: string;
+  avatar_url?: string;
 }
 
 const Profile = () => {
   const { toast } = useToast();
   const { leads } = useStore();
   const [isEditing, setIsEditing] = useState(false);
-  const [profileData, setProfileData] = useState<ProfileData>({
-    firstName: "Vendedor",
-    lastName: "Campeão",
-    email: "vendedor@triadesolutions.com",
-    phone: "(11) 98765-4321",
-    department: "Sales Development",
-    location: "São Paulo, SP",
-    bio: "SDR com 2 anos de experiência em vendas B2B, especializado em prospecção e qualificação de leads.",
+  
+  // 🚀 MIGRADO PARA SUPABASE - substituindo localStorage
+  const [profileData, setProfileData, profileLoading] = useSupabaseStorage<ProfileData>('user_preferences', {
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    department: "",
+    location: "",
+    bio: "",
   });
-
-  // Carregar dados do localStorage
-  useEffect(() => {
-    const savedProfile = localStorage.getItem("profileData");
-    if (savedProfile) {
-      setProfileData(JSON.parse(savedProfile));
-    }
-  }, []);
 
   // Calcular estatísticas dinamicamente baseadas nos leads
   const stats = useMemo(() => {
@@ -151,11 +146,11 @@ const Profile = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Salvar no localStorage
-    localStorage.setItem("profileData", JSON.stringify(profileData));
+    // 🚀 Salva automaticamente no Supabase via hook
+    await setProfileData(profileData);
     
     toast({
       title: "Perfil atualizado",
@@ -166,16 +161,12 @@ const Profile = () => {
   };
 
   const handleCancel = () => {
-    // Recarregar dados salvos
-    const savedProfile = localStorage.getItem("profileData");
-    if (savedProfile) {
-      setProfileData(JSON.parse(savedProfile));
-    }
+    // Dados são recarregados automaticamente do Supabase
     setIsEditing(false);
   };
 
   const getInitials = () => {
-    return `${profileData.firstName.charAt(0)}${profileData.lastName.charAt(0)}`.toUpperCase();
+    return `${profileData.first_name?.charAt(0) || ''}${profileData.last_name?.charAt(0) || ''}`.toUpperCase();
   };
 
   return (
@@ -196,7 +187,7 @@ const Profile = () => {
           <CardContent className="space-y-4">
             <div className="flex flex-col items-center space-y-4">
               <Avatar className="h-32 w-32">
-                <AvatarImage src={profileData.avatar || ""} alt="Foto de perfil" />
+                <AvatarImage src={profileData.avatar_url || ""} alt="Foto de perfil" />
                 <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
                   {getInitials()}
                 </AvatarFallback>
@@ -234,13 +225,13 @@ const Profile = () => {
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">Nome</Label>
+                  <Label htmlFor="first_name">Nome</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
-                      id="firstName"
+                      id="first_name"
                       placeholder="Seu nome"
-                      value={profileData.firstName}
+                      value={profileData.first_name}
                       onChange={handleInputChange}
                       className="pl-9"
                       disabled={!isEditing}
@@ -248,11 +239,11 @@ const Profile = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Sobrenome</Label>
+                  <Label htmlFor="last_name">Sobrenome</Label>
                   <Input
-                    id="lastName"
+                    id="last_name"
                     placeholder="Seu sobrenome"
-                    value={profileData.lastName}
+                    value={profileData.last_name}
                     onChange={handleInputChange}
                     disabled={!isEditing}
                   />

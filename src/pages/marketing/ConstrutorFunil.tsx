@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { useSavedFunnels } from '@/hooks/use-supabase-storage';
 
 interface FunnelNode {
   id: string;
@@ -379,7 +380,10 @@ export default function ConstrutorFunil() {
   const [customNodeColor, setCustomNodeColor] = useState('from-[hsl(20,10%,50%)] to-[hsl(20,10%,45%)]');
   const [editingConnection, setEditingConnection] = useState<string | null>(null);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
-  const [savedFunnels, setSavedFunnels] = useState<{name: string, data: any, date: string}[]>([]);
+  
+  // 🚀 MIGRADO PARA SUPABASE - substituindo localStorage
+  const { funnels: savedFunnels, saveFunnel, deleteFunnel, loading: funnelsLoading } = useSavedFunnels();
+  
   const [viewport, setViewport] = useState<ViewportState>({ x: 0, y: 0, zoom: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -389,12 +393,6 @@ export default function ConstrutorFunil() {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  // Carregar funis salvos ao montar o componente
-  useEffect(() => {
-    const funnels = JSON.parse(localStorage.getItem('savedFunnels') || '[]');
-    setSavedFunnels(funnels);
-  }, []);
 
   const handleNodeDrag = useCallback((nodeId: string, deltaX: number, deltaY: number) => {
     setNodes(prev => prev.map(node =>
@@ -597,7 +595,7 @@ export default function ConstrutorFunil() {
     ));
   };
 
-  const saveFunnel = () => {
+  const handleSaveFunnel = async () => {
     if (!funnelName.trim()) {
       toast({
         title: "Erro",
@@ -608,25 +606,14 @@ export default function ConstrutorFunil() {
     }
 
     const funnelData = {
+      id: crypto.randomUUID(),
+      name: funnelName,
       nodes,
       connections,
-      name: funnelName,
-      date: new Date().toISOString()
     };
 
-    const existingFunnels = JSON.parse(localStorage.getItem('savedFunnels') || '[]');
+    await saveFunnel(funnelData);
     
-    // Verificar se já existe um funil com esse nome
-    const duplicateIndex = existingFunnels.findIndex((f: any) => f.name === funnelName);
-    if (duplicateIndex >= 0) {
-      // Sobrescrever
-      existingFunnels[duplicateIndex] = funnelData;
-    } else {
-      existingFunnels.push(funnelData);
-    }
-    
-    localStorage.setItem('savedFunnels', JSON.stringify(existingFunnels));
-    setSavedFunnels(existingFunnels);
     setShowSaveDialog(false);
     setFunnelName('');
 
@@ -642,8 +629,6 @@ export default function ConstrutorFunil() {
   };
 
   const loadFunnels = () => {
-    const funnels = JSON.parse(localStorage.getItem('savedFunnels') || '[]');
-    setSavedFunnels(funnels);
     setShowLoadDialog(true);
   };
 
@@ -660,11 +645,8 @@ export default function ConstrutorFunil() {
     });
   };
 
-  const deleteFunnel = (funnelName: string) => {
-    const existingFunnels = JSON.parse(localStorage.getItem('savedFunnels') || '[]');
-    const updatedFunnels = existingFunnels.filter((f: any) => f.name !== funnelName);
-    localStorage.setItem('savedFunnels', JSON.stringify(updatedFunnels));
-    setSavedFunnels(updatedFunnels);
+  const handleDeleteFunnel = async (funnelId: string, funnelName: string) => {
+    await deleteFunnel(funnelId);
 
     toast({
       title: "Funil deletado!",
@@ -1136,12 +1118,6 @@ export default function ConstrutorFunil() {
     };
   }, [draggedNode, isPanning, panStart, viewport, nodes]);
 
-  // Carregar lista de funis salvos ao montar o componente
-  useEffect(() => {
-    const funnels = JSON.parse(localStorage.getItem('savedFunnels') || '[]');
-    setSavedFunnels(funnels);
-  }, []);
-
   // Atalhos de teclado
   useEffect(() => {
     const handleKeyboard = (e: KeyboardEvent) => {
@@ -1158,7 +1134,7 @@ export default function ConstrutorFunil() {
       // Ctrl/Cmd + S - salvar
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        saveFunnel();
+        openSaveDialog();
       }
       // Ctrl/Cmd + Z - undo (placeholder)
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -1911,7 +1887,7 @@ export default function ConstrutorFunil() {
                 onChange={(e) => setFunnelName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    saveFunnel();
+                    handleSaveFunnel();
                   }
                 }}
                 autoFocus
@@ -1927,7 +1903,7 @@ export default function ConstrutorFunil() {
             <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
               Cancelar
             </Button>
-            <Button onClick={saveFunnel} className="bg-gradient-to-r from-primary to-primary/80">
+            <Button onClick={handleSaveFunnel} className="bg-gradient-to-r from-primary to-primary/80">
               <Save className="w-4 h-4 mr-2" />
               Salvar
             </Button>
@@ -1985,7 +1961,7 @@ export default function ConstrutorFunil() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => loadFunnel(funnel.data)}
+                        onClick={() => loadFunnel(funnel)}
                       >
                         <Play className="w-3 h-3 mr-1" />
                         Carregar
@@ -1993,7 +1969,7 @@ export default function ConstrutorFunil() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => deleteFunnel(funnel.name)}
+                        onClick={() => handleDeleteFunnel(funnel.id, funnel.name)}
                         className="hover:bg-destructive/10 hover:text-destructive"
                       >
                         <Trash2 className="w-3 h-3" />
