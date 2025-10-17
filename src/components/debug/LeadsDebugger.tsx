@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useStore } from '@/store/useStore';
+import { useLeads } from '@/hooks/useLeadsAPI';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export function LeadsDebugger() {
   const { user } = useAuthContext();
-  const leads = useStore((state) => state.leads);
+  const { data: leads } = useLeads();
 
   useEffect(() => {
     console.log('🐛 [DEBUG] LeadsDebugger montado');

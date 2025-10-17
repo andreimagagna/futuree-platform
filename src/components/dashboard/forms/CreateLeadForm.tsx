@@ -1,3 +1,4 @@
+import { apiRequest } from '@/utils/apiClient';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,8 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStore, type Lead } from "@/store/useStore";
-import { useLeadsAPI } from "@/hooks/use-api";
+import type { Lead } from "@/store/useStore";
+import { useCreateLead } from "@/hooks/useLeadsAPI";
 import { toast } from "sonner";
 
 const leadSchema = z.object({
@@ -73,8 +74,6 @@ interface CreateLeadFormProps {
 }
 
 export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
-  const { createLead } = useLeadsAPI();
-
   const form = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
     defaultValues: {
@@ -92,34 +91,43 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
 
   const onSubmit = async (data: LeadFormValues) => {
     try {
-      console.log('[CreateLeadForm] 📝 Submetendo formulário:', data);
-      
-      const leadData: any = {
-        name: data.name,
-        nome: data.name, // Campo adicional para compatibilidade com banco
-        company: data.company,
-        email: data.email,
-        whatsapp: data.phone || '',
-        stage: data.stage,
-        source: data.source,
+      // Garantir que nome seja sempre preenchido
+      const nome = data.name?.trim() || '';
+      if (!nome) {
+        toast.error('O campo nome é obrigatório.');
+        console.error('[CreateLeadForm] ❌ Falha: campo nome vazio. Dados do formulário:', data);
+        return;
+      }
+
+      // Map payload to actual database columns (avoid unknown columns)
+      const leadPayload: any = {
+        nome, // required by DB
+        etapa: data.stage, // etapa (stage)
+        origem: data.source, // source
+        email: data.email || null,
+        whatsapp: data.phone || null,
+        // company_id not available from form (requires separate mapping); omit for now
         score: 50,
-        owner: 'Você',
-        lastContact: new Date(),
+        // If you want to store expected close date, map to proxima_acao_at (date string)
+        proxima_acao_at: data.expectedCloseDate ? data.expectedCloseDate.toISOString() : null,
         tags: [],
-        notes: data.notes || '',
-        dealValue: data.dealValue ? Number(data.dealValue) : undefined,
-        expectedCloseDate: data.expectedCloseDate,
       };
 
-      console.log('[CreateLeadForm] 🚀 Chamando createLead...');
-      await createLead(leadData);
-      
-      console.log('[CreateLeadForm] ✅ Lead criado!');
-      form.reset();
-      onSuccess();
+      // Call backend via hook
+      const { mutateAsync } = useCreateLead();
+      const created = await mutateAsync(leadPayload);
+
+      if (created && created.id) {
+        toast.success('Lead criado com sucesso!');
+        form.reset();
+        onSuccess();
+      } else {
+        console.error('[CreateLeadForm] ❌ Falha ao criar lead, resposta:', created);
+        toast.error('Erro ao criar lead. Verifique o console.');
+      }
     } catch (error) {
-      console.error('[CreateLeadForm] ❌ Erro ao criar lead:', error);
-      toast.error("Erro ao criar lead. Verifique o console para detalhes.");
+      console.error('[CreateLeadForm] ❌ Erro inesperado ao criar lead:', error);
+      toast.error("Erro inesperado ao criar lead. Verifique o console para detalhes.");
     }
   };
 
@@ -244,8 +252,9 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
                     type="number"
                     placeholder="45000"
                     {...field}
-                    value={field.value || ""}
-                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : "")}
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
                   />
                 </FormControl>
                 <FormMessage />
@@ -257,37 +266,37 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
             control={form.control}
             name="expectedCloseDate"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Data de Fechamento Esperada</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
+              <FormItem>
+                <FormLabel>Data Prevista de Fechamento</FormLabel>
+                <FormControl>
+                  <Popover>
+                    <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
-                          "w-full pl-3 text-left font-normal",
+                          "w-full justify-start text-left font-normal",
                           !field.value && "text-muted-foreground"
                         )}
                       >
-                        {field.value ? (
-                          format(field.value, "PPP", { locale: ptBR })
-                        ) : (
-                          <span>Selecione uma data</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        {field.value
+                          ? format(field.value, "PPP", { locale: ptBR })
+                          : "Selecione a data"}
+                        <CalendarIcon className="ml-auto h-4 w-4" />
                       </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date);
+                        }}
+                        initialFocus
+                        locale={ptBR}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -302,11 +311,10 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
               <FormLabel>Notas</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Observações sobre o lead..."
-                  className="resize-none"
-                  rows={3}
+                  placeholder="Observações adicionais sobre o lead"
                   {...field}
                   maxLength={1000}
+                  rows={3}
                 />
               </FormControl>
               <FormMessage />
@@ -314,10 +322,20 @@ export const CreateLeadForm = ({ onSuccess }: CreateLeadFormProps) => {
           )}
         />
 
-        <div className="flex justify-end gap-2">
-          <Button type="submit">Criar Lead</Button>
-        </div>
+        <Button type="submit" className="w-full">
+          Criar Lead
+        </Button>
       </form>
     </Form>
   );
 };
+
+export function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Token ausente' });
+  try {
+    next();
+  } catch {
+    res.status(401).json({ error: 'Token inválido' });
+  }
+}

@@ -13,17 +13,14 @@ async function testCreateLead() {
     console.log('🧪 Testando criação direta no Supabase...');
 
     const testLead = {
-      name: 'Test Lead',
-      company: 'Test Company',
+      nome: 'Test Lead',
+      origem: 'test',
+      etapa: 'capturado',
       email: 'test@example.com',
       whatsapp: '+5511999999999',
-      stage: 'captured',
-      source: 'test',
       score: 50,
-      owner: 'Test User',
-      lastContact: new Date().toISOString(),
-      tags: [],
-      notes: 'Test lead creation'
+      custom_fields: { notes: 'Test lead creation', owner: 'Test User' },
+      tags: []
     };
 
     const { data, error } = await supabase

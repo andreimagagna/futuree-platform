@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -30,6 +31,8 @@ import Arquivos from './pages/business/Arquivos';
 import NotionSolutions from './pages/business/NotionSolutions';
 import GuiaBusiness from './pages/business/GuiaBusiness';
 import Automations from "./pages/Automations";
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
 
 const queryClient = new QueryClient();
 
@@ -38,7 +41,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
         <Routes>
           {/* Sales Solution */}
           <Route path="/" element={<AppLayout currentView="dashboard"><Dashboard /></AppLayout>} />
@@ -73,11 +77,15 @@ const App = () => (
           {/* Profile & Settings */}
           <Route path="/profile" element={<AppLayout currentView="profile"><Profile /></AppLayout>} />
           <Route path="/settings" element={<AppLayout currentView="settings"><Settings /></AppLayout>} />
+          {/* Auth */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { useAutoSave } from '@/hooks/use-auto-save';
+
 import { useUndoRedo } from '@/hooks/use-undo-redo';
 import { LandingPageTemplate, LandingPageComponent, ComponentType } from '@/types/LandingPage';
 import { LANDING_PAGE_TEMPLATES, EMPTY_TEMPLATE } from '@/utils/landingPageTemplates';

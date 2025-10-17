@@ -18,50 +18,86 @@ export interface Database {
         Row: {
           id: string
           company_id: string | null
-          nome: string
-          email: string | null
-          whatsapp: string | null
-          origem: string | null
-          etapa: string | null
-          qualification_stage: string | null
-          score: number | null
           owner_id: string | null
-          proxima_acao_at: string | null
+          name: string
+          email: string | null
+          phone: string | null
+          whatsapp: string | null
+          position: string | null
+          status: Database['public']['Enums'] extends infer E ? (E extends { lead_status: any } ? E['lead_status'] : string) : string | null
+          funnel_stage: Database['public']['Enums'] extends infer F ? (F extends { funnel_stage: any } ? F['funnel_stage'] : string) : string | null
+          score: number | null
+          source: string | null
+          campaign: string | null
+          medium: string | null
+          estimated_value: string | null
+          expected_close_date: string | null
+          last_contact_date: string | null
+          next_action_date: string | null
+          contact_count: number | null
           tags: string[] | null
+          custom_fields: Json | null
+          notes: string | null
           created_at: string | null
           updated_at: string | null
+          converted_at: string | null
+          lost_reason: string | null
         }
         Insert: {
           id?: string
           company_id?: string | null
-          nome: string
-          email?: string | null
-          whatsapp?: string | null
-          origem?: string | null
-          etapa?: string | null
-          qualification_stage?: string | null
-          score?: number | null
           owner_id?: string | null
-          proxima_acao_at?: string | null
+          name: string
+          email?: string | null
+          phone?: string | null
+          whatsapp?: string | null
+          position?: string | null
+          status?: string | null
+          funnel_stage?: string | null
+          score?: number | null
+          source?: string | null
+          campaign?: string | null
+          medium?: string | null
+          estimated_value?: string | null
+          expected_close_date?: string | null
+          last_contact_date?: string | null
+          next_action_date?: string | null
+          contact_count?: number | null
           tags?: string[] | null
+          custom_fields?: Json | null
+          notes?: string | null
           created_at?: string | null
           updated_at?: string | null
+          converted_at?: string | null
+          lost_reason?: string | null
         }
         Update: {
           id?: string
           company_id?: string | null
-          nome?: string
-          email?: string | null
-          whatsapp?: string | null
-          origem?: string | null
-          etapa?: string | null
-          qualification_stage?: string | null
-          score?: number | null
           owner_id?: string | null
-          proxima_acao_at?: string | null
+          name?: string
+          email?: string | null
+          phone?: string | null
+          whatsapp?: string | null
+          position?: string | null
+          status?: string | null
+          funnel_stage?: string | null
+          score?: number | null
+          source?: string | null
+          campaign?: string | null
+          medium?: string | null
+          estimated_value?: string | null
+          expected_close_date?: string | null
+          last_contact_date?: string | null
+          next_action_date?: string | null
+          contact_count?: number | null
           tags?: string[] | null
+          custom_fields?: Json | null
+          notes?: string | null
           created_at?: string | null
           updated_at?: string | null
+          converted_at?: string | null
+          lost_reason?: string | null
         }
       }
       user_preferences: {

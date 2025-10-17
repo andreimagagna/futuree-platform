@@ -15,7 +15,10 @@ import { useNavigate } from "react-router-dom";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { useToast } from "@/hooks/use-toast";
-import { useStore } from "@/store/useStore";
+import supabase, { testConnection } from "@/lib/supabaseClient";
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useLeads } from "@/hooks/useLeadsAPI";
+import { useTasks } from "@/hooks/useTasksAPI";
 
 interface TopbarProps {
   onOpenSearch: () => void;
@@ -24,9 +27,11 @@ interface TopbarProps {
 export const Topbar = ({ onOpenSearch }: TopbarProps) => {
   const [theme, setTheme] = useState<string>("light");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const { leads, tasks } = useStore();
+  const { data: leads = [] } = useLeads();
+  const { data: tasks = [] } = useTasks();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, signOut } = useAuthContext();
 
   // Calcular notificações não lidas dinamicamente
   const unreadCount = useMemo(() => {
@@ -73,15 +78,15 @@ export const Topbar = ({ onOpenSearch }: TopbarProps) => {
     }
   }, [theme]);
 
-  const handleLogout = () => {
-    toast({
-      title: "Sessão encerrada",
-      description: "Você foi desconectado com sucesso.",
-    });
-    // Aqui você pode adicionar lógica de logout real (limpar tokens, etc)
-    setTimeout(() => {
-      navigate("/");
-    }, 1000);
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast({ title: 'Sessão encerrada', description: 'Você foi desconectado com sucesso.' });
+      navigate('/');
+    } catch (err) {
+      console.error('Logout failed', err);
+      toast({ title: 'Erro', description: 'Falha ao encerrar sessão' });
+    }
   };
 
   const handleProfileClick = () => {
@@ -169,14 +174,25 @@ export const Topbar = ({ onOpenSearch }: TopbarProps) => {
               <DropdownMenuContent align="end" className="w-48 bg-popover">
                 <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleProfileClick}>
-                  <User className="mr-2 h-4 w-4" />
-                  Perfil
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleSettingsClick}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Configurações
-                </DropdownMenuItem>
+                {user ? (
+                  <>
+                    <DropdownMenuItem onClick={handleProfileClick}>
+                      <User className="mr-2 h-4 w-4" />
+                      {user.email ?? 'Perfil'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSettingsClick}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Configurações
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem onClick={() => navigate('/login')}>
+                      <User className="mr-2 h-4 w-4" />
+                      Entrar / Cadastrar
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
@@ -184,6 +200,24 @@ export const Topbar = ({ onOpenSearch }: TopbarProps) => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden sm:flex"
+              onClick={async () => {
+                try {
+                  const res = await testConnection();
+                  console.log('Supabase test result', res);
+                  toast({ title: 'Supabase', description: res.error ? 'Erro na conexão (veja console)' : 'Conexão OK' });
+                } catch (err) {
+                  console.error('Test connection failed', err);
+                  toast({ title: 'Supabase', description: 'Erro ao testar conexão (veja console)' });
+                }
+              }}
+              aria-label="Test Supabase"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v6m0 8v6M4 12h6m8 0h6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </Button>
           </div>
         </div>
       </header>

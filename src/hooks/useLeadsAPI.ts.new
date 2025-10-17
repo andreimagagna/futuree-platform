@@ -1,0 +1,84 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import supabase from '@/lib/supabaseClient';
+import { useAuthContext } from '@/contexts/AuthContext';
+
+// Pragmatic - keep using an untyped alias for dynamic payloads until types are regenerated
+const supabaseClient: any = supabase as any;
+
+export function useLeads() {
+  return useQuery<any[]>({
+    queryKey: ['leads'],
+    queryFn: async () => {
+      const { data, error } = await supabaseClient.from('leads').select('*');
+      if (error) {
+        console.error('[useLeads] Supabase error', error);
+        throw new Error(error.message || 'Error fetching leads from Supabase');
+      }
+      return (data as any) || [];
+    },
+  });
+}
+
+export function useCreateLead() {
+  const queryClient = useQueryClient();
+  const { user } = useAuthContext();
+
+  const mutation = useMutation({
+    mutationFn: async (lead: any) => {
+      // Attach owner_id from auth if RLS expects it
+      try {
+        const userId = user?.id;
+        if (userId && !lead.owner_id) lead.owner_id = userId;
+      } catch (e) {
+        console.warn('[useCreateLead] could not read auth user before insert', e);
+      }
+
+      const { data, error } = await supabaseClient.from('leads').insert([lead]).select();
+      if (error) {
+        console.error('[useCreateLead] Supabase insert error', error, lead);
+        throw new Error(error.message || 'Error inserting lead into Supabase');
+      }
+      return data && data[0];
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  });
+
+  // Convenience: make `mutate` async (mutateAsync) so callers can await it
+  return { ...mutation, mutate: mutation.mutateAsync } as typeof mutation & { mutate: typeof mutation.mutateAsync };
+}
+
+export function useUpdateLead() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+      const { data, error } = await supabaseClient.from('leads').update(updates).eq('id', id).select();
+      if (error) {
+        console.error('[useUpdateLead] Supabase update error', error, id, updates);
+        throw new Error(error.message || 'Error updating lead in Supabase');
+      }
+      return data && data[0];
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  });
+
+  return { ...mutation, mutate: mutation.mutateAsync } as typeof mutation & { mutate: typeof mutation.mutateAsync };
+}
+
+export function useDeleteLead() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabaseClient.from('leads').delete().eq('id', id).select();
+      if (error) {
+        console.error('[useDeleteLead] Supabase delete error', error, id);
+        throw new Error(error.message || 'Error deleting lead from Supabase');
+      }
+      return data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  });
+
+  return { ...mutation, mutate: mutation.mutateAsync } as typeof mutation & { mutate: typeof mutation.mutateAsync };
+}

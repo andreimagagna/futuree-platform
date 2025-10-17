@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { useStore, TaskStatus, Task, Priority } from "@/store/useStore";
+import type { TaskStatus, Task, Priority } from "@/store/useStore";
+import { useTasks, useCreateTask } from '@/hooks/useTasksAPI';
+// TODO: Substituir por useTasksAPI quando disponível
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -139,7 +141,8 @@ const TaskCard = ({ task, onOpen }: TaskCardProps) => {
 };
 
 export const TasksView = () => {
-  const { tasks, updateTask, availableTags, addTask } = useStore();
+  const { data: tasks = [] } = useTasks();
+  const { mutate: createTask } = useCreateTask();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
@@ -148,17 +151,6 @@ export const TasksView = () => {
   const [openNewTask, setOpenNewTask] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    
-    if (!over) return;
-    
-    const taskId = active.id as string;
-    const newStatus = over.id as TaskStatus;
-    
-    updateTask(taskId, { status: newStatus });
-  };
 
   const statuses: TaskStatus[] = ['backlog', 'in_progress', 'review', 'done'];
 
@@ -174,6 +166,10 @@ export const TasksView = () => {
       return matchesSearch && matchesStatus && matchesPriority && matchesTag;
     });
   }, [tasks, search, statusFilter, priorityFilter, tagFilter]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    // TODO: Implementar atualização de status via backend
+  };
 
   return (
     <div className="space-y-4">
@@ -232,9 +228,7 @@ export const TasksView = () => {
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="Tag" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas tags</SelectItem>
-            {availableTags.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
+            {/* TODO: Carregar tags do backend se necessário */}
           </SelectContent>
         </Select>
       </div>

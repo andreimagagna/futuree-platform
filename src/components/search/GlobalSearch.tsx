@@ -6,7 +6,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { useStore } from "@/store/useStore";
+import { useLeads } from "@/hooks/useLeadsAPI";
+import { useTasks } from "@/hooks/useTasksAPI";
 import { Users, CheckSquare, TrendingUp } from "lucide-react";
 import { useEffect } from "react";
 
@@ -17,7 +18,8 @@ interface GlobalSearchProps {
 }
 
 export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchProps) => {
-  const { leads, tasks } = useStore();
+  const { data: leads = [] } = useLeads();
+  const { data: tasks = [] } = useTasks();
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
