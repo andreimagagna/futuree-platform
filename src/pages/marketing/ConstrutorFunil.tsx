@@ -1934,9 +1934,9 @@ export default function ConstrutorFunil() {
               </div>
             ) : (
               <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-2">
-                {(savedFunnels as any[] || []).map((funnel, index) => (
+                {(savedFunnels as any[] || []).map((funnel) => (
                   <div
-                    key={index}
+                    key={funnel.id || funnel.name}
                     className="group relative flex items-center justify-between p-4 border-2 border-border rounded-xl hover:border-primary/50 hover:bg-muted/30 transition-all duration-200"
                   >
                     <div className="flex-1">

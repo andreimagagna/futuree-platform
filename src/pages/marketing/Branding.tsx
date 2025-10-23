@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -113,6 +113,16 @@ export function Branding() {
 
   const [newItem, setNewItem] = useState('');
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
+  const copyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSave = () => {
     toast({
@@ -124,7 +134,18 @@ export function Branding() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedColor(text);
-    setTimeout(() => setCopiedColor(null), 2000);
+    
+    // Clear previous timeout
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
+    
+    // Set new timeout
+    copyTimeoutRef.current = setTimeout(() => {
+      setCopiedColor(null);
+      copyTimeoutRef.current = null;
+    }, 2000);
+    
     toast({
       title: 'Copiado!',
       description: `${text} copiado para a área de transferência`,
@@ -249,10 +270,12 @@ export function Branding() {
           <Button variant="outline" onClick={() => {
             const dataStr = JSON.stringify(data, null, 2);
             const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
+            link.href = url;
             link.download = `branding_${new Date().toISOString().split('T')[0]}.json`;
             link.click();
+            URL.revokeObjectURL(url);
             toast({
               title: 'Exportado com sucesso',
               description: 'Seu branding foi exportado em JSON',

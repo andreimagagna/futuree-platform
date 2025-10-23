@@ -622,8 +622,8 @@ export default function Operacional() {
                               <Badge variant={priorityConfig[process.priority].variant}>
                                 {priorityConfig[process.priority].label}
                               </Badge>
-                              {process.tags.map((tag, idx) => (
-                                <Badge key={idx} variant="secondary">
+                              {process.tags.map((tag) => (
+                                <Badge key={tag} variant="secondary">
                                   {tag}
                                 </Badge>
                               ))}
@@ -1450,8 +1450,8 @@ export default function Operacional() {
                     Riscos Identificados ({viewingProcess.risks.length})
                   </h4>
                   <div className="space-y-2">
-                    {viewingProcess.risks.map((risk, index) => (
-                      <div key={index} className="flex items-start gap-2 p-3 bg-warning/10 rounded-lg">
+                    {viewingProcess.risks.map((risk) => (
+                      <div key={risk} className="flex items-start gap-2 p-3 bg-warning/10 rounded-lg">
                         <AlertCircle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
                         <p className="text-sm">{risk}</p>
                       </div>
@@ -1468,8 +1468,8 @@ export default function Operacional() {
                     Oportunidades de Melhoria ({viewingProcess.improvementOpportunities.length})
                   </h4>
                   <div className="space-y-2">
-                    {viewingProcess.improvementOpportunities.map((opportunity, index) => (
-                      <div key={index} className="flex items-start gap-2 p-3 bg-success/10 rounded-lg">
+                    {viewingProcess.improvementOpportunities.map((opportunity) => (
+                      <div key={opportunity} className="flex items-start gap-2 p-3 bg-success/10 rounded-lg">
                         <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
                         <p className="text-sm">{opportunity}</p>
                       </div>
@@ -1484,8 +1484,8 @@ export default function Operacional() {
                   <div>
                     <h4 className="font-semibold mb-2 text-sm">Tags</h4>
                     <div className="flex flex-wrap gap-2">
-                      {viewingProcess.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary">{tag}</Badge>
+                      {viewingProcess.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary">{tag}</Badge>
                       ))}
                     </div>
                   </div>

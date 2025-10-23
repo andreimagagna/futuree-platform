@@ -301,9 +301,9 @@ export const GuideView = ({ onNavigate }: GuideViewProps = {}) => {
                   </CardHeader>
                   <CardContent>
                     <div className="grid sm:grid-cols-2 gap-3">
-                      {feature.items.map((item, idx) => (
+                      {feature.items.map((item) => (
                         <div 
-                          key={idx}
+                          key={item.title}
                           className="flex items-start gap-2 p-3 bg-muted/50 rounded-lg"
                         >
                           <div className="mt-0.5">
@@ -416,10 +416,10 @@ export const GuideView = ({ onNavigate }: GuideViewProps = {}) => {
         {/* TAB 3: Dicas Rápidas */}
         <TabsContent value="tips" className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-4">
-            {quickTips.map((tip, idx) => {
+            {quickTips.map((tip) => {
               const Icon = tip.icon;
               return (
-                <Card key={idx} className="hover:shadow-md transition-all">
+                <Card key={tip.title} className="hover:shadow-md transition-all">
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-3">
                       <div className={`p-2 bg-muted rounded-lg ${tip.color}`}>

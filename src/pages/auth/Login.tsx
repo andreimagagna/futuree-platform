@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,16 @@ export function Login() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (navigationTimeoutRef.current) {
+        clearTimeout(navigationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +35,10 @@ export function Login() {
         if (error) throw error;
         toast({ title: 'Verifique seu e-mail', description: 'Enviamos um link mágico para autenticação.' });
         const from = (location.state as any)?.from || '/';
-        setTimeout(() => navigate(from), 1500);
+        navigationTimeoutRef.current = setTimeout(() => {
+          navigate(from);
+          navigationTimeoutRef.current = null;
+        }, 1500);
       } else {
         const passwordInput = (e.target as HTMLFormElement).querySelector('input[name="password"]') as HTMLInputElement | null;
         const pwd = passwordInput?.value ?? '';

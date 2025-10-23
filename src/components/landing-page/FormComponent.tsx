@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +29,16 @@ export function FormComponent({ props, styles, isEditing, onEdit }: FormComponen
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const { toast } = useToast();
+  const submitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (submitTimeoutRef.current) clearTimeout(submitTimeoutRef.current);
+      if (redirectTimeoutRef.current) clearTimeout(redirectTimeoutRef.current);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,10 +68,11 @@ export function FormComponent({ props, styles, isEditing, onEdit }: FormComponen
     setIsSubmitting(true);
 
     // Simular envio (aqui você integraria com webhook/API)
-    setTimeout(() => {
+    submitTimeoutRef.current = setTimeout(() => {
       console.log('Form submitted:', formData);
       setSubmitted(true);
       setIsSubmitting(false);
+      submitTimeoutRef.current = null;
 
       toast({
         title: "Sucesso!",
@@ -69,8 +80,9 @@ export function FormComponent({ props, styles, isEditing, onEdit }: FormComponen
       });
 
       if (redirectUrl) {
-        setTimeout(() => {
+        redirectTimeoutRef.current = setTimeout(() => {
           window.location.href = redirectUrl;
+          redirectTimeoutRef.current = null;
         }, 2000);
       }
     }, 1500);

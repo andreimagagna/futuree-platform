@@ -367,18 +367,25 @@ function FloatingToolbar() {
  */
 export function useTextSelection(elementId: string) {
   const { startEdit } = useInlineEditor();
-  const [selectionTimeout, setSelectionTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    let timeout: NodeJS.Timeout | null = null;
+
     const handleSelection = () => {
       const selection = window.getSelection();
+      
+      // Limpar timeout anterior se existir
+      if (timeout) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+
       if (!selection || selection.toString().length === 0) {
-        if (selectionTimeout) clearTimeout(selectionTimeout);
         return;
       }
 
       // Aguardar 200ms antes de mostrar toolbar (evitar mostrar ao clicar)
-      const timeout = setTimeout(() => {
+      timeout = setTimeout(() => {
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
         
@@ -386,15 +393,14 @@ export function useTextSelection(elementId: string) {
           x: rect.left + rect.width / 2,
           y: rect.top,
         });
+        timeout = null;
       }, 200);
-
-      setSelectionTimeout(timeout);
     };
 
     document.addEventListener('selectionchange', handleSelection);
     return () => {
       document.removeEventListener('selectionchange', handleSelection);
-      if (selectionTimeout) clearTimeout(selectionTimeout);
+      if (timeout) clearTimeout(timeout);
     };
-  }, [elementId, startEdit, selectionTimeout]);
+  }, [elementId, startEdit]);
 }
