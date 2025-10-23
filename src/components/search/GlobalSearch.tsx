@@ -49,7 +49,7 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
   // Páginas do sistema para navegação rápida (somente páginas existentes)
   const pages = [
     // Sales Solution
-    { id: 'dashboard', name: 'Dashboard', icon: TrendingUp, path: '' },
+  { id: 'dashboard', name: 'Dashboard', icon: TrendingUp, path: 'dashboard' },
     { id: 'crm', name: 'CRM', icon: Users, path: 'crm' },
     { id: 'tasks', name: 'Tarefas', icon: CheckSquare, path: 'tasks' },
     { id: 'funnel', name: 'Funil', icon: Target, path: 'funnel' },

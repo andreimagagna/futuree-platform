@@ -24,7 +24,7 @@ export const useKeyboardShortcuts = () => {
       // Atalhos de navegação
       switch (key) {
         case 'D':
-          navigate('/');
+          navigate('/dashboard');
           break;
         case 'C':
           navigate('/crm');
