@@ -68,6 +68,12 @@ const addToRemoveQueue = (toastId: string) => {
   toastTimeouts.set(toastId, timeout);
 };
 
+// Função para limpar todos os timeouts pendentes
+const clearAllToastTimeouts = () => {
+  toastTimeouts.forEach((timeout) => clearTimeout(timeout));
+  toastTimeouts.clear();
+};
+
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
@@ -172,6 +178,10 @@ function useToast() {
       const index = listeners.indexOf(setState);
       if (index > -1) {
         listeners.splice(index, 1);
+      }
+      // Limpar timeouts quando o componente desmontar
+      if (listeners.length === 0) {
+        clearAllToastTimeouts();
       }
     };
   }, [state]);

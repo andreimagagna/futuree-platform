@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import CRM from "./pages/CRM";
@@ -36,13 +37,37 @@ import { PublicRoute } from "./components/auth/PublicRoute";
 
 const queryClient = new QueryClient();
 
+// Componente para limpar portals antes de navegação
+function NavigationCleaner({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Cleanup function que roda antes de cada mudança de rota
+    return () => {
+      // Permitir que React termine de desmontar antes de limpar portals
+      requestAnimationFrame(() => {
+        // Remover todos os portais Radix UI órfãos
+        const portals = document.querySelectorAll('[data-radix-portal]');
+        portals.forEach(portal => {
+          if (portal.parentNode) {
+            portal.parentNode.removeChild(portal);
+          }
+        });
+      });
+    };
+  }, [location.pathname]);
+
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <AuthProvider>
         <BrowserRouter>
-        <Routes>
+          <NavigationCleaner>
+            <Routes>
           {/* ============================================ */}
           {/* ROTA PÚBLICA - Login/Cadastro como INICIAL */}
           {/* ============================================ */}
@@ -94,6 +119,7 @@ const App = () => (
           {/* ============================================ */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+          </NavigationCleaner>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
