@@ -673,6 +673,7 @@ export function useLeadSegments() {
       const { data, error } = await supabaseClient
         .from('lead_segments')
         .select('*')
+        .eq('owner_id', user?.id)
         .order('created_at', { ascending: false});
       
       if (error) {
@@ -718,6 +719,7 @@ export function useCreateLeadSegment() {
 
 export function useUpdateLeadSegment() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<LeadSegment> }) => {
@@ -730,6 +732,7 @@ export function useUpdateLeadSegment() {
         .from('lead_segments')
         .update(updateData)
         .eq('id', id)
+        .eq('owner_id', user?.id)
         .select();
       
       if (error) {
@@ -747,13 +750,15 @@ export function useUpdateLeadSegment() {
 
 export function useDeleteLeadSegment() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabaseClient
         .from('lead_segments')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('owner_id', user?.id);
       
       if (error) throw new Error(error.message);
       return { id };
