@@ -182,6 +182,12 @@ export function useUpdateCRMFunnel() {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<CRMFunnel> }) => {
       console.log('[useUpdateCRMFunnel] 📝 Atualizando funil:', id, updates);
 
+      // Não tenta atualizar funis mockados no Supabase
+      if (id.startsWith('mock-')) {
+        console.log('[useUpdateCRMFunnel] ⚠️ Funil mockado não pode ser atualizado no DB');
+        throw new Error('Funis mockados não podem ser editados. Crie funis próprios primeiro.');
+      }
+
       const { data, error } = await (supabase as any)
         .from('crm_funnels')
         .update(updates)
@@ -213,6 +219,12 @@ export function useDeleteCRMFunnel() {
   return useMutation({
     mutationFn: async (id: string) => {
       console.log('[useDeleteCRMFunnel] 🗑️ Deletando funil:', id);
+
+      // Não tenta deletar funis mockados do Supabase
+      if (id.startsWith('mock-')) {
+        console.log('[useDeleteCRMFunnel] ⚠️ Funil mockado não pode ser deletado no DB');
+        throw new Error('Funis mockados não podem ser deletados. Crie funis próprios primeiro.');
+      }
 
       const { error } = await (supabase as any)
         .from('crm_funnels')
@@ -275,6 +287,12 @@ export function useUpdateCRMStage() {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<CRMFunnelStage> }) => {
       console.log('[useUpdateCRMStage] 📝 Atualizando estágio:', id, updates);
 
+      // Não tenta atualizar estágios mockados no Supabase
+      if (id.startsWith('mock-')) {
+        console.log('[useUpdateCRMStage] ⚠️ Estágio mockado não pode ser atualizado no DB');
+        throw new Error('Estágios mockados não podem ser editados. Crie funis próprios primeiro.');
+      }
+
       const { data, error } = await (supabase as any)
         .from('crm_funnel_stages')
         .update(updates)
@@ -306,6 +324,12 @@ export function useDeleteCRMStage() {
   return useMutation({
     mutationFn: async (id: string) => {
       console.log('[useDeleteCRMStage] 🗑️ Deletando estágio:', id);
+
+      // Não tenta deletar estágios mockados do Supabase
+      if (id.startsWith('mock-')) {
+        console.log('[useDeleteCRMStage] ⚠️ Estágio mockado não pode ser deletado no DB');
+        throw new Error('Estágios mockados não podem ser deletados. Crie funis próprios primeiro.');
+      }
 
       const { error } = await (supabase as any)
         .from('crm_funnel_stages')
@@ -348,8 +372,8 @@ export function useSyncCRMFunnelsToStore() {
 
     // Remove funis que não existem mais no DB (mas não remove funis mockados/locais)
     storeFunnels.forEach(storeFunnel => {
-      // Só remove se não estiver no DB e não for um funil local (identificado por não ter created_at)
-      const isMockFunnel = !storeFunnel.createdAt; // Funis mockados não têm createdAt
+      // Só remove se não estiver no DB e não for um funil mock (identificado pelo prefixo 'mock-')
+      const isMockFunnel = storeFunnel.id.startsWith('mock-');
       if (!dbIds.has(storeFunnel.id) && !isMockFunnel) {
         console.log('[useSyncCRMFunnelsToStore] 🗑️ Removendo funil:', storeFunnel.name);
         deleteFunnel(storeFunnel.id);

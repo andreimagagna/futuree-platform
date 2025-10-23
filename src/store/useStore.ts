@@ -269,31 +269,31 @@ interface StoreState {
   completeMission: (id: string) => void;
 }
 
-// Mock data
+// Mock data - IDs fixos para evitar recriação
 const mockFunnels: Funnel[] = [
   {
-    id: crypto.randomUUID(),
+    id: 'mock-funnel-default-0000-0000-000000000001',
     name: 'Funil Padrão',
     isDefault: true,
     stages: [
-      { id: crypto.randomUUID(), name: 'Capturado', color: 'hsl(var(--muted-foreground))', order: 0, category: 'topo' },
-      { id: crypto.randomUUID(), name: 'Qualificar', color: 'hsl(var(--accent))', order: 1, category: 'meio' },
-      { id: crypto.randomUUID(), name: 'Contato', color: 'hsl(var(--primary))', order: 2, category: 'fundo' },
-      { id: crypto.randomUUID(), name: 'Proposta', color: 'hsl(var(--warning))', order: 3, category: 'vendas' },
-      { id: crypto.randomUUID(), name: 'Fechamento', color: 'hsl(var(--success))', order: 4, category: 'vendas' },
+      { id: 'mock-stage-default-0000-0000-000000000001', name: 'Capturado', color: 'hsl(var(--muted-foreground))', order: 0, category: 'topo' },
+      { id: 'mock-stage-default-0000-0000-000000000002', name: 'Qualificar', color: 'hsl(var(--accent))', order: 1, category: 'meio' },
+      { id: 'mock-stage-default-0000-0000-000000000003', name: 'Contato', color: 'hsl(var(--primary))', order: 2, category: 'fundo' },
+      { id: 'mock-stage-default-0000-0000-000000000004', name: 'Proposta', color: 'hsl(var(--warning))', order: 3, category: 'vendas' },
+      { id: 'mock-stage-default-0000-0000-000000000005', name: 'Fechamento', color: 'hsl(var(--success))', order: 4, category: 'vendas' },
     ],
   },
   {
-    id: crypto.randomUUID(),
+    id: 'mock-funnel-enterprise-0000-0000-000000000002',
     name: 'Funil Enterprise',
     isDefault: false,
     stages: [
-      { id: crypto.randomUUID(), name: 'Lead', color: 'hsl(var(--muted-foreground))', order: 0, category: 'topo' },
-      { id: crypto.randomUUID(), name: 'Discovery', color: 'hsl(var(--accent))', order: 1, category: 'meio' },
-      { id: crypto.randomUUID(), name: 'Demo', color: 'hsl(var(--info))', order: 2, category: 'meio' },
-      { id: crypto.randomUUID(), name: 'POC', color: 'hsl(var(--primary))', order: 3, category: 'fundo' },
-      { id: crypto.randomUUID(), name: 'Negociação', color: 'hsl(var(--warning))', order: 4, category: 'vendas' },
-      { id: crypto.randomUUID(), name: 'Fechado', color: 'hsl(var(--success))', order: 5, category: 'vendas' },
+      { id: 'mock-stage-enterprise-0000-0000-000000000001', name: 'Lead', color: 'hsl(var(--muted-foreground))', order: 0, category: 'topo' },
+      { id: 'mock-stage-enterprise-0000-0000-000000000002', name: 'Discovery', color: 'hsl(var(--accent))', order: 1, category: 'meio' },
+      { id: 'mock-stage-enterprise-0000-0000-000000000003', name: 'Demo', color: 'hsl(var(--info))', order: 2, category: 'meio' },
+      { id: 'mock-stage-enterprise-0000-0000-000000000004', name: 'POC', color: 'hsl(var(--primary))', order: 3, category: 'fundo' },
+      { id: 'mock-stage-enterprise-0000-0000-000000000005', name: 'Negociação', color: 'hsl(var(--warning))', order: 4, category: 'vendas' },
+      { id: 'mock-stage-enterprise-0000-0000-000000000006', name: 'Fechado', color: 'hsl(var(--success))', order: 5, category: 'vendas' },
     ],
   },
 ];
