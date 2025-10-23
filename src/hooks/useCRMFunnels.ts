@@ -98,10 +98,16 @@ export function useCRMFunnels() {
     queryFn: async () => {
       console.log('[useCRMFunnels] 🔍 Buscando funis do CRM...');
 
-      // Busca funis com seus estágios
+      if (!user?.id) {
+        console.log('[useCRMFunnels] ⚠️ Usuário não autenticado');
+        return [];
+      }
+
+      // Busca funis com seus estágios (filtrado por owner_id)
       const { data: funnels, error: funnelsError } = await (supabase as any)
         .from('crm_funnels')
         .select('*')
+        .eq('owner_id', user.id)
         .order('order_index', { ascending: true });
 
       if (funnelsError) {
@@ -109,10 +115,18 @@ export function useCRMFunnels() {
         throw funnelsError;
       }
 
-      // Busca estágios de todos os funis
+      // Busca estágios apenas dos funis do usuário
+      const funnelIds = funnels?.map(f => f.id) || [];
+      
+      if (funnelIds.length === 0) {
+        console.log('[useCRMFunnels] ✅ Nenhum funil encontrado');
+        return [];
+      }
+
       const { data: stages, error: stagesError } = await (supabase as any)
         .from('crm_funnel_stages')
         .select('*')
+        .in('funnel_id', funnelIds)
         .order('order_index', { ascending: true });
 
       if (stagesError) {
@@ -177,6 +191,7 @@ export function useCreateCRMFunnel() {
 
 export function useUpdateCRMFunnel() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<CRMFunnel> }) => {
@@ -192,6 +207,7 @@ export function useUpdateCRMFunnel() {
         .from('crm_funnels')
         .update(updates)
         .eq('id', id)
+        .eq('owner_id', user?.id)
         .select()
         .single();
 
@@ -215,6 +231,7 @@ export function useUpdateCRMFunnel() {
 
 export function useDeleteCRMFunnel() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -229,7 +246,8 @@ export function useDeleteCRMFunnel() {
       const { error } = await (supabase as any)
         .from('crm_funnels')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('owner_id', user?.id);
 
       if (error) {
         console.error('[useDeleteCRMFunnel] ❌ Erro:', error);
