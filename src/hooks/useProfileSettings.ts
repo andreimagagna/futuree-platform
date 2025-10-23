@@ -75,7 +75,7 @@ export const useProfileSettings = () => {
         .from('profiles')
         .select('id, email, nome, full_name, avatar_url, role, phone, department, position, bio, preferences, created_at, updated_at')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       
       console.log('[useProfileSettings] 📦 Query executada. Data:', data, 'Error:', error);
 
@@ -134,7 +134,7 @@ export const useProfileSettings = () => {
         .update(validUpdates)
         .eq('id', user.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('[useProfileSettings] ❌ Erro ao atualizar:', error);
