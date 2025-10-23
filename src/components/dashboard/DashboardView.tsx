@@ -10,7 +10,9 @@ import {
   DollarSign,
   Target,
 } from "lucide-react";
-import { useStore } from "@/store/useStore";
+import { useSupabaseLeads } from "@/hooks/useSupabaseLeads";
+import { useAuth } from "@/hooks/useAuth";
+import { useTasks } from "@/hooks/useTasksAPI";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -19,19 +21,35 @@ interface DashboardViewProps {
 }
 
 export const DashboardView = ({ onNavigate }: DashboardViewProps = {}) => {
-  const { leads, tasks } = useStore();
+  const { user } = useAuth();
+  
+  // ✅ BUSCAR LEADS DO SUPABASE
+  const { leads: supabaseLeads } = useSupabaseLeads({
+    filters: {
+      owner_id: user?.id,
+    },
+  });
+  
+  // ✅ BUSCAR TAREFAS DO SUPABASE
+  const { data: tasks = [] } = useTasks();
+  
+  // Mapear leads do Supabase para incluir dealValue
+  const leads = supabaseLeads.map((lead: any) => ({
+    ...lead,
+    dealValue: lead.estimated_value ? Number(lead.estimated_value) : 0,
+    status: lead.status || 'novo',
+  }));
   
   // Calcular métricas reais do projeto
   const totalLeads = leads.length;
-  const openLeads = leads.filter(l => l.status === 'open' || !l.status).length;
-  const wonLeads = leads.filter(l => l.status === 'won').length;
-  const lostLeads = leads.filter(l => l.status === 'lost').length;
+  const openLeads = leads.filter((l: any) => 
+    !['ganho', 'perdido', 'won', 'lost'].includes(l.status)
+  ).length;
+  const wonLeads = leads.filter((l: any) => l.status === 'ganho' || l.status === 'won').length;
+  const lostLeads = leads.filter((l: any) => l.status === 'perdido' || l.status === 'lost').length;
   
-  // Leads com BANT completo (todos os 4 critérios preenchidos)
-  const qualifiedLeadsBANT = leads.filter(l => {
-    const bant = l.bant;
-    return bant && bant.budget && bant.authority && bant.need && bant.timeline;
-  }).length;
+  // Leads qualificados BANT (score acima de zero)
+  const qualifiedLeadsBANT = leads.filter((l: any) => l.score && l.score > 0).length;
   
   // Leads em estágios avançados (proposal, closing)
   const advancedStageLeads = leads.filter(l => 
@@ -51,15 +69,21 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps = {}) => {
     ? Math.round((wonLeads / totalLeads) * 100) 
     : 0;
   
-  // Valor total em negociação
+  // ✅ PIPELINE ATIVO - Valor total de leads ATIVOS (não ganhos nem perdidos)
   const totalDealValue = leads
-    .filter(l => l.status === 'open' || !l.status)
-    .reduce((sum, l) => sum + (l.dealValue || 0), 0);
+    .filter((l: any) => !['ganho', 'perdido', 'won', 'lost'].includes(l.status))
+    .reduce((sum: number, l: any) => {
+      const value = l.dealValue || l.estimated_value || 0;
+      return sum + Number(value);
+    }, 0);
   
   // Valor ganho
   const wonValue = leads
-    .filter(l => l.status === 'won')
-    .reduce((sum, l) => sum + (l.dealValue || 0), 0);
+    .filter((l: any) => l.status === 'ganho' || l.status === 'won')
+    .reduce((sum: number, l: any) => {
+      const value = l.dealValue || l.estimated_value || 0;
+      return sum + Number(value);
+    }, 0);
   
   const stats = {
     totalLeads,
@@ -96,35 +120,58 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps = {}) => {
     },
   ];
 
-  // Atividade recente real baseada em dados
+  // ✅ ATIVIDADE RECENTE - Baseada em dados reais do Supabase
   const recentActivity: Array<{
     type: string;
     title: string;
     time: string;
     value?: number;
   }> = [
-    // Leads ganhos recentemente
+    // Leads ganhos recentemente (status 'ganho')
     ...leads
-      .filter(l => l.status === 'won' && l.wonDate)
-      .sort((a, b) => (b.wonDate?.getTime() || 0) - (a.wonDate?.getTime() || 0))
+      .filter((l: any) => {
+        const isWon = l.status === 'ganho' || l.status === 'won';
+        const hasWonDate = l.wonDate || (l.custom_fields as any)?.wonDate;
+        return isWon && hasWonDate;
+      })
+      .sort((a: any, b: any) => {
+        const aDate = new Date(a.wonDate || (a.custom_fields as any)?.wonDate || 0);
+        const bDate = new Date(b.wonDate || (b.custom_fields as any)?.wonDate || 0);
+        return bDate.getTime() - aDate.getTime();
+      })
       .slice(0, 2)
-      .map(l => ({
+      .map((l: any) => ({
         type: "won",
         title: `Lead ganho: ${l.name}`,
-        time: l.wonDate ? formatDistanceToNow(l.wonDate, { addSuffix: true, locale: ptBR }) : '',
-        value: l.dealValue,
+        time: formatDistanceToNow(
+          new Date(l.wonDate || (l.custom_fields as any)?.wonDate), 
+          { addSuffix: true, locale: ptBR }
+        ),
+        value: l.dealValue || l.estimated_value,
       })),
     
-    // Leads qualificados BANT recentemente
+    // Leads qualificados BANT recentemente (score > 0)
     ...leads
-      .filter(l => l.bant?.qualifiedAt)
-      .sort((a, b) => (b.bant?.qualifiedAt?.getTime() || 0) - (a.bant?.qualifiedAt?.getTime() || 0))
+      .filter((l: any) => {
+        const bant = (l.custom_fields as any)?.bant || l.bant;
+        return bant?.qualifiedAt && l.score > 0;
+      })
+      .sort((a: any, b: any) => {
+        const aBant = (a.custom_fields as any)?.bant || a.bant;
+        const bBant = (b.custom_fields as any)?.bant || b.bant;
+        const aDate = new Date(aBant?.qualifiedAt || 0);
+        const bDate = new Date(bBant?.qualifiedAt || 0);
+        return bDate.getTime() - aDate.getTime();
+      })
       .slice(0, 2)
-      .map(l => ({
-        type: "qualification",
-        title: `Lead qualificado BANT: ${l.name}`,
-        time: l.bant?.qualifiedAt ? formatDistanceToNow(l.bant.qualifiedAt, { addSuffix: true, locale: ptBR }) : '',
-      })),
+      .map((l: any) => {
+        const bant = (l.custom_fields as any)?.bant || l.bant;
+        return {
+          type: "qualification",
+          title: `Lead qualificado BANT: ${l.name}`,
+          time: formatDistanceToNow(new Date(bant.qualifiedAt), { addSuffix: true, locale: ptBR }),
+        };
+      }),
     
     // Tarefas concluídas (assumindo que existe updatedAt ou similar)
     ...tasks
@@ -142,8 +189,11 @@ export const DashboardView = ({ onNavigate }: DashboardViewProps = {}) => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">Visão geral de vendas e performance</p>
+        </div>
       </div>
 
       {/* Stats Grid */}

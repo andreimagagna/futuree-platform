@@ -10,7 +10,10 @@ export const CRMView = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">CRM</h2>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">CRM</h1>
+          <p className="text-muted-foreground">Gerencie seu pipeline de vendas e previsões</p>
+        </div>
         <Tabs value={view} onValueChange={(v) => setView(v as "pipeline" | "forecast")}>
           <TabsList>
             <TabsTrigger value="pipeline" className="gap-1">

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -38,11 +38,17 @@ import {
   User
 } from "lucide-react";
 import { differenceInDays, isPast, isToday } from "date-fns";
-import { mockMarketingTasks } from "@/utils/marketingMockData";
 import type { MarketingTask, MarketingTaskStatus } from "@/types/Marketing";
 import { useToast } from "@/hooks/use-toast";
 import { MarketingTaskForm } from "./MarketingTaskForm";
 import { MarketingTaskDetailDrawer } from "./MarketingTaskDetailDrawer";
+import { 
+  useMarketingTasks, 
+  useCreateMarketingTask, 
+  useUpdateMarketingTask, 
+  useDeleteMarketingTask,
+  type MarketingTaskDB 
+} from "@/hooks/useMarketingAPI";
 
 const statusLabels: Record<MarketingTaskStatus, string> = {
   backlog: 'Backlog',
@@ -212,7 +218,50 @@ const TaskCard = ({ task, onOpen, onEdit, onDelete }: TaskCardProps) => {
 
 export const MarketingTasksView = () => {
   const { toast } = useToast();
-  const [tasks, setTasks] = useState<MarketingTask[]>(mockMarketingTasks);
+  
+  // Hooks do Supabase
+  const { data: tasksData = [], isLoading } = useMarketingTasks();
+  const createTaskMutation = useCreateMarketingTask();
+  const updateTaskMutation = useUpdateMarketingTask();
+  const deleteTaskMutation = useDeleteMarketingTask();
+  
+  // Mapear dados do banco para o frontend
+  const statusMapReverse: Record<string, MarketingTaskStatus> = {
+    'todo': 'backlog',
+    'doing': 'in_progress',
+    'done': 'done',
+    'blocked': 'backlog'
+  };
+
+  const priorityMapReverse: Record<string, 'P1' | 'P2' | 'P3'> = {
+    'baixa': 'P3',
+    'media': 'P2',
+    'alta': 'P1',
+    'urgente': 'P1'
+  };
+
+  // Converter dados do Supabase para formato do frontend
+  const tasks: MarketingTask[] = tasksData.map((task: MarketingTaskDB) => ({
+    id: task.id || '',
+    title: task.title,
+    description: task.description,
+    type: task.type as any,
+    status: statusMapReverse[task.status] || 'backlog',
+    priority: priorityMapReverse[task.priority] || 'P2',
+    campaignId: task.campaign_id,
+    assignedTo: task.assigned_to,
+    dueDate: task.due_date,
+    // dueTime removido - não existe na tabela marketing_tasks
+    completedAt: task.completed_at,
+    checklist: task.checklist || [],
+    tags: task.tags || [],
+    category: task.category as any,
+    estimatedHours: task.estimated_hours,
+    actualHours: task.actual_hours,
+    createdAt: task.created_at || new Date().toISOString(),
+    updatedAt: task.updated_at || new Date().toISOString(),
+  }));
+  
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<MarketingTaskStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | "P1" | "P2" | "P3">("all");
@@ -231,9 +280,20 @@ export const MarketingTasksView = () => {
     const taskId = active.id as string;
     const newStatus = over.id as MarketingTaskStatus;
     
-    setTasks(prev => prev.map(t => 
-      t.id === taskId ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t
-    ));
+    // Mapear status do frontend para o banco
+    const statusMap: Record<string, MarketingTaskDB['status']> = {
+      'backlog': 'todo',
+      'in_progress': 'doing',
+      'review': 'doing',
+      'done': 'done',
+      'blocked': 'blocked'
+    };
+    
+    // Atualizar no Supabase
+    updateTaskMutation.mutate({
+      id: taskId,
+      status: statusMap[newStatus] || 'todo',
+    });
 
     toast({
       title: "Task atualizada",
@@ -242,7 +302,60 @@ export const MarketingTasksView = () => {
   };
 
   const handleCreateTask = (task: MarketingTask) => {
-    setTasks(prev => [task, ...prev]);
+    // Mapear type do frontend para o banco
+    const typeMap: Record<string, string> = {
+      'criar_conteudo': 'content',
+      'revisar_copy': 'content',
+      'design': 'design',
+      'agendar_post': 'social',
+      'configurar_ads': 'ads',
+      'criar_landing': 'campaign',
+      'email_marketing': 'email',
+      'analise': 'other',
+      'pesquisa': 'seo',
+      'reuniao': 'other',
+      'aprovacao': 'other',
+      'outro': 'other'
+    };
+
+    // Mapear status do frontend para o banco
+    const statusMap: Record<string, MarketingTaskDB['status']> = {
+      'backlog': 'todo',
+      'in_progress': 'doing',
+      'review': 'doing',
+      'done': 'done',
+      'blocked': 'blocked'
+    };
+
+    // Mapear priority do frontend para o banco
+    const priorityMap: Record<string, MarketingTaskDB['priority']> = {
+      'P1': 'alta',
+      'P2': 'media',
+      'P3': 'baixa'
+    };
+
+    // Converter para formato do banco
+    const taskData: Partial<MarketingTaskDB> = {
+      title: task.title,
+      description: task.description || null,
+      type: (typeMap[task.type] || 'other') as MarketingTaskDB['type'],
+      status: statusMap[task.status] || 'todo',
+      priority: priorityMap[task.priority] || 'media',
+      campaign_id: task.campaignId || null,
+      assigned_to: task.assignedTo || null,
+      due_date: task.dueDate || null,
+      // due_time removido - não existe na tabela marketing_tasks
+      checklist: task.checklist?.length ? task.checklist : null,
+      tags: task.tags?.length ? task.tags : null,
+      category: task.category || null,
+      estimated_hours: task.estimatedHours ? Number(task.estimatedHours) : null,
+      actual_hours: task.actualHours ? Number(task.actualHours) : null,
+    };
+    
+    console.log('🔍 Task original:', task);
+    console.log('🔍 Task convertida:', taskData);
+    
+    createTaskMutation.mutate(taskData);
     setOpenNewTask(false);
     toast({
       title: "Task criada",
@@ -251,7 +364,58 @@ export const MarketingTasksView = () => {
   };
 
   const handleUpdateTask = (task: MarketingTask) => {
-    setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+    // Mapear type do frontend para o banco
+    const typeMap: Record<string, MarketingTaskDB['type']> = {
+      'criar_conteudo': 'content',
+      'revisar_copy': 'content',
+      'design': 'design',
+      'agendar_post': 'social',
+      'configurar_ads': 'ads',
+      'criar_landing': 'campaign',
+      'email_marketing': 'email',
+      'analise': 'other',
+      'pesquisa': 'seo',
+      'reuniao': 'other',
+      'aprovacao': 'other',
+      'outro': 'other'
+    };
+
+    // Mapear status e priority do frontend para o banco
+    const statusMap: Record<string, MarketingTaskDB['status']> = {
+      'backlog': 'todo',
+      'in_progress': 'doing',
+      'review': 'doing',
+      'done': 'done',
+      'blocked': 'blocked'
+    };
+
+    const priorityMap: Record<string, MarketingTaskDB['priority']> = {
+      'P1': 'alta',
+      'P2': 'media',
+      'P3': 'baixa'
+    };
+
+    // Converter para formato do banco
+    const taskData: Partial<MarketingTaskDB> & { id: string } = {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      type: typeMap[task.type] || 'other',
+      status: statusMap[task.status] || 'todo',
+      priority: priorityMap[task.priority] || 'media',
+      campaign_id: task.campaignId,
+      assigned_to: task.assignedTo,
+      due_date: task.dueDate,
+      // due_time removido - não existe na tabela marketing_tasks
+      completed_at: task.completedAt,
+      checklist: task.checklist,
+      tags: task.tags,
+      category: task.category,
+      estimated_hours: task.estimatedHours ? Number(task.estimatedHours) : null,
+      actual_hours: task.actualHours ? Number(task.actualHours) : null,
+    };
+    
+    updateTaskMutation.mutate(taskData);
     setEditingTask(null);
     toast({
       title: "Task atualizada",
@@ -260,7 +424,26 @@ export const MarketingTasksView = () => {
   };
 
   const handleUpdateTaskFromDrawer = (task: MarketingTask) => {
-    setTasks(prev => prev.map(t => t.id === task.id ? task : t));
+    // Mapear status do frontend para o banco
+    const statusMap: Record<string, MarketingTaskDB['status']> = {
+      'backlog': 'todo',
+      'in_progress': 'doing',
+      'review': 'doing',
+      'done': 'done',
+      'blocked': 'blocked'
+    };
+
+    // Converter para formato do banco
+    const taskData: Partial<MarketingTaskDB> & { id: string } = {
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: statusMap[task.status] || 'todo',
+      checklist: task.checklist,
+      tags: task.tags,
+    };
+    
+    updateTaskMutation.mutate(taskData);
     toast({
       title: "Task atualizada",
       description: `"${task.title}" foi atualizada.`,
@@ -269,7 +452,7 @@ export const MarketingTasksView = () => {
 
   const handleDeleteTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
-    setTasks(prev => prev.filter(t => t.id !== taskId));
+    deleteTaskMutation.mutate(taskId);
     toast({
       title: "Task excluída",
       description: `"${task?.title}" foi excluída.`,
@@ -277,18 +460,17 @@ export const MarketingTasksView = () => {
   };
 
   const handleToggleChecklistItem = (taskId: string, checklistId: string) => {
-    setTasks(prev => prev.map(t => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          checklist: t.checklist.map(c => 
-            c.id === checklistId ? { ...c, done: !c.done } : c
-          ),
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      return t;
-    }));
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const updatedChecklist = task.checklist.map(c => 
+      c.id === checklistId ? { ...c, done: !c.done } : c
+    );
+    
+    updateTaskMutation.mutate({
+      id: taskId,
+      checklist: updatedChecklist,
+    });
   };
 
   const statuses: MarketingTaskStatus[] = ['backlog', 'in_progress', 'review', 'done'];
@@ -309,11 +491,12 @@ export const MarketingTasksView = () => {
   const availableCategories = Array.from(new Set(tasks.map(t => t.category)));
 
   return (
-    <div className="space-y-4">
-      {/* Header & Toolbar */}
+    <div className="space-y-6">
+      {/* Header Padronizado */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Tasks de Marketing</h2>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Tasks de Marketing</h1>
+          <p className="text-muted-foreground">Gerencie e organize suas tarefas de marketing</p>
         </div>
         <div className="flex items-center gap-2">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "board" | "list")}>
@@ -528,6 +711,9 @@ export const MarketingTasksView = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Nova Task de Marketing</DialogTitle>
+            <DialogDescription>
+              Crie uma nova tarefa de marketing para organizar seu trabalho
+            </DialogDescription>
           </DialogHeader>
           <MarketingTaskForm
             onSubmit={handleCreateTask}
@@ -542,6 +728,9 @@ export const MarketingTasksView = () => {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Editar Task</DialogTitle>
+              <DialogDescription>
+                Atualize as informações da tarefa de marketing
+              </DialogDescription>
             </DialogHeader>
             <MarketingTaskForm
               initialData={editingTask}

@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useStore, type Lead, type Funnel, type FunnelStage, type BANTMethodology } from "@/store/useStore";
+import { useSupabaseLeads } from "@/hooks/useSupabaseLeads";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabaseClient";
+import { useSyncCRMFunnelsToStore, useCreateCRMFunnel, useUpdateCRMFunnel, useDeleteCRMFunnel, useCreateCRMStage, useUpdateCRMStage, useDeleteCRMStage } from "@/hooks/useCRMFunnels";
+import { useSyncCRMTagsToStore, useCreateCRMTag, useUpdateCRMTag, useDeleteCRMTag, useTagsMap } from "@/hooks/useCRMTags";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +48,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -51,6 +58,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Calendar } from "@/components/ui/calendar";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 import { 
   Plus, 
   Settings, 
@@ -70,9 +78,72 @@ import {
   ArrowUp,
   ArrowDown,
   CalendarIcon,
+  MoveRight,
+  MoreVertical,
+  Archive,
 } from "lucide-react";
 
 export const KanbanBoard = () => {
+  // ============================================================================
+  // HOOKS - Supabase para persistência no banco de dados
+  // ============================================================================
+  const { user } = useAuth();
+  
+  // Buscar perfil do usuário para pegar o nome
+  const { data: userProfile } = useQuery({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('nome, full_name')
+        .eq('id', user.id)
+        .single();
+      return data as { nome: string | null; full_name: string | null } | null;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Nome do usuário logado (para usar como owner)
+  const userName = userProfile?.nome || userProfile?.full_name || user?.email?.split('@')[0] || 'Sistema';
+  
+  const { 
+    leads: supabaseLeads, 
+    createLead: createSupabaseLead,
+    updateLead: updateSupabaseLead,
+    deleteLead: deleteSupabaseLead,
+    isLoading: isLoadingLeads,
+  } = useSupabaseLeads({
+    filters: {
+      owner_id: user?.id, // Apenas leads do usuário logado
+    },
+  });
+
+  // ============================================================================
+  // HOOKS - Sincronização de Funis e Tags com Banco de Dados
+  // ============================================================================
+  useSyncCRMFunnelsToStore(); // Sincroniza funis do Supabase para Zustand
+  useSyncCRMTagsToStore(); // Sincroniza tags do Supabase para Zustand
+  const tagsMap = useTagsMap(); // Mapa de nome → ID das tags
+
+  // Mutations para funis
+  const createFunnelMutation = useCreateCRMFunnel();
+  const updateFunnelMutation = useUpdateCRMFunnel();
+  const deleteFunnelMutation = useDeleteCRMFunnel();
+  
+  // Mutations para estágios
+  const createStageMutation = useCreateCRMStage();
+  const updateStageMutation = useUpdateCRMStage();
+  const deleteStageMutation = useDeleteCRMStage();
+  
+  // Mutations para tags
+  const createTagMutation = useCreateCRMTag();
+  const updateTagMutation = useUpdateCRMTag();
+  const deleteTagMutation = useDeleteCRMTag();
+
+  // ============================================================================
+  // HOOKS - Store local para configurações (funnels, tags, etc)
+  // ============================================================================
   const { 
     leads, 
     funnels, 
@@ -80,6 +151,7 @@ export const KanbanBoard = () => {
     setActiveFunnel, 
     updateLead,
     addLead,
+    setLeads, // ← Função para substituir TODOS os leads de uma vez
     addFunnel,
     updateFunnel,
     deleteFunnel,
@@ -115,6 +187,11 @@ export const KanbanBoard = () => {
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [editingTagName, setEditingTagName] = useState('');
   
+  // Move lead between funnels state
+  const [moveLeadDialogOpen, setMoveLeadDialogOpen] = useState(false);
+  const [leadToMove, setLeadToMove] = useState<Lead | null>(null);
+  const [targetFunnelId, setTargetFunnelId] = useState<string>('');
+  
   // New Lead Form State
   const [newLeadForm, setNewLeadForm] = useState({
     name: '',
@@ -122,11 +199,18 @@ export const KanbanBoard = () => {
     email: '',
     phone: '',
     source: 'Website',
-    owner: 'Vendedor',
+    owner: '', // Será preenchido pelo useEffect abaixo
     notes: '',
     dealValue: '',
     expectedCloseDate: null as Date | null,
   });
+
+  // Atualizar owner do formulário quando userName estiver disponível
+  useEffect(() => {
+    if (userName && !newLeadForm.owner) {
+      setNewLeadForm(prev => ({ ...prev, owner: userName }));
+    }
+  }, [userName]);
   
   // BANT Qualification State
   const [createdLeadId, setCreatedLeadId] = useState<string | null>(null);
@@ -156,6 +240,53 @@ export const KanbanBoard = () => {
   const [sortBy, setSortBy] = useState<SortOption>('none');
   
   const navigate = useNavigate();
+
+  // ============================================================================
+  // SINCRONIZAÇÃO: Supabase → Store Local
+  // Carrega leads do Supabase e sincroniza com store local (Zustand)
+  // ============================================================================
+  useEffect(() => {
+    if (supabaseLeads !== undefined && !isLoadingLeads) {
+      console.log('[KanbanBoard] 🔄 Sincronizando leads do Supabase:', supabaseLeads?.length || 0);
+      
+      // Converter leads do Supabase para formato do Store Local
+      const leadsForStore: Lead[] = (supabaseLeads || []).map((supabaseLead) => {
+        const customFields = (supabaseLead.custom_fields as any) || {};
+        
+        // 🐛 DEBUG - Verificar funnel_id
+        if (!customFields.funnel_id) {
+          console.warn('[KanbanBoard] ⚠️ Lead sem funnel_id:', supabaseLead.name, 'custom_fields:', customFields);
+        } else {
+          console.log('[KanbanBoard] ✅ Lead com funnel_id:', supabaseLead.name, '→', customFields.funnel_id);
+        }
+        
+        return {
+          id: supabaseLead.id,
+          name: supabaseLead.name || 'Lead sem nome',
+          company: customFields.company || 'Empresa não informada',
+          email: supabaseLead.email || '',
+          whatsapp: supabaseLead.whatsapp || supabaseLead.phone || '',
+          source: supabaseLead.source || 'Website',
+          owner: customFields.owner || 'Sem responsável',
+          stage: customFields.stage_id || 'captured',
+          customStageId: customFields.stage_id,
+          funnelId: customFields.funnel_id || 'default',
+          score: supabaseLead.score || 0,
+          status: supabaseLead.status as any,
+          tags: supabaseLead.tags || [],
+          lastContact: supabaseLead.last_contact_date ? new Date(supabaseLead.last_contact_date) : new Date(),
+          notes: supabaseLead.notes || '',
+          dealValue: supabaseLead.estimated_value ? Number(supabaseLead.estimated_value) : undefined,
+          expectedCloseDate: supabaseLead.expected_close_date ? new Date(supabaseLead.expected_close_date) : undefined,
+        };
+      });
+      
+      // Atualizar store local com leads do Supabase
+      // ✅ SUBSTITUIR todos os leads de uma vez (mais eficiente)
+      console.log('[KanbanBoard] ✅ Carregando', leadsForStore.length, 'leads no Kanban');
+      setLeads(leadsForStore);
+    }
+  }, [supabaseLeads, isLoadingLeads, setLeads]);
 
   const activeFunnel = funnels.find((f) => f.id === activeFunnelId) || funnels[0];
   
@@ -195,6 +326,9 @@ export const KanbanBoard = () => {
   };
   
   const filteredLeads = leads.filter((lead) => {
+    // Exclude archived leads from Kanban view
+    if ((lead.status as any) === 'arquivado' || lead.status === 'archived') return false;
+    
     const matchesSearch = 
       lead.name.toLowerCase().includes(search.toLowerCase()) ||
       lead.company.toLowerCase().includes(search.toLowerCase());
@@ -257,10 +391,29 @@ export const KanbanBoard = () => {
     e.preventDefault();
   };
 
-  const handleDrop = (stageId: string) => {
+  const handleDrop = async (stageId: string) => {
     if (!draggedLead) return;
     
-    // Update lead stage
+    try {
+      // ✅ SALVAR NO SUPABASE (custom_fields.stage_id)
+      await updateSupabaseLead({
+        id: draggedLead.id,
+        updates: {
+          custom_fields: {
+            ...((draggedLead as any).customFields || {}),
+            stage_id: stageId,
+            stage_name: activeFunnel.stages.find(s => s.id === stageId)?.name || stageId,
+            funnel_id: activeFunnelId,
+          }
+        }
+      });
+      
+      console.log('[KanbanBoard] ✅ Lead movido para stage:', stageId);
+    } catch (error) {
+      console.error('[KanbanBoard] ❌ Erro ao mover lead:', error);
+    }
+    
+    // Update lead stage no Store local
     if (activeFunnelId === 'default') {
       updateLead(draggedLead.id, { stage: stageId as any });
     } else {
@@ -285,35 +438,41 @@ export const KanbanBoard = () => {
     return sortLeads(stageLeads);
   };
 
-  const handleCreateFunnel = () => {
+  const handleCreateFunnel = async () => {
     if (!newFunnelName.trim()) return;
     
-    const newFunnel: Funnel = {
-      id: `funnel-${Date.now()}`,
-      name: newFunnelName,
-      isDefault: false,
-      stages: [
-        { id: 'stage-1', name: 'Novo', color: '#3B82F6', order: 0 },
-      ],
-    };
-    
-    addFunnel(newFunnel);
-    setNewFunnelName('');
+    try {
+      // Criar funil no banco de dados
+      await createFunnelMutation.mutateAsync({
+        name: newFunnelName,
+        is_default: false,
+      });
+      
+      setNewFunnelName('');
+      console.log('✅ Funil criado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao criar funil:', error);
+    }
   };
 
-  const handleAddStage = () => {
+  const handleAddStage = async () => {
     if (!newStageName.trim()) return;
     
-    const newStage: FunnelStage = {
-      id: `stage-${Date.now()}`,
-      name: newStageName,
-      color: newStageColor,
-      order: activeFunnel.stages.length,
-    };
-    
-    addStageToFunnel(activeFunnelId, newStage);
-    setNewStageName('');
-    setNewStageColor('#3B82F6');
+    try {
+      // Criar estágio no banco de dados
+      await createStageMutation.mutateAsync({
+        funnel_id: activeFunnelId,
+        name: newStageName,
+        color: newStageColor,
+        order_index: activeFunnel.stages.length,
+      });
+      
+      setNewStageName('');
+      setNewStageColor('#3B82F6');
+      console.log('✅ Estágio criado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao criar estágio:', error);
+    }
   };
 
   const handleEditFunnel = (funnelId: string) => {
@@ -323,11 +482,21 @@ export const KanbanBoard = () => {
     setEditingFunnelName(funnel.name);
   };
 
-  const handleSaveFunnelEdit = () => {
+  const handleSaveFunnelEdit = async () => {
     if (!editingFunnel || !editingFunnelName.trim()) return;
-    updateFunnel(editingFunnel, { name: editingFunnelName });
-    setEditingFunnel(null);
-    setEditingFunnelName('');
+    
+    try {
+      await updateFunnelMutation.mutateAsync({
+        id: editingFunnel,
+        updates: { name: editingFunnelName },
+      });
+      
+      setEditingFunnel(null);
+      setEditingFunnelName('');
+      console.log('✅ Funil atualizado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao atualizar funil:', error);
+    }
   };
 
   const handleEditStage = (stageId: string) => {
@@ -338,15 +507,25 @@ export const KanbanBoard = () => {
     setEditingStageColor(stage.color);
   };
 
-  const handleSaveStageEdit = () => {
+  const handleSaveStageEdit = async () => {
     if (!editingStage || !editingStageName.trim()) return;
-    updateStageInFunnel(activeFunnelId, editingStage, {
-      name: editingStageName,
-      color: editingStageColor,
-    });
-    setEditingStage(null);
-    setEditingStageName('');
-    setEditingStageColor('');
+    
+    try {
+      await updateStageMutation.mutateAsync({
+        id: editingStage,
+        updates: {
+          name: editingStageName,
+          color: editingStageColor,
+        },
+      });
+      
+      setEditingStage(null);
+      setEditingStageName('');
+      setEditingStageColor('');
+      console.log('✅ Estágio atualizado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao atualizar estágio:', error);
+    }
   };
 
   const handleDeleteClick = (type: 'funnel' | 'stage' | 'tag', id: string, funnelId?: string) => {
@@ -354,26 +533,42 @@ export const KanbanBoard = () => {
     setDeleteConfirmOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     
-    if (deleteTarget.type === 'funnel') {
-      deleteFunnel(deleteTarget.id);
-    } else if (deleteTarget.type === 'stage' && deleteTarget.funnelId) {
-      removeStageFromFunnel(deleteTarget.funnelId, deleteTarget.id);
-    } else if (deleteTarget.type === 'tag') {
-      deleteTag(deleteTarget.id);
+    try {
+      if (deleteTarget.type === 'funnel') {
+        await deleteFunnelMutation.mutateAsync(deleteTarget.id);
+        console.log('✅ Funil deletado com sucesso');
+      } else if (deleteTarget.type === 'stage' && deleteTarget.funnelId) {
+        await deleteStageMutation.mutateAsync(deleteTarget.id);
+        console.log('✅ Estágio deletado com sucesso');
+      } else if (deleteTarget.type === 'tag') {
+        await deleteTagMutation.mutateAsync(deleteTarget.id);
+        console.log('✅ Tag deletada com sucesso');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao deletar:', error);
+    } finally {
+      setDeleteConfirmOpen(false);
+      setDeleteTarget(null);
     }
-    
-    setDeleteConfirmOpen(false);
-    setDeleteTarget(null);
   };
 
   // Tag management functions
-  const handleCreateTag = () => {
+  const handleCreateTag = async () => {
     if (!newTagName.trim()) return;
-    addTag(newTagName.trim());
-    setNewTagName('');
+    
+    try {
+      await createTagMutation.mutateAsync({
+        name: newTagName.trim(),
+      });
+      
+      setNewTagName('');
+      console.log('✅ Tag criada com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao criar tag:', error);
+    }
   };
 
   const handleEditTag = (tag: string) => {
@@ -381,13 +576,33 @@ export const KanbanBoard = () => {
     setEditingTagName(tag);
   };
 
-  const handleSaveTagEdit = () => {
+  const handleSaveTagEdit = async () => {
     if (!editingTag || !editingTagName.trim()) return;
-    if (editingTag !== editingTagName.trim()) {
-      updateTag(editingTag, editingTagName.trim());
+    if (editingTag === editingTagName.trim()) {
+      // Sem mudanças
+      setEditingTag(null);
+      setEditingTagName('');
+      return;
     }
-    setEditingTag(null);
-    setEditingTagName('');
+    
+    try {
+      const tagId = tagsMap.get(editingTag);
+      if (!tagId) {
+        console.error('❌ Tag ID não encontrado para:', editingTag);
+        return;
+      }
+      
+      await updateTagMutation.mutateAsync({
+        id: tagId,
+        updates: { name: editingTagName.trim() },
+      });
+      
+      setEditingTag(null);
+      setEditingTagName('');
+      console.log('✅ Tag atualizada com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao atualizar tag:', error);
+    }
   };
 
   const handleAddTag = (leadId: string) => {
@@ -409,50 +624,127 @@ export const KanbanBoard = () => {
     updateLead(leadId, { tags: updatedTags });
   };
 
-  const handleCreateLead = () => {
+  const handleOpenMoveLead = (lead: Lead) => {
+    setLeadToMove(lead);
+    setTargetFunnelId(lead.funnelId || 'default');
+    setMoveLeadDialogOpen(true);
+  };
+
+  const handleMoveLead = async () => {
+    if (!leadToMove || !targetFunnelId) return;
+    
+    try {
+      const targetFunnel = funnels.find(f => f.id === targetFunnelId);
+      if (!targetFunnel) return;
+      
+      const firstStageId = targetFunnel.stages[0]?.id;
+      
+      // Pegar custom_fields existentes do lead do Supabase
+      const leadFromSupabase = supabaseLeads?.find(l => l.id === leadToMove.id);
+      const existingCustomFields = (leadFromSupabase?.custom_fields as any) || {};
+      
+      // Atualizar lead no Supabase
+      await updateSupabaseLead({
+        id: leadToMove.id,
+        updates: {
+          custom_fields: {
+            ...existingCustomFields,
+            funnel_id: targetFunnelId,
+            stage_id: firstStageId,
+            stage_name: targetFunnel.stages[0]?.name || 'Capturado',
+          },
+        } as any,
+      });
+      
+      console.log(`✅ Lead "${leadToMove.name}" movido para funil "${targetFunnel.name}"`);
+      
+      // Fechar dialog
+      setMoveLeadDialogOpen(false);
+      setLeadToMove(null);
+      setTargetFunnelId('');
+      
+      // Se o lead foi movido para outro funil, mudar para esse funil
+      if (targetFunnelId !== activeFunnelId) {
+        setActiveFunnel(targetFunnelId);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao mover lead:', error);
+    }
+  };
+
+  const handleCreateLead = async () => {
     if (!newLeadForm.name.trim() || !newLeadForm.company.trim()) return;
     
     const firstStageId = activeFunnel.stages[0]?.id;
-    const leadId = `lead-${Date.now()}`;
     
-    const newLead: Lead = {
-      id: leadId,
-      name: newLeadForm.name,
-      company: newLeadForm.company,
-      email: newLeadForm.email,
-      whatsapp: newLeadForm.phone,
-      source: newLeadForm.source,
-      owner: newLeadForm.owner,
-      stage: activeFunnelId === 'default' ? (firstStageId as any) : 'captured',
-      customStageId: activeFunnelId !== 'default' ? firstStageId : undefined,
-      funnelId: activeFunnelId !== 'default' ? activeFunnelId : undefined,
-      score: 0, // Começa com 0, será calculado pelo BANT
-      tags: [],
-      lastContact: new Date(),
-      notes: newLeadForm.notes,
-      dealValue: newLeadForm.dealValue ? Number(newLeadForm.dealValue) : undefined,
-      expectedCloseDate: newLeadForm.expectedCloseDate || undefined,
-    };
-    
-    addLead(newLead);
-    
-    // Reset form
-    setNewLeadForm({
-      name: '',
-      company: '',
-      email: '',
-      phone: '',
-      source: 'Website',
-      owner: 'Vendedor',
-      notes: '',
-      dealValue: '',
-      expectedCloseDate: null,
-    });
-    
-    // Salvar ID do lead criado e abrir qualificação BANT
-    setCreatedLeadId(leadId);
-    setCreateLeadOpen(false);
-    setBantQualificationOpen(true);
+    try {
+      // ============================================================================
+      // CRIAR LEAD NO SUPABASE - USANDO SCHEMA CORRETO
+      // Schema real: name, email, phone, status, funnel_stage, etc.
+      // ============================================================================
+      const newLeadData: any = {
+        // ✅ Campos que EXISTEM no schema
+        name: newLeadForm.name, // ← Coluna correta: 'name' (não 'nome')
+        email: newLeadForm.email || null,
+        phone: newLeadForm.phone || null,
+        whatsapp: newLeadForm.phone || null, // ← Mesmo telefone
+        source: newLeadForm.source || null,
+        status: 'novo', // ← USER-DEFINED type 'lead_status'
+        owner_id: user?.id || null, // ✅ ID do usuário logado como responsável
+        score: 0,
+        tags: [],
+        contact_count: 0,
+        notes: newLeadForm.notes || null,
+        estimated_value: newLeadForm.dealValue ? parseFloat(newLeadForm.dealValue) : null,
+        expected_close_date: newLeadForm.expectedCloseDate || null,
+        last_contact_date: new Date().toISOString(),
+        
+        // ✅ custom_fields para dados personalizados (funil, etapas, etc)
+        custom_fields: {
+          company: newLeadForm.company, // ← Não tem coluna 'company', salvar aqui
+          owner: newLeadForm.owner, // ← Nome do responsável (para exibição)
+          owner_id: user?.id || null, // ← ID do responsável (referência ao user)
+          funnel_id: activeFunnelId, // ✅ SEMPRE salvar o funil ativo (inclusive 'default')
+          stage_id: firstStageId,
+          stage_name: activeFunnel.stages[0]?.name || 'Capturado',
+          // Salvar também a etapa que QUERÍAMOS usar
+          intended_funnel_stage: 'captured', // ← Para referência futura
+        },
+      };
+
+      console.log('[KanbanBoard] 🚀 Criando lead no funil:', activeFunnelId, 'Dados:', newLeadData);
+      console.log('[KanbanBoard] � custom_fields a serem salvos:', newLeadData.custom_fields);
+
+      const createdLead = await createSupabaseLead(newLeadData);
+      
+      console.log('[KanbanBoard] ✅ Lead criado no Supabase:', createdLead);
+      console.log('[KanbanBoard] 🔍 custom_fields recebidos:', (createdLead as any)?.custom_fields);
+      
+      // ✅ NÃO precisa adicionar manualmente - o useEffect vai sincronizar automaticamente
+      // O React Query invalidará a query e o useEffect detectará a mudança em supabaseLeads
+      
+      // Reset form
+      setNewLeadForm({
+        name: '',
+        company: '',
+        email: '',
+        phone: '',
+        source: 'Website',
+        owner: 'Vendedor',
+        notes: '',
+        dealValue: '',
+        expectedCloseDate: null,
+      });
+      
+      // Salvar ID do lead criado e abrir qualificação BANT
+      setCreatedLeadId(createdLead.id);
+      setCreateLeadOpen(false);
+      setBantQualificationOpen(true);
+      
+    } catch (error) {
+      console.error('Erro ao criar lead:', error);
+      // O toast de erro já é exibido pelo hook useSupabaseLeads
+    }
   };
 
   const calculateBANTScore = () => {
@@ -468,12 +760,43 @@ export const KanbanBoard = () => {
     return score;
   };
 
-  const handleBANTSubmit = () => {
+  const handleBANTSubmit = async () => {
     if (!createdLeadId) return;
     
     const score = calculateBANTScore();
-    const lead = leads.find(l => l.id === createdLeadId);
     
+    // 🔥 BUSCAR custom_fields do SUPABASE, não do Zustand
+    const leadFromSupabase = supabaseLeads?.find(l => l.id === createdLeadId);
+    const existingCustomFields = (leadFromSupabase?.custom_fields as any) || {};
+    
+    console.log('[KanbanBoard] 📋 custom_fields antes do BANT:', existingCustomFields);
+    
+    // ✅ SALVAR NO SUPABASE (campo score + custom_fields com BANT)
+    try {
+      await updateSupabaseLead({
+        id: createdLeadId,
+        updates: {
+          score,
+          custom_fields: {
+            ...existingCustomFields, // ✅ Preserva funnel_id, stage_id, etc.
+            bant: {
+              budget: bantScore.budget,
+              authority: bantScore.authority,
+              need: bantScore.need,
+              timeline: bantScore.timeline,
+              qualifiedAt: new Date().toISOString(),
+              qualifiedBy: user?.email || existingCustomFields.owner || 'Sistema',
+            }
+          }
+        }
+      });
+      
+      console.log('[KanbanBoard] ✅ BANT salvo no Supabase com score:', score);
+    } catch (error) {
+      console.error('[KanbanBoard] ❌ Erro ao salvar BANT:', error);
+    }
+    
+    // Também atualizar no Zustand Store (sincronização local)
     updateLead(createdLeadId, { 
       score,
       bant: {
@@ -482,30 +805,11 @@ export const KanbanBoard = () => {
         need: bantScore.need,
         timeline: bantScore.timeline,
         qualifiedAt: new Date(),
-        qualifiedBy: lead?.owner || 'Sistema',
+        qualifiedBy: existingCustomFields.owner || 'Sistema',
       }
     });
     
     // Reset BANT state
-    setBantScore({
-      budget: false,
-      authority: false,
-      need: false,
-      timeline: false,
-    });
-    setCreatedLeadId(null);
-    setBantQualificationOpen(false);
-  };
-
-  const handleSkipBANT = () => {
-    if (createdLeadId) {
-      // Zera o score e não salva informações BANT quando pular
-      updateLead(createdLeadId, { 
-        score: 0,
-        bant: undefined,
-      });
-    }
-    
     setBantScore({
       budget: false,
       authority: false,
@@ -522,15 +826,27 @@ export const KanbanBoard = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Select value={activeFunnelId} onValueChange={setActiveFunnel}>
-            <SelectTrigger className="w-[220px] border-dashed">
+            <SelectTrigger className="w-[280px] border-dashed">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {funnels.map((funnel) => (
-                <SelectItem key={funnel.id} value={funnel.id}>
-                  {funnel.name}
-                </SelectItem>
-              ))}
+              {funnels.map((funnel) => {
+                // Contar leads neste funil
+                const leadsCount = leads.filter(lead => 
+                  !lead.funnelId ? funnel.id === 'default' : lead.funnelId === funnel.id
+                ).length;
+                
+                return (
+                  <SelectItem key={funnel.id} value={funnel.id}>
+                    <div className="flex items-center justify-between w-full gap-3">
+                      <span>{funnel.name}</span>
+                      <Badge variant="secondary" className="ml-2">
+                        {leadsCount} lead{leadsCount !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -1102,7 +1418,12 @@ export const KanbanBoard = () => {
                                 size="sm"
                                 variant="ghost"
                                 className="text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteClick('tag', tag)}
+                                onClick={() => {
+                                  const tagId = tagsMap.get(tag);
+                                  if (tagId) {
+                                    handleDeleteClick('tag', tagId);
+                                  }
+                                }}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1137,6 +1458,61 @@ export const KanbanBoard = () => {
                         Criar
                       </Button>
                     </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Archived Leads Section */}
+                <div className="space-y-2">
+                  <h3 className="font-semibold">Leads Arquivados</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Leads arquivados não aparecem no funil. Você pode desarquivá-los a qualquer momento.
+                  </p>
+                  
+                  <div className="space-y-2 mt-4">
+                    {leads.filter(l => (l.status as any) === 'arquivado' || l.status === 'archived').length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Nenhum lead arquivado
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {leads
+                          .filter(l => (l.status as any) === 'arquivado' || l.status === 'archived')
+                          .map((lead) => (
+                            <div
+                              key={lead.id}
+                              className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50"
+                            >
+                              <div className="flex-1">
+                                <p className="font-medium">{lead.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {lead.company || 'Sem empresa'}
+                                </p>
+                              </div>
+                              <Badge variant="secondary">Score: {lead.score}</Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={async () => {
+                                  try {
+                                    await updateSupabaseLead({
+                                      id: lead.id,
+                                      updates: { status: 'novo' as any }
+                                    });
+                                    toast.success('Lead desarquivado com sucesso!');
+                                  } catch (error) {
+                                    console.error('Erro ao desarquivar lead:', error);
+                                    toast.error('Erro ao desarquivar lead');
+                                  }
+                                }}
+                              >
+                                Desarquivar
+                              </Button>
+                            </div>
+                          ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1185,23 +1561,24 @@ export const KanbanBoard = () => {
                       <CardContent className="p-4">
                         <div className="space-y-3">
                           {/* Header */}
-                          <div 
-                            className="flex items-start justify-between gap-2"
-                            onClick={() => navigate(`/crm/${lead.id}`)}
-                          >
-                            <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer"
+                              onClick={() => navigate(`/crm/${lead.id}`)}
+                            >
                               <div className="flex items-center gap-2 mb-1">
                                 <p className="font-semibold truncate">{lead.name}</p>
-                                {lead.status && lead.status !== 'open' && (
+                                {/* ✅ BADGE CORRETO - só mostra para ganho ou perdido */}
+                                {(['ganho', 'won', 'perdido', 'lost'].includes((lead.status as any) || '')) && (
                                   <Badge
                                     variant="outline"
                                     className={`text-xs ${
-                                      lead.status === 'won'
+                                      ['won', 'ganho'].includes((lead.status as any) || '')
                                         ? 'border-green-600 text-green-600'
                                         : 'border-red-600 text-red-600'
                                     }`}
                                   >
-                                    {lead.status === 'won' ? 'Ganho' : 'Perdido'}
+                                    {['won', 'ganho'].includes((lead.status as any) || '') ? 'Ganho' : 'Perdido'}
                                   </Badge>
                                 )}
                               </div>
@@ -1209,82 +1586,44 @@ export const KanbanBoard = () => {
                                 {lead.company}
                               </p>
                             </div>
-                            <div className={`text-2xl font-bold ${getScoreColor(lead.score)}`}>
-                              {lead.score}
+                            <div className="flex items-center gap-2">
+                              <div className={`text-2xl font-bold ${getScoreColor(lead.score)}`}>
+                                {lead.score}
+                              </div>
+                              {/* Menu de ações do lead */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenMoveLead(lead);
+                                  }}>
+                                    <MoveRight className="h-4 w-4 mr-2" />
+                                    Mover para outro funil
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await updateSupabaseLead({
+                                        id: lead.id,
+                                        updates: { status: 'arquivado' as any }
+                                      });
+                                      toast.success('Lead arquivado com sucesso!');
+                                    } catch (error) {
+                                      console.error('Erro ao arquivar lead:', error);
+                                      toast.error('Erro ao arquivar lead');
+                                    }
+                                  }}>
+                                    <Archive className="h-4 w-4 mr-2" />
+                                    Arquivar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
-                          </div>
-
-                          {/* Tags */}
-                          <div className="flex flex-wrap items-center gap-1">
-                            {lead.tags.map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="secondary"
-                                className="text-xs group relative"
-                              >
-                                {tag}
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveTag(lead.id, tag);
-                                  }}
-                                  className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </Badge>
-                            ))}
-                            
-                            {/* Add Tag Popover */}
-                            <Popover 
-                              open={editingLeadTags === lead.id} 
-                              onOpenChange={(open) => {
-                                setEditingLeadTags(open ? lead.id : null);
-                                if (!open) setNewTag('');
-                              }}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 px-2 text-xs"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingLeadTags(lead.id);
-                                  }}
-                                >
-                                  <Plus className="h-3 w-3 mr-1" />
-                                  Tag
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent 
-                                className="w-64" 
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <div className="space-y-2">
-                                  <Label htmlFor="new-tag">Adicionar Tag</Label>
-                                  <div className="flex gap-2">
-                                    <Input
-                                      id="new-tag"
-                                      placeholder="Nome da tag..."
-                                      value={newTag}
-                                      onChange={(e) => setNewTag(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          handleAddTag(lead.id);
-                                        }
-                                      }}
-                                    />
-                                    <Button 
-                                      size="sm"
-                                      onClick={() => handleAddTag(lead.id)}
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
                           </div>
 
                           {/* Footer */}
@@ -1573,9 +1912,7 @@ export const KanbanBoard = () => {
       </Dialog>
 
       {/* BANT Qualification Dialog */}
-      <Dialog open={bantQualificationOpen} onOpenChange={(open) => {
-        if (!open) handleSkipBANT();
-      }}>
+      <Dialog open={bantQualificationOpen} onOpenChange={setBantQualificationOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader className="space-y-2 pb-3 border-b flex-shrink-0">
             <div className="flex items-center gap-3">
@@ -1740,19 +2077,72 @@ export const KanbanBoard = () => {
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0 pt-3 border-t flex-shrink-0">
-            <Button 
-              variant="outline" 
-              onClick={handleSkipBANT}
-              className="h-9 px-4"
-            >
-              Pular Qualificação
-            </Button>
+            {/* Botão único: Confirmar Score */}
             <Button 
               onClick={handleBANTSubmit}
               className="h-9 px-4 gap-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:opacity-90"
             >
               <CheckCircle2 className="h-4 w-4" />
-              Confirmar Score
+              {bantScore.budget || bantScore.authority || bantScore.need || bantScore.timeline 
+                ? `Confirmar Score (${
+                    (bantScore.budget ? 25 : 0) + 
+                    (bantScore.authority ? 25 : 0) + 
+                    (bantScore.need ? 25 : 0) + 
+                    (bantScore.timeline ? 25 : 0)
+                  } pts)`
+                : 'Confirmar (0 pts)'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move Lead Dialog */}
+      <Dialog open={moveLeadDialogOpen} onOpenChange={setMoveLeadDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mover Lead para Outro Funil</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Escolha o funil de destino para o lead <span className="font-semibold">{leadToMove?.name}</span>
+            </p>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Funil de Destino</Label>
+              <Select value={targetFunnelId} onValueChange={setTargetFunnelId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o funil" />
+                </SelectTrigger>
+                <SelectContent>
+                  {funnels
+                    .filter(f => f.id !== leadToMove?.funnelId) // Não mostrar o funil atual
+                    .map((funnel) => (
+                      <SelectItem key={funnel.id} value={funnel.id}>
+                        {funnel.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                O lead será movido para a primeira etapa do funil selecionado
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMoveLeadDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleMoveLead}
+              disabled={!targetFunnelId || targetFunnelId === leadToMove?.funnelId}
+              className="gap-2"
+            >
+              <MoveRight className="h-4 w-4" />
+              Mover Lead
             </Button>
           </DialogFooter>
         </DialogContent>

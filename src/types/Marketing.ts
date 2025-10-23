@@ -3,8 +3,8 @@
 export interface Campaign {
   id: string;
   name: string;
-  type: 'email' | 'social' | 'ads' | 'content' | 'event';
-  status: 'draft' | 'active' | 'paused' | 'completed';
+  type: 'email' | 'social' | 'ads' | 'content' | 'events' | 'other';
+  status: 'draft' | 'active' | 'paused' | 'completed' | 'cancelled';
   startDate: string;
   endDate: string;
   budget: number;

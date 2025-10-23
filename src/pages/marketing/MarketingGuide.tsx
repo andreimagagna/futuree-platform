@@ -64,11 +64,11 @@ export function MarketingGuide() {
     },
     {
       id: 'construtor-funil',
-      title: 'Construtor de Funis',
       icon: GitBranch,
       description: 'Crie funis de conversão visuais e interativos',
       color: 'text-primary',
       path: '/marketing/construtor-funil',
+      comingSoon: true,
       items: [
         { title: 'Editor Visual', desc: 'Drag-and-drop de etapas do funil' },
         { title: 'Etapas Customizáveis', desc: 'Nome, descrição e configuração' },
@@ -109,28 +109,13 @@ export function MarketingGuide() {
       ]
     },
     {
-      id: 'branding',
-      title: 'Branding',
-      icon: Palette,
-      description: 'Construa a identidade completa da sua marca',
-      color: 'text-primary',
-      path: '/marketing/branding',
-      items: [
-        { title: 'Primal Branding', desc: '7 elementos para conexão emocional' },
-        { title: 'Paleta de Cores', desc: 'Defina cores primária, secundária e destaque' },
-        { title: 'Tipografia', desc: 'Fontes e estilos da marca' },
-        { title: 'Manifesto', desc: 'Visão, missão, valores e propósito' },
-        { title: 'Posicionamento', desc: 'Público, problema, solução e diferencial' },
-        { title: 'Export & Copy', desc: 'Exporte JSON e copie cores facilmente' },
-      ]
-    },
-    {
       id: 'landing-pages',
       title: 'Landing Pages',
       icon: Layout,
       description: 'Editor de landing pages (Em breve)',
       color: 'text-accent',
       path: '/marketing/landing-pages',
+      comingSoon: true,
       items: [
         { title: 'Editor Visual', desc: 'Construa páginas sem código' },
         { title: 'Templates Premium', desc: 'Designs profissionais prontos' },
@@ -261,7 +246,7 @@ export function MarketingGuide() {
           <div className="grid gap-4">
             {features.map((feature) => {
               const Icon = feature.icon;
-              const isComingSoon = feature.id === 'landing-pages';
+              const isComingSoon = !!feature.comingSoon;
               return (
                 <Card key={feature.id} className="hover:shadow-lg transition-all">
                   <CardHeader>

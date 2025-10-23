@@ -29,7 +29,7 @@ const PerformanceChart = ({ data }: PerformanceChartProps) => {
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-warning">
-              {avgPerformance.toFixed(0)}%
+              {Math.round(avgPerformance)}%
             </div>
             <div className="text-sm text-muted-foreground">
               Performance média

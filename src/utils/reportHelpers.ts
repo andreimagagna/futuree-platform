@@ -4,6 +4,32 @@ import { ptBR } from 'date-fns/locale';
 
 export type PeriodType = '7days' | '30days' | '90days' | '6months' | '1year' | 'custom';
 
+// ✅ FUNÇÃO HELPER: Categoriza lead por estágio (mesma lógica do FunnelVisual)
+export const categorizeLead = (lead: Lead): 'topo' | 'meio' | 'fundo' | 'vendas' | 'perdido' | null => {
+  const statusStr = String((lead as any).status || '').toLowerCase();
+  const stageStr = String((lead as any).stage || (lead as any).funnel_stage || '').toLowerCase();
+  
+  // Status sobrepõe tudo
+  if (statusStr === 'ganho' || statusStr === 'won') return 'vendas';
+  if (statusStr === 'perdido' || statusStr === 'lost') return 'perdido';
+  
+  // Categorizar por estágio
+  if (['novo', 'new', 'captured', 'lead', 'contatado', 'contact', 'contacted', 'open', ''].includes(stageStr)) {
+    return 'topo';
+  }
+  
+  if (['qualificado', 'qualified', 'qualify', 'qualification', 'proposta', 'proposal', 'apresentacao', 'presentation'].includes(stageStr)) {
+    return 'meio';
+  }
+  
+  if (['negociacao', 'negotiation', 'closing', 'fechamento', 'contrato', 'contract'].includes(stageStr)) {
+    return 'fundo';
+  }
+  
+  // Padrão: topo
+  return 'topo';
+};
+
 // Filtra leads por período
 export const filterLeadsByPeriod = (leads: Lead[], period: PeriodType): Lead[] => {
   const now = new Date();
@@ -115,6 +141,7 @@ export interface PerformanceData {
 
 // Gera dados de vendas por mês
 export const generateSalesData = (leads: Lead[], monthsBack: number = 6): SalesData[] => {
+  console.log('📊 generateSalesData - Início:', { totalLeads: leads.length, monthsBack });
   const data: SalesData[] = [];
   
   for (let i = monthsBack - 1; i >= 0; i--) {
@@ -122,10 +149,15 @@ export const generateSalesData = (leads: Lead[], monthsBack: number = 6): SalesD
     const monthStart = startOfMonth(targetDate);
     const monthEnd = endOfMonth(targetDate);
     
+    // ✅ Usar createdAt e aceitar 'ganho' ou 'won'
     const monthLeads = leads.filter(lead => {
-      if (!lead.lastContact || lead.status !== 'won') return false;
-      const contactDate = new Date(lead.lastContact);
-      return contactDate >= monthStart && contactDate <= monthEnd;
+      const createdDate = lead.createdAt ? new Date(lead.createdAt) : null;
+      if (!createdDate) return false;
+      
+      const status = (lead as any).status;
+      const isWon = status === 'won' || status === 'ganho';
+      
+      return createdDate >= monthStart && createdDate <= monthEnd && isWon;
     });
     
     const revenue = monthLeads.reduce((sum, lead) => sum + (lead.dealValue || 0), 0);
@@ -140,11 +172,13 @@ export const generateSalesData = (leads: Lead[], monthsBack: number = 6): SalesD
     });
   }
   
+  console.log('📊 generateSalesData - Resultado:', data);
   return data;
 };
 
 // Gera dados de qualificação por mês
 export const generateQualificationData = (leads: Lead[], monthsBack: number = 6): QualificationData[] => {
+  console.log('📊 generateQualificationData - Início:', { totalLeads: leads.length });
   const data: QualificationData[] = [];
   
   for (let i = monthsBack - 1; i >= 0; i--) {
@@ -152,17 +186,31 @@ export const generateQualificationData = (leads: Lead[], monthsBack: number = 6)
     const monthStart = startOfMonth(targetDate);
     const monthEnd = endOfMonth(targetDate);
     
+    // ✅ Usar createdAt
     const monthLeads = leads.filter(lead => {
-      if (!lead.lastContact) return false;
-      const contactDate = new Date(lead.lastContact);
-      return contactDate >= monthStart && contactDate <= monthEnd;
+      const createdDate = lead.createdAt ? new Date(lead.createdAt) : null;
+      if (!createdDate) return false;
+      return createdDate >= monthStart && createdDate <= monthEnd;
     });
     
     const contacted = monthLeads.length;
-    const qualified = monthLeads.filter(lead => 
-      lead.stage === 'proposal' || lead.stage === 'closing' || lead.status === 'won'
-    ).length;
-    const disqualified = monthLeads.filter(lead => lead.status === 'lost').length;
+    
+    // ✅ Qualificados: leads com score > 0 ou em estágios avançados
+    const qualified = monthLeads.filter(lead => {
+      const stage = (lead as any).stage;
+      const status = (lead as any).status;
+      const isQualified = lead.score > 0 || 
+                         ['proposta', 'negociacao', 'proposal', 'closing'].includes(stage) ||
+                         status === 'ganho' || status === 'won';
+      return isQualified;
+    }).length;
+    
+    // ✅ Desqualificados: leads perdidos
+    const disqualified = monthLeads.filter(lead => {
+      const status = (lead as any).status;
+      return status === 'lost' || status === 'perdido';
+    }).length;
+    
     const rate = contacted > 0 ? (qualified / contacted) * 100 : 0;
     
     data.push({
@@ -174,11 +222,13 @@ export const generateQualificationData = (leads: Lead[], monthsBack: number = 6)
     });
   }
   
+  console.log('📊 generateQualificationData - Resultado:', data);
   return data;
 };
 
 // Gera dados de reuniões por semana  
 export const generateMeetingsData = (tasks: Task[], weeksBack: number = 8): MeetingsData[] => {
+  console.log('📊 generateMeetingsData - Início:', { totalTasks: tasks.length });
   const data: MeetingsData[] = [];
   
   for (let i = weeksBack - 1; i >= 0; i--) {
@@ -186,204 +236,388 @@ export const generateMeetingsData = (tasks: Task[], weeksBack: number = 8): Meet
     const weekStart = startOfWeek(targetDate, { locale: ptBR });
     const weekEnd = endOfWeek(targetDate, { locale: ptBR });
     
-    // Filtra tarefas da semana (assumindo que reuniões têm "meeting" ou "reunião" no título)
+    // ✅ Filtra tarefas que são reuniões e foram criadas/agendadas nesta semana
     const weekTasks = tasks.filter(task => {
-      if (!task.dueDate) return false;
-      const dueDate = new Date(task.dueDate);
+      // Verificar se é reunião
       const isMeeting = task.title.toLowerCase().includes('reunião') || 
-                        task.title.toLowerCase().includes('meeting');
-      return dueDate >= weekStart && dueDate <= weekEnd && isMeeting;
+                        task.title.toLowerCase().includes('meeting') ||
+                        task.title.toLowerCase().includes('call') ||
+                        task.title.toLowerCase().includes('demo');
+      
+      if (!isMeeting) return false;
+      
+      // Verificar data (usar dueDate ou createdAt)
+      const taskDate = task.dueDate || task.createdAt;
+      if (!taskDate) return false;
+      
+      const dateToCheck = new Date(taskDate);
+      return dateToCheck >= weekStart && dateToCheck <= weekEnd;
     });
     
     const scheduled = weekTasks.length;
     const completed = weekTasks.filter(task => task.status === 'done').length;
+    
+    // ✅ No-show: reuniões não concluídas que já passaram
     const noShow = weekTasks.filter(task => {
+      if (task.status === 'done') return false;
       const isPast = task.dueDate && new Date(task.dueDate) < new Date();
-      return task.status !== 'done' && isPast;
+      return isPast;
     }).length;
     
-    // Simula taxa de conversão (em produção, viria de dados reais)
-    const conversionRate = completed > 0 ? Math.random() * 30 + 20 : 0;
+    // ✅ Taxa de conversão baseada em completadas - ARREDONDADO
+    const conversionRate = scheduled > 0 ? (completed / scheduled) * 100 : 0;
     
     data.push({
       week: `Sem ${format(weekStart, 'dd/MM', { locale: ptBR })}`,
       scheduled,
       completed,
       noShow,
-      conversionRate: Number(conversionRate.toFixed(1)),
+      conversionRate: Math.round(conversionRate), // Arredondado sem casas decimais
     });
   }
   
+  console.log('📊 generateMeetingsData - Resultado:', data);
   return data;
 };
 
 // Gera dados de previsão de vendas
-export const generateForecastData = (leads: Lead[], monthsAhead: number = 6): ForecastData[] => {
+export const generateForecastData = (leads: Lead[], monthsAhead: number = 6, monthlyTarget?: number): ForecastData[] => {
+  console.log('📊 generateForecastData - Início:', { totalLeads: leads.length, monthlyTarget });
   const data: ForecastData[] = [];
+  const now = new Date();
   
   for (let i = 0; i < monthsAhead; i++) {
-    const targetDate = subMonths(new Date(), -i);
-    
-    // Calcula dados reais para meses passados
+    const targetDate = subMonths(now, -i); // Meses futuros
     const monthStart = startOfMonth(targetDate);
     const monthEnd = endOfMonth(targetDate);
+    const isPastMonth = targetDate < now;
     
+    // ✅ Dados reais (meses passados)
     const monthLeads = leads.filter(lead => {
-      if (!lead.lastContact) return false;
-      const contactDate = new Date(lead.lastContact);
-      return contactDate >= monthStart && contactDate <= monthEnd;
+      const createdDate = lead.createdAt ? new Date(lead.createdAt) : null;
+      if (!createdDate) return false;
+      return createdDate >= monthStart && createdDate <= monthEnd;
     });
     
     const actual = monthLeads
-      .filter(lead => lead.status === 'won')
+      .filter(lead => {
+        const status = (lead as any).status;
+        return status === 'won' || status === 'ganho';
+      })
       .reduce((sum, lead) => sum + (lead.dealValue || 0), 0);
     
-    // Pipeline value (leads em proposta/fechamento) ponderado pela probabilidade
-    const pipelineLeads = leads.filter(lead => 
-      lead.stage === 'proposal' || lead.stage === 'closing'
-    );
+    // ✅ Pipeline com data de fechamento esperada
+    const pipelineLeads = leads.filter(lead => {
+      const stage = (lead as any).stage;
+      const status = (lead as any).status;
+      const isActive = !['won', 'ganho', 'lost', 'perdido'].includes(status);
+      const expectedCloseDate = (lead as any).expected_close_date ? new Date((lead as any).expected_close_date) : null;
+      
+      // Considera leads que têm data esperada neste mês OU estão em estágios avançados
+      const isInMonth = expectedCloseDate && expectedCloseDate >= monthStart && expectedCloseDate <= monthEnd;
+      const isAdvancedStage = ['proposta', 'negociacao', 'proposal', 'closing'].includes(stage);
+      
+      return isActive && (isInMonth || (!expectedCloseDate && isAdvancedStage && !isPastMonth));
+    });
     
+    // ✅ Forecast ponderado por estágio + probabilidade da data
     const forecast = pipelineLeads.reduce((sum, lead) => {
-      const probability = lead.stage === 'closing' ? 0.7 : 0.4;
-      return sum + ((lead.dealValue || 0) * probability);
-    }, 0) + actual;
+      const stage = (lead as any).stage;
+      const expectedCloseDate = (lead as any).expected_close_date ? new Date((lead as any).expected_close_date) : null;
+      
+      // Probabilidade baseada no estágio
+      let stageProbability = 0.3;
+      if (stage === 'closing' || stage === 'negociacao') stageProbability = 0.7;
+      else if (stage === 'proposal' || stage === 'proposta') stageProbability = 0.5;
+      
+      // Aumenta probabilidade se tem data de fechamento definida
+      if (expectedCloseDate) stageProbability = Math.min(stageProbability + 0.2, 0.9);
+      
+      return sum + ((lead.dealValue || 0) * stageProbability);
+    }, 0);
     
-    const target = 0; // Meta zerada
-    const probability = forecast > 0 ? Math.min((forecast / target) * 100, 100) : 0;
+    const finalForecast = isPastMonth ? actual : actual + forecast;
+    
+    // ✅ Meta: usar meta da empresa ou estimativa
+    const target = monthlyTarget || (finalForecast > 0 ? finalForecast * 1.2 : 50000);
+    const probabilityValue = target > 0 ? Math.min((finalForecast / target) * 100, 100) : 0;
     
     data.push({
       month: format(targetDate, 'MMM/yy', { locale: ptBR }),
       actual,
-      forecast,
+      forecast: finalForecast,
       target,
-      probability: Number(probability.toFixed(0)),
+      probability: Math.round(probabilityValue),
     });
   }
   
+  console.log('📊 generateForecastData - Resultado:', data);
   return data;
 };
 
 // Gera dados de funil de conversão
 export const generateConversionFunnelData = (leads: Lead[]): ConversionFunnelData[] => {
-  const stages = [
-    { status: 'captured', name: 'Novos Leads', color: 'hsl(var(--accent))' },
-    { status: 'qualify', name: 'Qualificação', color: 'hsl(var(--primary))' },
-    { status: 'contact', name: 'Contato', color: 'hsl(200 70% 50%)' },
-    { status: 'proposal', name: 'Proposta', color: 'hsl(var(--warning))' },
-    { status: 'closing', name: 'Fechamento', color: 'hsl(35 80% 55%)' },
-    { status: 'won', name: 'Fechados', color: 'hsl(var(--success))' },
-  ];
+  console.log('📊 generateConversionFunnelData - Início:', { totalLeads: leads.length });
   
   const totalLeads = leads.length;
   
-  return stages.map(stage => {
-    const count = stage.status === 'won' 
-      ? leads.filter(lead => lead.status === 'won').length
-      : leads.filter(lead => lead.stage === stage.status).length;
-    
-    const percentage = totalLeads > 0 ? Number(((count / totalLeads) * 100).toFixed(1)) : 0;
-    
-    return {
-      stage: stage.name,
-      count,
-      percentage,
-      color: stage.color,
-    };
+  // Categorizar todos os leads usando a função helper
+  const categories = {
+    topo: [] as Lead[],
+    meio: [] as Lead[],
+    fundo: [] as Lead[],
+    vendas: [] as Lead[],
+    perdido: [] as Lead[],
+  };
+  
+  leads.forEach(lead => {
+    const category = categorizeLead(lead);
+    if (category && category !== 'perdido') {
+      categories[category].push(lead);
+    } else if (category === 'perdido') {
+      categories.perdido.push(lead);
+    }
   });
+  
+  console.log('📊 Categorização:', {
+    topo: categories.topo.length,
+    meio: categories.meio.length,
+    fundo: categories.fundo.length,
+    vendas: categories.vendas.length,
+    perdido: categories.perdido.length,
+  });
+  
+  const result = [
+    {
+      stage: 'Topo do Funil',
+      count: categories.topo.length,
+      percentage: totalLeads > 0 ? Math.round((categories.topo.length / totalLeads) * 100) : 0,
+      color: 'hsl(var(--accent))',
+    },
+    {
+      stage: 'Meio do Funil',
+      count: categories.meio.length,
+      percentage: totalLeads > 0 ? Math.round((categories.meio.length / totalLeads) * 100) : 0,
+      color: 'hsl(var(--primary))',
+    },
+    {
+      stage: 'Fundo do Funil',
+      count: categories.fundo.length,
+      percentage: totalLeads > 0 ? Math.round((categories.fundo.length / totalLeads) * 100) : 0,
+      color: 'hsl(var(--warning))',
+    },
+    {
+      stage: 'Fechados',
+      count: categories.vendas.length,
+      percentage: totalLeads > 0 ? Math.round((categories.vendas.length / totalLeads) * 100) : 0,
+      color: 'hsl(var(--success))',
+    },
+    {
+      stage: 'Perdidos',
+      count: categories.perdido.length,
+      percentage: totalLeads > 0 ? Math.round((categories.perdido.length / totalLeads) * 100) : 0,
+      color: 'hsl(var(--destructive))',
+    },
+  ];
+  
+  console.log('📊 generateConversionFunnelData - Resultado:', result);
+  return result;
 };
 
 // Gera dados de performance
 export const generatePerformanceData = (leads: Lead[], tasks: Task[]): PerformanceData[] => {
+  console.log('📊 generatePerformanceData - Início:', { totalLeads: leads.length, totalTasks: tasks.length });
+  
   const now = new Date();
   const thisMonthStart = startOfMonth(now);
   
+  // ✅ Usar createdAt
   const thisMonthLeads = leads.filter(lead => {
-    if (!lead.lastContact) return false;
-    const contactDate = new Date(lead.lastContact);
-    return contactDate >= thisMonthStart;
+    const createdDate = lead.createdAt ? new Date(lead.createdAt) : null;
+    if (!createdDate) return false;
+    return createdDate >= thisMonthStart;
   });
   
   const contacted = thisMonthLeads.length;
-  const qualified = thisMonthLeads.filter(lead => 
-    lead.stage === 'proposal' || lead.stage === 'closing' || lead.status === 'won'
-  ).length;
-  const won = thisMonthLeads.filter(lead => lead.status === 'won').length;
   
-  // Conta reuniões completadas (tarefas com "reunião" no título)
+  // ✅ Qualificados
+  const qualified = thisMonthLeads.filter(lead => {
+    const stage = (lead as any).stage;
+    const status = (lead as any).status;
+    return lead.score > 0 || 
+           ['proposta', 'negociacao', 'proposal', 'closing'].includes(stage) ||
+           status === 'ganho' || status === 'won';
+  }).length;
+  
+  // ✅ Ganhos
+  const won = thisMonthLeads.filter(lead => {
+    const status = (lead as any).status;
+    return status === 'won' || status === 'ganho';
+  }).length;
+  
+  // ✅ Reuniões completadas
   const meetingTasks = tasks.filter(task => 
-    task.title.toLowerCase().includes('reunião') || task.title.toLowerCase().includes('meeting')
+    task.title.toLowerCase().includes('reunião') || 
+    task.title.toLowerCase().includes('meeting') ||
+    task.title.toLowerCase().includes('call') ||
+    task.title.toLowerCase().includes('demo')
   );
   const completedMeetings = meetingTasks.filter(task => task.status === 'done').length;
   
+  // ✅ Tasks completadas
   const allTasks = tasks.length;
   const completedTasks = tasks.filter(task => task.status === 'done').length;
   
-  const avgResponseTime = 2.5; // Simulado (em produção, seria calculado)
+  // ✅ Tempo médio de resposta (simulado - em produção viria de activities)
+  const avgResponseTime = 2.5;
   
-  return [
-    { metric: 'Leads Contatados', current: 0, target: 0, fullMark: 200 },
-    { metric: 'Taxa Qualificação', current: 0, target: 0, fullMark: 100 },
-    { metric: 'Deals Fechados', current: 0, target: 0, fullMark: 40 },
-    { metric: 'Reuniões Realizadas', current: 0, target: 0, fullMark: 50 },
-    { metric: 'Tarefas Concluídas', current: 0, target: 0, fullMark: allTasks || 1 },
-    { metric: 'Tempo Resposta (h)', current: 0, target: 0, fullMark: 8 },
+  // ✅ Definir metas baseadas nos valores atuais
+  const contactedTarget = contacted > 0 ? contacted * 1.5 : 100;
+  const qualifiedTarget = qualified > 0 ? qualified * 1.3 : 70;
+  const wonTarget = won > 0 ? won * 1.2 : 20;
+  const meetingsTarget = completedMeetings > 0 ? completedMeetings * 1.2 : 30;
+  const tasksTarget = allTasks > 0 ? allTasks : 50;
+  
+  const result = [
+    { 
+      metric: 'Leads Contatados', 
+      current: contacted, 
+      target: contactedTarget, 
+      fullMark: Math.max(contacted, contactedTarget, 200) 
+    },
+    { 
+      metric: 'Taxa Qualificação', 
+      current: contacted > 0 ? (qualified / contacted) * 100 : 0, 
+      target: 70, 
+      fullMark: 100 
+    },
+    { 
+      metric: 'Deals Fechados', 
+      current: won, 
+      target: wonTarget, 
+      fullMark: Math.max(won, wonTarget, 40) 
+    },
+    { 
+      metric: 'Reuniões Realizadas', 
+      current: completedMeetings, 
+      target: meetingsTarget, 
+      fullMark: Math.max(completedMeetings, meetingsTarget, 50) 
+    },
+    { 
+      metric: 'Tarefas Concluídas', 
+      current: completedTasks, 
+      target: Math.round(allTasks * 0.8), 
+      fullMark: allTasks || 100 
+    },
+    { 
+      metric: 'Tempo Resposta (h)', 
+      current: avgResponseTime, 
+      target: 2, 
+      fullMark: 8 
+    },
   ];
+  
+  console.log('📊 generatePerformanceData - Resultado:', result);
+  return result;
 };
 
 // Calcula KPIs gerais
 export const calculateKPIs = (leads: Lead[], tasks: Task[]) => {
+  console.log('📊 calculateKPIs - Início:', { totalLeads: leads.length, totalTasks: tasks.length });
+  
   const now = new Date();
   const thisMonthStart = startOfMonth(now);
   const lastMonthStart = startOfMonth(subMonths(now, 1));
   const lastMonthEnd = endOfMonth(subMonths(now, 1));
   
+  console.log('📊 calculateKPIs - Períodos:', {
+    thisMonthStart: thisMonthStart.toISOString(),
+    lastMonthStart: lastMonthStart.toISOString(),
+    lastMonthEnd: lastMonthEnd.toISOString(),
+  });
+  
+  // ✅ USAR createdAt ao invés de lastContact (mais confiável)
   const thisMonthLeads = leads.filter(lead => {
-    if (!lead.lastContact) return false;
-    const contactDate = new Date(lead.lastContact);
-    return contactDate >= thisMonthStart;
+    const createdDate = lead.createdAt ? new Date(lead.createdAt) : null;
+    if (!createdDate) return false;
+    return createdDate >= thisMonthStart;
   });
   
   const lastMonthLeads = leads.filter(lead => {
-    if (!lead.lastContact) return false;
-    const contactDate = new Date(lead.lastContact);
-    return contactDate >= lastMonthStart && contactDate <= lastMonthEnd;
+    const createdDate = lead.createdAt ? new Date(lead.createdAt) : null;
+    if (!createdDate) return false;
+    return createdDate >= lastMonthStart && createdDate <= lastMonthEnd;
   });
   
+  console.log('📊 calculateKPIs - Leads filtrados:', {
+    thisMonthLeads: thisMonthLeads.length,
+    lastMonthLeads: lastMonthLeads.length,
+  });
+  
+  // ✅ ACEITAR tanto 'won' quanto 'ganho' como status válido
+  const isWon = (lead: Lead) => {
+    const status = (lead as any).status;
+    return status === 'won' || status === 'ganho';
+  };
+  
   const thisMonthRevenue = thisMonthLeads
-    .filter(lead => lead.status === 'won')
+    .filter(isWon)
     .reduce((sum, lead) => sum + (lead.dealValue || 0), 0);
   
   const lastMonthRevenue = lastMonthLeads
-    .filter(lead => lead.status === 'won')
+    .filter(isWon)
     .reduce((sum, lead) => sum + (lead.dealValue || 0), 0);
   
+  // ✅ Crescimento de receita - ARREDONDADO
   const revenueGrowth = lastMonthRevenue > 0 
-    ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 
+    ? Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100)
     : 0;
   
+  // ✅ Taxa de qualificação: leads com score > 0 ou em estágios avançados - ARREDONDADO
   const qualificationRate = thisMonthLeads.length > 0
-    ? (thisMonthLeads.filter(lead => 
-        lead.stage === 'proposal' || lead.stage === 'closing' || lead.status === 'won'
-      ).length / thisMonthLeads.length) * 100
+    ? Math.round((thisMonthLeads.filter(lead => {
+        const stage = (lead as any).stage;
+        return lead.score > 0 || stage === 'proposta' || stage === 'negociacao' || 
+               stage === 'proposal' || stage === 'closing' || isWon(lead);
+      }).length / thisMonthLeads.length) * 100)
     : 0;
   
+  // ✅ Taxa de conversão: leads ganhos / total de leads - ARREDONDADO
   const conversionRate = thisMonthLeads.length > 0
-    ? (thisMonthLeads.filter(lead => lead.status === 'won').length / thisMonthLeads.length) * 100
+    ? Math.round((thisMonthLeads.filter(isWon).length / thisMonthLeads.length) * 100)
     : 0;
   
+  // ✅ Pipeline ativo: leads em proposta/negociação (NÃO ganhos nem perdidos)
   const pipelineValue = leads
-    .filter(lead => lead.stage === 'proposal' || lead.stage === 'closing')
+    .filter(lead => {
+      const status = (lead as any).status;
+      const stage = (lead as any).stage;
+      const isActive = !['won', 'ganho', 'lost', 'perdido'].includes(status);
+      const isInPipeline = ['proposta', 'negociacao', 'proposal', 'closing', 'qualificado'].includes(stage);
+      return isActive && (isInPipeline || lead.dealValue > 0);
+    })
     .reduce((sum, lead) => sum + (lead.dealValue || 0), 0);
   
-  return {
+  // ✅ Active deals: leads que estão sendo negociados
+  const activeDeals = leads.filter(lead => {
+    const status = (lead as any).status;
+    const stage = (lead as any).stage;
+    const isActive = !['won', 'ganho', 'lost', 'perdido'].includes(status);
+    const isInPipeline = ['proposta', 'negociacao', 'proposal', 'closing'].includes(stage);
+    return isActive && isInPipeline;
+  }).length;
+  
+  const result = {
     thisMonthRevenue,
     revenueGrowth,
     qualificationRate,
     conversionRate,
     pipelineValue,
     totalLeads: leads.length,
-    activeDeals: leads.filter(lead => 
-      lead.stage === 'proposal' || lead.stage === 'closing'
-    ).length,
+    activeDeals,
   };
+  
+  console.log('📊 calculateKPIs - Resultado:', result);
+  
+  return result;
 };

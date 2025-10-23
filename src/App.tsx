@@ -21,7 +21,7 @@ import ConstrutorFunil from "./pages/marketing/ConstrutorFunil";
 import EditorLandingPage from "./pages/marketing/EditorLandingPage";
 import { CreatorSolutions } from "./pages/marketing/CreatorSolutions";
 import { BaseLeads } from "./pages/marketing/BaseLeads";
-import { Branding } from "./pages/marketing/Branding";
+import { BaseLeadsSimple } from "./pages/marketing/BaseLeadsSimple";
 import { MarketingGuide } from "./pages/marketing/MarketingGuide";
 import CustomerSuccess from './pages/business/CustomerSuccess';
 import Financas from './pages/business/Financas';
@@ -31,8 +31,9 @@ import Arquivos from './pages/business/Arquivos';
 import NotionSolutions from './pages/business/NotionSolutions';
 import GuiaBusiness from './pages/business/GuiaBusiness';
 import Automations from "./pages/Automations";
-import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
+import { AuthPage } from "./pages/AuthPage";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { PublicRoute } from "./components/auth/PublicRoute";
 
 const queryClient = new QueryClient();
 
@@ -44,44 +45,55 @@ const App = () => (
       <AuthProvider>
         <BrowserRouter>
         <Routes>
-          {/* Sales Solution */}
-          <Route path="/" element={<AppLayout currentView="dashboard"><Dashboard /></AppLayout>} />
-          <Route path="/crm" element={<AppLayout currentView="crm"><CRM /></AppLayout>} />
-          <Route path="/crm/:id" element={<AppLayout currentView="crm"><CRM /></AppLayout>} />
-          <Route path="/tasks" element={<AppLayout currentView="tasks"><Tasks /></AppLayout>} />
-          <Route path="/funnel" element={<AppLayout currentView="funnel"><Funnel /></AppLayout>} />
-          <Route path="/reports" element={<AppLayout currentView="reports"><Reports /></AppLayout>} />
-          <Route path="/automations" element={<AppLayout currentView="automations"><Automations /></AppLayout>} />
-          <Route path="/agent" element={<Agent />} />
-          <Route path="/guide" element={<Guide />} />
+          {/* ============================================ */}
+          {/* ROTA PÚBLICA - Login/Cadastro como INICIAL */}
+          {/* ============================================ */}
+          <Route path="/" element={<PublicRoute><AuthPage /></PublicRoute>} />
           
-          {/* Marketing Solution */}
-          <Route path="/marketing/campanhas" element={<AppLayout currentView="campanhas"><Campanhas /></AppLayout>} />
-          <Route path="/marketing/tasks" element={<AppLayout currentView="marketing-tasks"><MarketingTasks /></AppLayout>} />
-          <Route path="/marketing/construtor-funil" element={<ConstrutorFunil />} />
-          <Route path="/marketing/landing-pages" element={<EditorLandingPage />} />
-          <Route path="/marketing/creator-solutions" element={<AppLayout currentView="creator-solutions"><CreatorSolutions /></AppLayout>} />
-          <Route path="/marketing/base-leads" element={<AppLayout currentView="base-leads"><BaseLeads /></AppLayout>} />
-          <Route path="/marketing/branding" element={<AppLayout currentView="branding"><Branding /></AppLayout>} />
-          <Route path="/marketing/guide" element={<AppLayout currentView="marketing-guide"><MarketingGuide /></AppLayout>} />
+          {/* ============================================ */}
+          {/* ROTAS PROTEGIDAS - Sales Solution */}
+          {/* ============================================ */}
+          <Route path="/dashboard" element={<ProtectedRoute><AppLayout currentView="dashboard"><Dashboard /></AppLayout></ProtectedRoute>} />
+          <Route path="/crm" element={<ProtectedRoute><AppLayout currentView="crm"><CRM /></AppLayout></ProtectedRoute>} />
+          <Route path="/crm/:id" element={<ProtectedRoute><AppLayout currentView="crm"><CRM /></AppLayout></ProtectedRoute>} />
+          <Route path="/tasks" element={<ProtectedRoute><AppLayout currentView="tasks"><Tasks /></AppLayout></ProtectedRoute>} />
+          <Route path="/funnel" element={<ProtectedRoute><AppLayout currentView="funnel"><Funnel /></AppLayout></ProtectedRoute>} />
+          <Route path="/reports" element={<ProtectedRoute><AppLayout currentView="reports"><Reports /></AppLayout></ProtectedRoute>} />
+          <Route path="/automations" element={<ProtectedRoute><AppLayout currentView="automations"><Automations /></AppLayout></ProtectedRoute>} />
+          <Route path="/agent" element={<ProtectedRoute><Agent /></ProtectedRoute>} />
+          <Route path="/guide" element={<ProtectedRoute><Guide /></ProtectedRoute>} />
           
-          {/* Business Solution */}
-          <Route path="/business/cs" element={<AppLayout currentView="cs"><CustomerSuccess /></AppLayout>} />
-          <Route path="/business/financas" element={<AppLayout currentView="financas"><Financas /></AppLayout>} />
-          <Route path="/business/estrategico" element={<AppLayout currentView="estrategico"><Estrategico /></AppLayout>} />
-          <Route path="/business/operacional" element={<AppLayout currentView="operacional"><Operacional /></AppLayout>} />
-          <Route path="/business/arquivos" element={<AppLayout currentView="arquivos"><Arquivos /></AppLayout>} />
-          <Route path="/business/notion" element={<AppLayout currentView="notion"><NotionSolutions /></AppLayout>} />
-          <Route path="/business/guia" element={<AppLayout currentView="business-guide"><GuiaBusiness /></AppLayout>} />
+          {/* ============================================ */}
+          {/* ROTAS PROTEGIDAS - Marketing Solution */}
+          {/* ============================================ */}
+          <Route path="/marketing/campanhas" element={<ProtectedRoute><AppLayout currentView="campanhas"><Campanhas /></AppLayout></ProtectedRoute>} />
+          <Route path="/marketing/tasks" element={<ProtectedRoute><AppLayout currentView="marketing-tasks"><MarketingTasks /></AppLayout></ProtectedRoute>} />
+          <Route path="/marketing/construtor-funil" element={<ProtectedRoute><ConstrutorFunil /></ProtectedRoute>} />
+          <Route path="/marketing/landing-pages" element={<ProtectedRoute><EditorLandingPage /></ProtectedRoute>} />
+          <Route path="/marketing/creator-solutions" element={<ProtectedRoute><AppLayout currentView="creator-solutions"><CreatorSolutions /></AppLayout></ProtectedRoute>} />
+          <Route path="/marketing/base-leads" element={<ProtectedRoute><AppLayout currentView="base-leads"><BaseLeadsSimple /></AppLayout></ProtectedRoute>} />
+          <Route path="/marketing/guide" element={<ProtectedRoute><AppLayout currentView="marketing-guide"><MarketingGuide /></AppLayout></ProtectedRoute>} />
           
-          {/* Profile & Settings */}
-          <Route path="/profile" element={<AppLayout currentView="profile"><Profile /></AppLayout>} />
-          <Route path="/settings" element={<AppLayout currentView="settings"><Settings /></AppLayout>} />
-          {/* Auth */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          {/* ============================================ */}
+          {/* ROTAS PROTEGIDAS - Business Solution */}
+          {/* ============================================ */}
+          <Route path="/business/cs" element={<ProtectedRoute><AppLayout currentView="cs"><CustomerSuccess /></AppLayout></ProtectedRoute>} />
+          <Route path="/business/financas" element={<ProtectedRoute><AppLayout currentView="financas"><Financas /></AppLayout></ProtectedRoute>} />
+          <Route path="/business/estrategico" element={<ProtectedRoute><AppLayout currentView="estrategico"><Estrategico /></AppLayout></ProtectedRoute>} />
+          <Route path="/business/operacional" element={<ProtectedRoute><AppLayout currentView="operacional"><Operacional /></AppLayout></ProtectedRoute>} />
+          <Route path="/business/arquivos" element={<ProtectedRoute><AppLayout currentView="arquivos"><Arquivos /></AppLayout></ProtectedRoute>} />
+          <Route path="/business/notion" element={<ProtectedRoute><AppLayout currentView="notion"><NotionSolutions /></AppLayout></ProtectedRoute>} />
+          <Route path="/business/guia" element={<ProtectedRoute><AppLayout currentView="business-guide"><GuiaBusiness /></AppLayout></ProtectedRoute>} />
           
-          {/* 404 */}
+          {/* ============================================ */}
+          {/* ROTAS PROTEGIDAS - Profile & Settings */}
+          {/* ============================================ */}
+          <Route path="/profile" element={<ProtectedRoute><AppLayout currentView="profile"><Profile /></AppLayout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><AppLayout currentView="settings"><Settings /></AppLayout></ProtectedRoute>} />
+          
+          {/* ============================================ */}
+          {/* 404 - Página não encontrada */}
+          {/* ============================================ */}
           <Route path="*" element={<NotFound />} />
         </Routes>
         </BrowserRouter>

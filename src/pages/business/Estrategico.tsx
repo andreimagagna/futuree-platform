@@ -1,10 +1,15 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +26,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -30,45 +41,32 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Target,
-  TrendingUp,
-  Users,
-  Plus,
+import { 
+  Target, 
+  TrendingUp, 
+  Rocket, 
+  Users, 
+  Settings,
+  Plus, 
+  Loader2,
   Edit,
   Trash2,
   CheckCircle2,
   Circle,
   AlertCircle,
-  Lightbulb,
-  Flag,
-  Rocket,
-  BarChart3,
   Calendar,
-  Award,
-  Globe,
-  Download,
-  Filter,
-  Search,
   Clock,
+  Filter,
+  BarChart3,
+  Award,
+  TrendingDown,
+  Flag,
+  CheckCheck,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
-interface Objective {
-  id: string;
-  title: string;
-  description: string;
-  category: "financeiro" | "crescimento" | "produto" | "operacional" | "pessoas";
-  priority: "alta" | "media" | "baixa";
-  status: "nao-iniciado" | "em-andamento" | "concluido" | "pausado";
-  deadline: string;
-  progress: number;
-  responsible?: string;
-  createdAt: string;
-  updatedAt: string;
-  tags?: string[];
-  keyResults: KeyResult[];
-}
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface KeyResult {
   id: string;
@@ -76,891 +74,672 @@ interface KeyResult {
   target: number;
   current: number;
   unit: string;
-  completed: boolean;
 }
 
-interface SWOT {
-  strengths: string[];
-  weaknesses: string[];
-  opportunities: string[];
-  threats: string[];
+interface StrategicGoal {
+  id: string;
+  title: string;
+  description: string | null;
+  category: "financeiro" | "crescimento" | "produto" | "operacional" | "pessoas" | null;
+  priority: "alta" | "media" | "baixa" | null;
+  status: "nao-iniciado" | "em-andamento" | "concluido" | "pausado" | null;
+  progress: number;
+  deadline: string | null;
+  key_results: KeyResult[] | null;
+  responsible: string | null;
+  tags: string[] | null;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const categoryConfig = {
-  financeiro: {
-    label: "Financeiro",
-    color: "text-success",
-    bgColor: "bg-success/10",
-    icon: TrendingUp,
-  },
-  crescimento: {
-    label: "Crescimento",
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-    icon: Rocket,
-  },
-  produto: {
-    label: "Produto",
-    color: "text-accent",
-    bgColor: "bg-accent/10",
-    icon: Lightbulb,
-  },
-  operacional: {
-    label: "Operacional",
-    color: "text-warning",
-    bgColor: "bg-warning/10",
-    icon: BarChart3,
-  },
-  pessoas: {
-    label: "Pessoas",
-    color: "text-info",
-    bgColor: "bg-info/10",
-    icon: Users,
-  },
+  financeiro: { label: "Financeiro", icon: TrendingUp, color: "text-success" },
+  crescimento: { label: "Crescimento", icon: Rocket, color: "text-primary" },
+  produto: { label: "Produto", icon: Target, color: "text-accent" },
+  operacional: { label: "Operacional", icon: Settings, color: "text-warning" },
+  pessoas: { label: "Pessoas", icon: Users, color: "text-primary" },
 };
 
 const priorityConfig = {
-  alta: {
-    label: "Alta",
-    color: "text-destructive",
-    variant: "destructive" as const,
-  },
-  media: {
-    label: "Média",
-    color: "text-warning",
-    variant: "secondary" as const,
-  },
-  baixa: {
-    label: "Baixa",
-    color: "text-muted-foreground",
-    variant: "outline" as const,
-  },
+  alta: { label: "Alta", color: "destructive" },
+  media: { label: "Média", color: "default" },
+  baixa: { label: "Baixa", color: "secondary" },
 };
 
 const statusConfig = {
-  "nao-iniciado": {
-    label: "Não Iniciado",
-    color: "text-muted-foreground",
-    icon: Circle,
-  },
-  "em-andamento": {
-    label: "Em Andamento",
-    color: "text-primary",
-    icon: AlertCircle,
-  },
-  concluido: {
-    label: "Concluído",
-    color: "text-success",
-    icon: CheckCircle2,
-  },
-  pausado: {
-    label: "Pausado",
-    color: "text-warning",
-    icon: Circle,
-  },
+  "nao-iniciado": { label: "Não Iniciado", icon: Circle, color: "text-muted-foreground" },
+  "em-andamento": { label: "Em Andamento", icon: AlertCircle, color: "text-primary" },
+  "concluido": { label: "Concluído", icon: CheckCircle2, color: "text-success" },
+  "pausado": { label: "Pausado", icon: Circle, color: "text-warning" },
 };
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export const Estrategico = () => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("okrs");
-  const [objectives, setObjectives] = useState<Objective[]>([]);
+  const { user } = useAuthContext();
+  const queryClient = useQueryClient();
+
+  // ============================================================================
+  // SUPABASE HOOKS
+  // ============================================================================
+
+  const { data: goals = [], isLoading } = useQuery({
+    queryKey: ['strategic_goals', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('strategic_goals')
+        .select('*')
+        .eq('owner_id', user?.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as StrategicGoal[];
+    },
+    enabled: !!user?.id,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (newGoal: Partial<StrategicGoal>) => {
+      const { data, error } = await (supabase as any)
+        .from('strategic_goals')
+        .insert({ ...newGoal, owner_id: user?.id })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['strategic_goals'] });
+      toast({ title: "Objetivo criado com sucesso!" });
+      setIsDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao criar objetivo",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<StrategicGoal> }) => {
+      const { data, error } = await (supabase as any)
+        .from('strategic_goals')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['strategic_goals'] });
+      toast({ title: "Objetivo atualizado!" });
+      setIsDialogOpen(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('strategic_goals')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['strategic_goals'] });
+      toast({ title: "Objetivo removido!" });
+    },
+  });
+
+  // ============================================================================
+  // STATE & HANDLERS
+  // ============================================================================
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedGoal, setSelectedGoal] = useState<StrategicGoal | null>(null);
+  const [activeTab, setActiveTab] = useState("all");
+  
+  // Filtros
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("deadline"); // deadline, priority, progress, created
   
-  const [swot, setSwot] = useState<SWOT>({
-    strengths: [],
-    weaknesses: [],
-    opportunities: [],
-    threats: [],
-  });
-
   const [formData, setFormData] = useState<{
     title: string;
     description: string;
     category: "financeiro" | "crescimento" | "produto" | "operacional" | "pessoas";
     priority: "alta" | "media" | "baixa";
     status: "nao-iniciado" | "em-andamento" | "concluido" | "pausado";
-    deadline: string;
     progress: number;
+    deadline: string;
     responsible: string;
+    key_results: KeyResult[];
   }>({
     title: "",
     description: "",
     category: "financeiro",
     priority: "media",
     status: "nao-iniciado",
-    deadline: "",
     progress: 0,
+    deadline: "",
     responsible: "",
+    key_results: [],
   });
 
-  const [vision, setVision] = useState("");
-  const [mission, setMission] = useState("");
-  const [values, setValues] = useState<string[]>([]);
+  // Calcular progresso automaticamente baseado nos Key Results
+  const calculateProgress = (keyResults: KeyResult[]): number => {
+    if (!keyResults || keyResults.length === 0) return 0;
+    
+    const totalProgress = keyResults.reduce((sum, kr) => {
+      const krProgress = (kr.current / kr.target) * 100;
+      return sum + Math.min(krProgress, 100);
+    }, 0);
+    
+    return Math.round(totalProgress / keyResults.length);
+  };
 
-  const handleOpenDialog = (objective?: Objective) => {
-    if (objective) {
-      setSelectedObjective(objective);
+  const handleOpenDialog = (goal?: StrategicGoal) => {
+    if (goal) {
+      setSelectedGoal(goal);
       setFormData({
-        title: objective.title,
-        description: objective.description,
-        category: objective.category,
-        priority: objective.priority,
-        status: objective.status,
-        deadline: objective.deadline,
-        progress: objective.progress,
-        responsible: objective.responsible || "",
+        title: goal.title || "",
+        description: goal.description || "",
+        category: (goal.category || "financeiro") as "financeiro" | "crescimento" | "produto" | "operacional" | "pessoas",
+        priority: (goal.priority || "media") as "alta" | "media" | "baixa",
+        status: (goal.status || "nao-iniciado") as "nao-iniciado" | "em-andamento" | "concluido" | "pausado",
+        progress: goal.progress || 0,
+        deadline: goal.deadline || "",
+        responsible: goal.responsible || "",
+        key_results: goal.key_results || [],
       });
     } else {
-      setSelectedObjective(null);
+      setSelectedGoal(null);
       setFormData({
         title: "",
         description: "",
         category: "financeiro",
         priority: "media",
         status: "nao-iniciado",
-        deadline: "",
         progress: 0,
+        deadline: "",
         responsible: "",
+        key_results: [],
       });
     }
     setIsDialogOpen(true);
   };
 
-  const handleSaveObjective = () => {
-    if (!formData.title || !formData.description) {
+  const handleSave = () => {
+    if (!formData.title) {
       toast({
         title: "Erro",
-        description: "Preencha os campos obrigatórios: Título e Descrição",
+        description: "Preencha o título do objetivo",
         variant: "destructive",
       });
       return;
     }
 
-    if (selectedObjective) {
-      setObjectives(
-        objectives.map((obj) =>
-          obj.id === selectedObjective.id
-            ? {
-                ...selectedObjective,
-                ...formData,
-              }
-            : obj
-        )
-      );
-      toast({
-        title: "Objetivo atualizado",
-        description: "O objetivo foi atualizado com sucesso.",
-      });
-    } else {
-      const now = new Date().toISOString();
-      const newObjective: Objective = {
-        id: Date.now().toString(),
-        ...formData,
-        keyResults: [],
-        createdAt: now,
-        updatedAt: now,
-        tags: [],
-      };
-      setObjectives([...objectives, newObjective]);
-      toast({
-        title: "Objetivo adicionado",
-        description: "Novo objetivo adicionado com sucesso.",
-      });
-    }
+    // Calcular progresso automaticamente baseado nos Key Results
+    const calculatedProgress = calculateProgress(formData.key_results);
 
-    setIsDialogOpen(false);
-  };
-
-  const handleDeleteObjective = () => {
-    if (selectedObjective) {
-      setObjectives(objectives.filter((obj) => obj.id !== selectedObjective.id));
-      toast({
-        title: "Objetivo removido",
-        description: "O objetivo foi removido com sucesso.",
-      });
-    }
-    setIsDeleteDialogOpen(false);
-    setSelectedObjective(null);
-  };
-
-  const openDeleteDialog = (objective: Objective) => {
-    setSelectedObjective(objective);
-    setIsDeleteDialogOpen(true);
-  };
-
-  // Filtros
-  const filteredObjectives = objectives.filter((obj) => {
-    const matchesSearch =
-      obj.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      obj.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (obj.responsible && obj.responsible.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesCategory = filterCategory === "all" || obj.category === filterCategory;
-    const matchesStatus = filterStatus === "all" || obj.status === filterStatus;
-    const matchesPriority = filterPriority === "all" || obj.priority === filterPriority;
-
-    return matchesSearch && matchesCategory && matchesStatus && matchesPriority;
-  });
-
-  // Ordenação
-  const sortedObjectives = [...filteredObjectives].sort((a, b) => {
-    switch (sortBy) {
-      case 'deadline':
-        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-      case 'priority':
-        const priorityOrder = { alta: 0, media: 1, baixa: 2 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-      case 'progress':
-        return b.progress - a.progress;
-      case 'created':
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      default:
-        return 0;
-    }
-  });
-
-  // Função de exportar para JSON
-  const handleExport = () => {
-    const exportData = {
-      objectives,
-      swot,
-      vision,
-      mission,
-      values,
-      exportedAt: new Date().toISOString(),
+    const dataToSave = {
+      ...formData,
+      progress: calculatedProgress, // Usar progresso calculado
+      deadline: formData.deadline || null,
     };
 
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `plano-estrategico-${new Date().toISOString().split("T")[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Exportado com sucesso",
-      description: "Plano estratégico exportado em JSON.",
-    });
+    if (selectedGoal) {
+      updateMutation.mutate({ id: selectedGoal.id, updates: dataToSave });
+    } else {
+      createMutation.mutate(dataToSave);
+    }
   };
 
-  // Métricas
-  const totalObjectives = objectives.length;
-  const completedObjectives = objectives.filter((obj) => obj.status === "concluido").length;
-  const inProgressObjectives = objectives.filter((obj) => obj.status === "em-andamento").length;
-  const avgProgress =
-    totalObjectives > 0
-      ? Math.round(objectives.reduce((sum, obj) => sum + obj.progress, 0) / totalObjectives)
-      : 0;
+  const handleDelete = (id: string) => {
+    if (confirm("Tem certeza que deseja deletar este objetivo?")) {
+      deleteMutation.mutate(id);
+    }
+  };
 
-  const highPriorityObjectives = objectives.filter((obj) => obj.priority === "alta").length;
-  
-  // Objetivos atrasados
-  const overdueObjectives = objectives.filter((obj) => {
-    if (!obj.deadline || obj.status === "concluido") return false;
-    return new Date(obj.deadline) < new Date();
+  // ============================================================================
+  // ANALYTICS
+  // ============================================================================
+
+  const totalGoals = goals.length;
+  const completedGoals = goals.filter(g => g.status === "concluido").length;
+  const inProgressGoals = goals.filter(g => g.status === "em-andamento").length;
+  const notStartedGoals = goals.filter(g => g.status === "nao-iniciado").length;
+  const avgProgress = goals.length > 0
+    ? Math.round(goals.reduce((sum, g) => sum + (g.progress || 0), 0) / goals.length)
+    : 0;
+
+  // Alertas de deadline
+  const today = new Date();
+  const goalsNearDeadline = goals.filter(g => {
+    if (!g.deadline) return false;
+    const deadline = new Date(g.deadline);
+    const daysUntil = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return daysUntil <= 7 && daysUntil >= 0 && g.status !== "concluido";
   }).length;
 
-  // Objetivos próximos do prazo (próximos 7 dias)
-  const upcomingDeadlines = objectives.filter((obj) => {
-    if (!obj.deadline || obj.status === "concluido") return false;
-    const deadline = new Date(obj.deadline);
-    const today = new Date();
-    const diffDays = Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDays > 0 && diffDays <= 7;
+  const overdueGoals = goals.filter(g => {
+    if (!g.deadline) return false;
+    const deadline = new Date(g.deadline);
+    return deadline < today && g.status !== "concluido";
   }).length;
+
+  // Filtros
+  const filteredGoals = goals.filter(goal => {
+    if (filterCategory !== "all" && goal.category !== filterCategory) return false;
+    if (filterStatus !== "all" && goal.status !== filterStatus) return false;
+    if (filterPriority !== "all" && goal.priority !== filterPriority) return false;
+    return true;
+  });
+
+  // Helper para calcular dias até deadline
+  const getDaysUntilDeadline = (deadline: string | null) => {
+    if (!deadline) return null;
+    const deadlineDate = new Date(deadline);
+    const diffTime = deadlineDate.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Estratégico</h1>
+    <div className="p-6 space-y-6">
+      {/* HEADER */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Estratégico & OKRs</h1>
+          <p className="text-muted-foreground">Gerencie objetivos e resultados-chave</p>
+        </div>
+        <Button onClick={() => handleOpenDialog()}>
+          <Plus className="w-4 h-4 mr-2" />
+          Novo Objetivo
+        </Button>
       </div>
 
-      {/* Métricas Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-primary">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+      {/* ANALYTICS CARDS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total de Objetivos
+              Total
             </CardTitle>
-            <Target className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalObjectives}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {highPriorityObjectives} de alta prioridade
-            </p>
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-primary" />
+              <div className="text-2xl font-bold">{totalGoals}</div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-success">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Concluídos
             </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">{completedObjectives}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {totalObjectives > 0
-                ? `${((completedObjectives / totalObjectives) * 100).toFixed(0)}% do total`
-                : "0% do total"}
-            </p>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-success" />
+              <div className="text-2xl font-bold text-success">{completedGoals}</div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-accent">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Em Andamento
             </CardTitle>
-            <AlertCircle className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-accent">{inProgressObjectives}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Progresso médio: {avgProgress}%
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-warning">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Progresso Geral
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgProgress}%</div>
-            <div className="w-full bg-muted rounded-full h-2 mt-2">
-              <div
-                className="bg-primary h-2 rounded-full transition-all"
-                style={{ width: `${avgProgress}%` }}
-              />
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-primary" />
+              <div className="text-2xl font-bold text-primary">{inProgressGoals}</div>
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Métricas Secundárias */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-l-4 border-l-destructive">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Objetivos Atrasados
+              Não Iniciados
             </CardTitle>
-            <Clock className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{overdueObjectives}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Prazo vencido
-            </p>
+            <div className="flex items-center gap-2">
+              <Circle className="w-4 h-4 text-muted-foreground" />
+              <div className="text-2xl font-bold">{notStartedGoals}</div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-warning">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Prazos Próximos
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-warning">{upcomingDeadlines}</div>
-            <p className="text-xs text-muted-foreground mt-1">
               Próximos 7 dias
-            </p>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-warning" />
+              <div className="text-2xl font-bold text-warning">{goalsNearDeadline}</div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-primary">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Taxa de Sucesso
+              Atrasados
             </CardTitle>
-            <Award className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">
-              {totalObjectives > 0
-                ? `${((completedObjectives / totalObjectives) * 100).toFixed(0)}%`
-                : "0%"}
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-destructive" />
+              <div className="text-2xl font-bold text-destructive">{overdueGoals}</div>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Objetivos finalizados
-            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="okrs">
-            <Target className="h-4 w-4 mr-2" />
-            OKRs
-          </TabsTrigger>
-          <TabsTrigger value="swot">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Análise SWOT
-          </TabsTrigger>
-          <TabsTrigger value="visao">
-            <Globe className="h-4 w-4 mr-2" />
-            Visão & Missão
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Tab OKRs */}
-        <TabsContent value="okrs" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row justify-between gap-4">
-                <div>
-                  <CardTitle>Objetivos e Resultados-Chave (OKRs)</CardTitle>
-                  <CardDescription>Defina e acompanhe seus objetivos estratégicos</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleExport}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Exportar
-                  </Button>
-                  <Button onClick={() => handleOpenDialog()}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Objetivo
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Filtros */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar objetivos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas Categorias</SelectItem>
-                    <SelectItem value="financeiro">Financeiro</SelectItem>
-                    <SelectItem value="crescimento">Crescimento</SelectItem>
-                    <SelectItem value="produto">Produto</SelectItem>
-                    <SelectItem value="operacional">Operacional</SelectItem>
-                    <SelectItem value="pessoas">Pessoas</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os Status</SelectItem>
-                    <SelectItem value="nao-iniciado">Não Iniciado</SelectItem>
-                    <SelectItem value="em-andamento">Em Andamento</SelectItem>
-                    <SelectItem value="concluido">Concluído</SelectItem>
-                    <SelectItem value="pausado">Pausado</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterPriority} onValueChange={setFilterPriority}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Prioridade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas Prioridades</SelectItem>
-                    <SelectItem value="alta">Alta</SelectItem>
-                    <SelectItem value="media">Média</SelectItem>
-                    <SelectItem value="baixa">Baixa</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Ordenar por" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="deadline">Prazo</SelectItem>
-                    <SelectItem value="priority">Prioridade</SelectItem>
-                    <SelectItem value="progress">Progresso</SelectItem>
-                    <SelectItem value="created">Mais Recentes</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {sortedObjectives.length === 0 ? (
-                <div className="text-center py-12">
-                  <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    {objectives.length === 0 ? "Nenhum objetivo definido" : "Nenhum objetivo encontrado"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {objectives.length === 0
-                      ? "Comece adicionando seus objetivos estratégicos"
-                      : "Tente ajustar os filtros de busca"}
-                  </p>
-                  {objectives.length === 0 && (
-                    <Button onClick={() => handleOpenDialog()}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Criar Primeiro Objetivo
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {sortedObjectives.map((objective) => {
-                    const categoryInfo = categoryConfig[objective.category];
-                    const priorityInfo = priorityConfig[objective.priority];
-                    const statusInfo = statusConfig[objective.status];
-                    const CategoryIcon = categoryInfo.icon;
-                    const StatusIcon = statusInfo.icon;
-
-                    return (
-                      <Card
-                        key={objective.id}
-                        className="border-l-4"
-                        style={{ borderLeftColor: `hsl(var(--${objective.category}))` }}
-                      >
-                        <CardContent className="pt-6">
-                          <div className="space-y-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <CategoryIcon className={`h-5 w-5 ${categoryInfo.color}`} />
-                                  <h3 className="text-lg font-semibold">{objective.title}</h3>
-                                  <Badge variant={priorityInfo.variant}>
-                                    {priorityInfo.label}
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                  {objective.description}
-                                </p>
-
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                                  <div>
-                                    <p className="text-xs text-muted-foreground mb-1">Status</p>
-                                    <div className="flex items-center gap-1">
-                                      <StatusIcon className={`h-4 w-4 ${statusInfo.color}`} />
-                                      <span className={`text-sm font-semibold ${statusInfo.color}`}>
-                                        {statusInfo.label}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-muted-foreground mb-1">Categoria</p>
-                                    <Badge
-                                      variant="outline"
-                                      className={`${categoryInfo.bgColor} ${categoryInfo.color} border-transparent`}
-                                    >
-                                      {categoryInfo.label}
-                                    </Badge>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-muted-foreground mb-1">Prazo</p>
-                                    <div className="flex items-center gap-1">
-                                      <Calendar className="h-3 w-3" />
-                                      <span className="text-sm font-semibold">
-                                        {objective.deadline
-                                          ? new Date(objective.deadline).toLocaleDateString("pt-BR")
-                                          : "Sem prazo"}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  {objective.responsible && (
-                                    <div>
-                                      <p className="text-xs text-muted-foreground mb-1">Responsável</p>
-                                      <div className="flex items-center gap-1">
-                                        <Users className="h-3 w-3" />
-                                        <span className="text-sm font-semibold">
-                                          {objective.responsible}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div>
-                                  <div className="flex justify-between items-center mb-2">
-                                    <p className="text-xs text-muted-foreground">Progresso</p>
-                                    <span className="text-sm font-bold">{objective.progress}%</span>
-                                  </div>
-                                  <div className="w-full bg-muted rounded-full h-2">
-                                    <div
-                                      className={`h-2 rounded-full transition-all ${
-                                        objective.progress === 100
-                                          ? "bg-success"
-                                          : objective.progress >= 50
-                                          ? "bg-primary"
-                                          : "bg-warning"
-                                      }`}
-                                      style={{ width: `${objective.progress}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="flex flex-col gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleOpenDialog(objective)}
-                                >
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Editar
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => openDeleteDialog(objective)}
-                                  className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Excluir
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab SWOT */}
-        <TabsContent value="swot" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Análise SWOT</CardTitle>
-              <CardDescription>
-                Forças, Fraquezas, Oportunidades e Ameaças do negócio
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Forças */}
-                <Card className="border-l-4 border-l-success">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Award className="h-4 w-4 text-success" />
-                      Forças (Strengths)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      placeholder="Liste as forças internas do negócio..."
-                      rows={6}
-                      className="resize-none"
-                      value={swot.strengths.join("\n")}
-                      onChange={(e) =>
-                        setSwot({ ...swot, strengths: e.target.value.split("\n") })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Ex: Equipe qualificada, tecnologia própria, boa reputação
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Fraquezas */}
-                <Card className="border-l-4 border-l-destructive">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 text-destructive" />
-                      Fraquezas (Weaknesses)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      placeholder="Liste as fraquezas internas do negócio..."
-                      rows={6}
-                      className="resize-none"
-                      value={swot.weaknesses.join("\n")}
-                      onChange={(e) =>
-                        setSwot({ ...swot, weaknesses: e.target.value.split("\n") })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Ex: Dependência de fornecedor, capital limitado, processos manuais
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Oportunidades */}
-                <Card className="border-l-4 border-l-primary">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Rocket className="h-4 w-4 text-primary" />
-                      Oportunidades (Opportunities)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      placeholder="Liste as oportunidades externas..."
-                      rows={6}
-                      className="resize-none"
-                      value={swot.opportunities.join("\n")}
-                      onChange={(e) =>
-                        setSwot({ ...swot, opportunities: e.target.value.split("\n") })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Ex: Mercado em crescimento, novas tecnologias, parcerias
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Ameaças */}
-                <Card className="border-l-4 border-l-warning">
-                  <CardHeader>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Flag className="h-4 w-4 text-warning" />
-                      Ameaças (Threats)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea
-                      placeholder="Liste as ameaças externas..."
-                      rows={6}
-                      className="resize-none"
-                      value={swot.threats.join("\n")}
-                      onChange={(e) =>
-                        setSwot({ ...swot, threats: e.target.value.split("\n") })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Ex: Concorrência, mudanças regulatórias, crise econômica
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab Visão & Missão */}
-        <TabsContent value="visao" className="space-y-4">
-          <div className="grid gap-4">
-            <Card className="border-l-4 border-l-primary">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-primary" />
-                  Visão
-                </CardTitle>
-                <CardDescription>
-                  Onde a empresa quer chegar no futuro
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  placeholder="Descreva a visão de futuro da empresa..."
-                  value={vision}
-                  onChange={(e) => setVision(e.target.value)}
-                  rows={4}
-                  className="resize-none"
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Ex: Ser a empresa líder em [setor] até 2030, reconhecida pela inovação e excelência
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-accent">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-accent" />
-                  Missão
-                </CardTitle>
-                <CardDescription>
-                  Propósito e razão de existir da empresa
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  placeholder="Descreva a missão da empresa..."
-                  value={mission}
-                  onChange={(e) => setMission(e.target.value)}
-                  rows={4}
-                  className="resize-none"
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Ex: Transformar a experiência de [clientes] através de soluções inovadoras
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-success">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-success" />
-                  Valores
-                </CardTitle>
-                <CardDescription>
-                  Princípios que guiam a empresa
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  placeholder="Liste os valores da empresa (um por linha)..."
-                  value={values.join("\n")}
-                  onChange={(e) => setValues(e.target.value.split("\n").filter((v) => v.trim()))}
-                  rows={6}
-                  className="resize-none"
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Ex: Integridade, Inovação, Foco no Cliente, Excelência, Colaboração
-                </p>
-              </CardContent>
-            </Card>
+      {/* PROGRESS OVERVIEW */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Progresso Geral
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-muted-foreground">Progresso Médio</span>
+              <span className="text-lg font-bold">{avgProgress}%</span>
+            </div>
+            <Progress value={avgProgress} variant="gradient" className="h-3" />
           </div>
-        </TabsContent>
-      </Tabs>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">Taxa de Conclusão:</span>
+              <span className="font-semibold ml-2">
+                {totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0}%
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Em Progresso:</span>
+              <span className="font-semibold ml-2">
+                {totalGoals > 0 ? Math.round((inProgressGoals / totalGoals) * 100) : 0}%
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Não Iniciados:</span>
+              <span className="font-semibold ml-2">
+                {totalGoals > 0 ? Math.round((notStartedGoals / totalGoals) * 100) : 0}%
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Com Atraso:</span>
+              <span className="font-semibold ml-2 text-destructive">{overdueGoals}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Dialog de Adicionar/Editar Objetivo */}
+      {/* FILTROS */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Filter className="w-4 h-4" />
+            Filtros
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-4">
+          <div className="space-y-2">
+            <Label>Categoria</Label>
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {Object.entries(categoryConfig).map(([key, config]) => (
+                  <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {Object.entries(statusConfig).map(([key, config]) => (
+                  <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Prioridade</Label>
+            <Select value={filterPriority} onValueChange={setFilterPriority}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {Object.entries(priorityConfig).map(([key, config]) => (
+                  <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {(filterCategory !== "all" || filterStatus !== "all" || filterPriority !== "all") && (
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFilterCategory("all");
+                  setFilterStatus("all");
+                  setFilterPriority("all");
+                }}
+              >
+                Limpar Filtros
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* GOALS LIST */}
+      <div className="grid grid-cols-1 gap-4">
+        {filteredGoals.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Target className="w-12 h-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">
+                {goals.length === 0 ? "Nenhum objetivo cadastrado" : "Nenhum objetivo encontrado com os filtros aplicados"}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredGoals.map((goal) => {
+            const CategoryIcon = categoryConfig[goal.category || "financeiro"].icon;
+            const StatusIcon = statusConfig[goal.status || "nao-iniciado"].icon;
+            const daysUntil = getDaysUntilDeadline(goal.deadline);
+
+            return (
+              <Card key={goal.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <CategoryIcon className={`w-5 h-5 ${categoryConfig[goal.category || "financeiro"].color}`} />
+                        <CardTitle className="text-lg">{goal.title}</CardTitle>
+                        
+                        {/* DEADLINE BADGE */}
+                        {daysUntil !== null && goal.status !== "concluido" && (
+                          <Badge 
+                            variant={daysUntil < 0 ? "destructive" : daysUntil <= 7 ? "default" : "outline"}
+                            className={daysUntil < 0 ? "" : daysUntil <= 7 ? "bg-warning text-warning-foreground" : ""}
+                          >
+                            <Calendar className="w-3 h-3 mr-1" />
+                            {daysUntil < 0 
+                              ? `${Math.abs(daysUntil)}d atrasado` 
+                              : daysUntil === 0 
+                              ? "Hoje" 
+                              : `${daysUntil}d restantes`
+                            }
+                          </Badge>
+                        )}
+                      </div>
+                      {goal.description && (
+                        <CardDescription>{goal.description}</CardDescription>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenDialog(goal)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setSelectedGoal(goal);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <StatusIcon className={`w-4 h-4 ${statusConfig[goal.status || "nao-iniciado"].color}`} />
+                      <span className="text-sm">{statusConfig[goal.status || "nao-iniciado"].label}</span>
+                    </div>
+                    <Badge variant={priorityConfig[goal.priority || "media"].color as any}>
+                      <Flag className="w-3 h-3 mr-1" />
+                      {priorityConfig[goal.priority || "media"].label}
+                    </Badge>
+                    <Badge variant="outline">
+                      {categoryConfig[goal.category || "financeiro"].label}
+                    </Badge>
+                    {goal.responsible && (
+                      <span className="text-sm text-muted-foreground">
+                        Responsável: {goal.responsible}
+                      </span>
+                    )}
+                    {goal.deadline && (
+                      <span className="text-sm text-muted-foreground">
+                        Prazo: {new Date(goal.deadline).toLocaleDateString('pt-BR')}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Progresso</span>
+                      <span className="font-semibold">{goal.progress}%</span>
+                    </div>
+                    <Progress value={goal.progress} variant="gradient" />
+                  </div>
+
+                  {/* KEY RESULTS */}
+                  {goal.key_results && goal.key_results.length > 0 && (
+                    <div className="space-y-3 border-t pt-4">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <Award className="w-4 h-4 text-accent" />
+                        <span>Key Results ({goal.key_results.length})</span>
+                      </div>
+                      <div className="space-y-3">
+                        {goal.key_results.map((kr) => {
+                          const krProgress = Math.round((kr.current / kr.target) * 100);
+                          return (
+                            <div key={kr.id} className="space-y-1 pl-6">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">{kr.description}</span>
+                                <span className="font-medium">
+                                  {kr.current} / {kr.target} {kr.unit}
+                                </span>
+                              </div>
+                              <Progress value={Math.min(krProgress, 100)} variant="success" className="h-2" />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* DIALOG */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {selectedObjective ? "Editar Objetivo" : "Novo Objetivo"}
+              {selectedGoal ? "Editar Objetivo" : "Novo Objetivo"}
             </DialogTitle>
             <DialogDescription>
-              Defina um objetivo estratégico (OKR)
+              Defina objetivos estratégicos e acompanhe seu progresso
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Título do Objetivo *</label>
+          <div className="grid gap-4">
+            <div>
+              <label className="text-sm font-medium">Título *</label>
               <Input
-                placeholder="Ex: Aumentar receita recorrente em 50%"
+                placeholder="Ex: Aumentar MRR em 50%"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Descrição *</label>
+            <div>
+              <label className="text-sm font-medium">Descrição</label>
               <Textarea
-                placeholder="Descreva o objetivo e como ele será alcançado..."
+                placeholder="Descreva o objetivo..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
@@ -968,7 +747,7 @@ export const Estrategico = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div>
                 <label className="text-sm font-medium">Categoria</label>
                 <Select
                   value={formData.category}
@@ -978,15 +757,16 @@ export const Estrategico = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="financeiro">Financeiro</SelectItem>
-                    <SelectItem value="crescimento">Crescimento</SelectItem>
-                    <SelectItem value="produto">Produto</SelectItem>
-                    <SelectItem value="operacional">Operacional</SelectItem>
-                    <SelectItem value="pessoas">Pessoas</SelectItem>
+                    {Object.entries(categoryConfig).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        {config.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+
+              <div>
                 <label className="text-sm font-medium">Prioridade</label>
                 <Select
                   value={formData.priority}
@@ -996,16 +776,18 @@ export const Estrategico = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="alta">Alta</SelectItem>
-                    <SelectItem value="media">Média</SelectItem>
-                    <SelectItem value="baixa">Baixa</SelectItem>
+                    {Object.entries(priorityConfig).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        {config.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div>
                 <label className="text-sm font-medium">Status</label>
                 <Select
                   value={formData.status}
@@ -1015,25 +797,16 @@ export const Estrategico = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="nao-iniciado">Não Iniciado</SelectItem>
-                    <SelectItem value="em-andamento">Em Andamento</SelectItem>
-                    <SelectItem value="concluido">Concluído</SelectItem>
-                    <SelectItem value="pausado">Pausado</SelectItem>
+                    {Object.entries(statusConfig).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        {config.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Prazo</label>
-                <Input
-                  type="date"
-                  value={formData.deadline}
-                  onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div>
                 <label className="text-sm font-medium">Progresso (%)</label>
                 <Input
                   type="number"
@@ -1043,7 +816,10 @@ export const Estrategico = () => {
                   onChange={(e) => setFormData({ ...formData, progress: Number(e.target.value) })}
                 />
               </div>
-              <div className="space-y-2">
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <label className="text-sm font-medium">Responsável</label>
                 <Input
                   placeholder="Nome do responsável"
@@ -1051,6 +827,143 @@ export const Estrategico = () => {
                   onChange={(e) => setFormData({ ...formData, responsible: e.target.value })}
                 />
               </div>
+
+              <div>
+                <label className="text-sm font-medium">Prazo</label>
+                <Input
+                  type="date"
+                  value={formData.deadline}
+                  onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* KEY RESULTS SECTION */}
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Label className="flex items-center gap-2">
+                    <Award className="w-4 h-4 text-accent" />
+                    Key Results
+                  </Label>
+                  {formData.key_results.length > 0 && (
+                    <Badge variant="outline" className="text-xs">
+                      Progresso Calculado: {calculateProgress(formData.key_results)}%
+                    </Badge>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newKR: KeyResult = {
+                      id: Date.now().toString(),
+                      description: "",
+                      target: 100,
+                      current: 0,
+                      unit: "%"
+                    };
+                    setFormData({
+                      ...formData,
+                      key_results: [...formData.key_results, newKR]
+                    });
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar KR
+                </Button>
+              </div>
+
+              {formData.key_results.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  Nenhum Key Result definido. O progresso será manual.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {formData.key_results.map((kr, index) => {
+                    const krProgress = Math.round((kr.current / kr.target) * 100);
+                    return (
+                      <Card key={kr.id} className="p-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              placeholder="Descrição do Key Result"
+                              value={kr.description}
+                              onChange={(e) => {
+                                const updated = [...formData.key_results];
+                                updated[index].description = e.target.value;
+                                setFormData({ ...formData, key_results: updated });
+                              }}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  key_results: formData.key_results.filter((_, i) => i !== index)
+                                });
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-xs">Meta</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={kr.target}
+                                onChange={(e) => {
+                                  const updated = [...formData.key_results];
+                                  updated[index].target = Number(e.target.value);
+                                  setFormData({ ...formData, key_results: updated });
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Atual</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={kr.current}
+                                onChange={(e) => {
+                                  const updated = [...formData.key_results];
+                                  updated[index].current = Number(e.target.value);
+                                  setFormData({ ...formData, key_results: updated });
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Unidade</Label>
+                              <Input
+                                placeholder="%"
+                                value={kr.unit}
+                                onChange={(e) => {
+                                  const updated = [...formData.key_results];
+                                  updated[index].unit = e.target.value;
+                                  setFormData({ ...formData, key_results: updated });
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>Progresso deste KR</span>
+                              <span className="font-semibold">{krProgress}%</span>
+                            </div>
+                            <Progress value={Math.min(krProgress, 100)} variant="success" className="h-1.5" />
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -1058,27 +971,41 @@ export const Estrategico = () => {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveObjective}>
-              {selectedObjective ? "Salvar Alterações" : "Criar Objetivo"}
+            <Button onClick={handleSave} disabled={createMutation.isPending || updateMutation.isPending}>
+              {(createMutation.isPending || updateMutation.isPending) && (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              )}
+              {selectedGoal ? "Atualizar" : "Criar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de Confirmação de Exclusão */}
+      {/* DELETE CONFIRMATION DIALOG */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o objetivo "{selectedObjective?.title}"? Esta ação
-              não pode ser desfeita.
+              Tem certeza que deseja excluir o objetivo "{selectedGoal?.title}"?
+              Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setIsDeleteDialogOpen(false);
+              setSelectedGoal(null);
+            }}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteObjective}
+              onClick={() => {
+                if (selectedGoal) {
+                  handleDelete(selectedGoal.id);
+                  setIsDeleteDialogOpen(false);
+                  setSelectedGoal(null);
+                }
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir

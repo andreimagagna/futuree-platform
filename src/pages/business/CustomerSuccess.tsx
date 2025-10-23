@@ -50,25 +50,27 @@ import {
   DollarSign,
   Target,
   Activity,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 interface Customer {
   id: string;
-  name: string;
-  email: string;
-  company: string;
-  segment: string;
-  healthScore: number;
+  customer_name: string;
+  customer_id: string;
+  health_score: number;
+  nps_score?: number;
   mrr: number;
-  status: "active" | "at-risk" | "churned";
-  onboardingDate: string;
-  lastContact: string;
-  csm: string;
-  notes: string;
-  nps?: number;
-  contractEndDate?: string;
-  lastInteraction?: string;
+  churn_risk: "low" | "medium" | "high";
+  last_interaction?: string;
+  contract_end_date?: string;
+  notes?: string;
+  owner_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const healthScoreConfig = {
@@ -115,7 +117,72 @@ const statusConfig = {
 
 export const CustomerSuccess = () => {
   const { toast } = useToast();
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const { user } = useAuthContext();
+  const queryClient = useQueryClient();
+  
+  // Supabase hooks diretos
+  const { data: customers = [], isLoading } = useQuery({
+    queryKey: ['cs_metrics', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cs_metrics')
+        .select('*')
+        .eq('owner_id', user?.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as Customer[];
+    },
+    enabled: !!user?.id,
+  });
+
+  const createMetric = useMutation({
+    mutationFn: async (data: Partial<Customer>) => {
+      const { data: result, error } = await (supabase as any)
+        .from('cs_metrics')
+        .insert({ ...data, owner_id: user?.id })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cs_metrics'] });
+    },
+  });
+
+  const updateMetric = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Customer> }) => {
+      const { data, error } = await (supabase as any)
+        .from('cs_metrics')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cs_metrics'] });
+    },
+  });
+
+  const deleteMetric = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('cs_metrics')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cs_metrics'] });
+    },
+  });
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterHealth, setFilterHealth] = useState<string>("all");
@@ -123,29 +190,23 @@ export const CustomerSuccess = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [formData, setFormData] = useState<{
-    name: string;
-    email: string;
-    company: string;
-    segment: string;
-    healthScore: number;
+    customer_name: string;
+    health_score: number;
     mrr: number;
-    status: "active" | "at-risk" | "churned";
-    csm: string;
+    churn_risk: "low" | "medium" | "high";
     notes: string;
-    nps?: number;
-    contractEndDate?: string;
+    nps_score: number | "";
+    contract_end_date: string;
+    last_interaction: string;
   }>({
-    name: "",
-    email: "",
-    company: "",
-    segment: "",
-    healthScore: 75,
+    customer_name: "",
+    health_score: 75,
     mrr: 0,
-    status: "active",
-    csm: "",
+    churn_risk: "low",
     notes: "",
-    nps: undefined,
-    contractEndDate: "",
+    nps_score: "",
+    contract_end_date: "",
+    last_interaction: "",
   });
 
   const getHealthScoreCategory = (score: number) => {
@@ -156,14 +217,12 @@ export const CustomerSuccess = () => {
 
   const filteredCustomers = customers.filter((customer) => {
     const matchesSearch =
-      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+      customer.customer_name.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = filterStatus === "all" || customer.status === filterStatus;
+    const matchesStatus = filterStatus === "all" || customer.churn_risk === filterStatus;
     
     const matchesHealth =
-      filterHealth === "all" || getHealthScoreCategory(customer.healthScore) === filterHealth;
+      filterHealth === "all" || getHealthScoreCategory(customer.health_score) === filterHealth;
 
     return matchesSearch && matchesStatus && matchesHealth;
   });
@@ -172,90 +231,119 @@ export const CustomerSuccess = () => {
     if (customer) {
       setSelectedCustomer(customer);
       setFormData({
-        name: customer.name,
-        email: customer.email,
-        company: customer.company,
-        segment: customer.segment,
-        healthScore: customer.healthScore,
-        mrr: customer.mrr,
-        status: customer.status,
-        csm: customer.csm,
-        notes: customer.notes,
-        nps: customer.nps,
-        contractEndDate: customer.contractEndDate || "",
+        customer_name: customer.customer_name || "",
+        health_score: customer.health_score || 75,
+        mrr: customer.mrr || 0,
+        churn_risk: customer.churn_risk || "low",
+        notes: customer.notes || "",
+        nps_score: customer.nps_score || "",
+        contract_end_date: customer.contract_end_date || "",
+        last_interaction: customer.last_interaction || "",
       });
     } else {
       setSelectedCustomer(null);
       setFormData({
-        name: "",
-        email: "",
-        company: "",
-        segment: "",
-        healthScore: 75,
+        customer_name: "",
+        health_score: 75,
         mrr: 0,
-        status: "active",
-        csm: "",
+        churn_risk: "low",
         notes: "",
-        nps: undefined,
-        contractEndDate: "",
+        nps_score: "",
+        contract_end_date: "",
+        last_interaction: "",
       });
     }
     setIsDialogOpen(true);
   };
 
   const handleSaveCustomer = () => {
-    if (!formData.name || !formData.email || !formData.company) {
+    if (!formData.customer_name) {
       toast({
         title: "Erro",
-        description: "Preencha os campos obrigatórios: Nome, Email e Empresa",
+        description: "Preencha o campo obrigatório: Nome do Cliente",
         variant: "destructive",
       });
       return;
     }
 
-    if (selectedCustomer) {
-      setCustomers(
-        customers.map((c) =>
-          c.id === selectedCustomer.id
-            ? {
-                ...selectedCustomer,
-                ...formData,
-                lastContact: new Date().toISOString().split("T")[0],
-              }
-            : c
-        )
-      );
-      toast({
-        title: "Cliente atualizado",
-        description: "As informações do cliente foram atualizadas com sucesso.",
-      });
-    } else {
-      const newCustomer: Customer = {
-        id: Date.now().toString(),
-        ...formData,
-        onboardingDate: new Date().toISOString().split("T")[0],
-        lastContact: new Date().toISOString().split("T")[0],
-      };
-      setCustomers([...customers, newCustomer]);
-      toast({
-        title: "Cliente adicionado",
-        description: "Novo cliente adicionado com sucesso.",
-      });
-    }
+    // Preparar dados para salvar (converter empty string para null/número)
+    const dataToSave = {
+      customer_name: formData.customer_name,
+      health_score: formData.health_score,
+      mrr: formData.mrr,
+      churn_risk: formData.churn_risk,
+      notes: formData.notes || null,
+      nps_score: formData.nps_score === "" ? null : Number(formData.nps_score),
+      contract_end_date: formData.contract_end_date || null,
+      last_interaction: formData.last_interaction || new Date().toISOString().split("T")[0],
+    };
 
-    setIsDialogOpen(false);
+    if (selectedCustomer) {
+      updateMetric.mutate(
+        {
+          id: selectedCustomer.id,
+          updates: dataToSave,
+        },
+        {
+          onSuccess: () => {
+            toast({
+              title: "Cliente atualizado",
+              description: "As informações do cliente foram atualizadas com sucesso.",
+            });
+            setIsDialogOpen(false);
+          },
+          onError: (error) => {
+            toast({
+              title: "Erro ao atualizar",
+              description: error.message,
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    } else {
+      createMetric.mutate(
+        dataToSave,
+        {
+          onSuccess: () => {
+            toast({
+              title: "Cliente adicionado",
+              description: "Novo cliente adicionado com sucesso.",
+            });
+            setIsDialogOpen(false);
+          },
+          onError: (error) => {
+            toast({
+              title: "Erro ao criar",
+              description: error.message,
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    }
   };
 
   const handleDeleteCustomer = () => {
     if (selectedCustomer) {
-      setCustomers(customers.filter((c) => c.id !== selectedCustomer.id));
-      toast({
-        title: "Cliente removido",
-        description: "O cliente foi removido com sucesso.",
+      deleteMetric.mutate(selectedCustomer.id, {
+        onSuccess: () => {
+          toast({
+            title: "Cliente removido",
+            description: "O cliente foi removido com sucesso.",
+          });
+          setIsDeleteDialogOpen(false);
+          setSelectedCustomer(null);
+        },
+        onError: (error) => {
+          toast({
+            title: "Erro ao deletar",
+            description: error.message,
+            variant: "destructive",
+          });
+        },
       });
     }
-    setIsDeleteDialogOpen(false);
-    setSelectedCustomer(null);
   };
 
   const openDeleteDialog = (customer: Customer) => {
@@ -265,17 +353,17 @@ export const CustomerSuccess = () => {
 
   // Métricas gerais
   const totalCustomers = customers.length;
-  const activeCustomers = customers.filter((c) => c.status === "active").length;
-  const atRiskCustomers = customers.filter((c) => c.status === "at-risk").length;
-  const churnedCustomers = customers.filter((c) => c.status === "churned").length;
+  const activeCustomers = customers.filter((c) => c.churn_risk === "low").length;
+  const atRiskCustomers = customers.filter((c) => c.churn_risk === "medium").length;
+  const churnedCustomers = customers.filter((c) => c.churn_risk === "high").length;
   
   const totalMRR = customers
-    .filter((c) => c.status === "active")
-    .reduce((sum, c) => sum + c.mrr, 0);
+    .filter((c) => c.churn_risk !== "high")
+    .reduce((sum, c) => sum + Number(c.mrr || 0), 0);
   
   const avgHealthScore =
     totalCustomers > 0
-      ? Math.round(customers.reduce((sum, c) => sum + c.healthScore, 0) / totalCustomers)
+      ? Math.round(customers.reduce((sum, c) => sum + c.health_score, 0) / totalCustomers)
       : 0;
 
   // Churn Rate (últimos 30 dias simulado)
@@ -289,9 +377,9 @@ export const CustomerSuccess = () => {
     : "100.0";
 
   // NPS Médio (Net Promoter Score)
-  const customersWithNPS = customers.filter((c) => c.nps !== undefined);
+  const customersWithNPS = customers.filter((c) => c.nps_score !== null && c.nps_score !== undefined);
   const avgNPS = customersWithNPS.length > 0
-    ? Math.round(customersWithNPS.reduce((sum, c) => sum + (c.nps || 0), 0) / customersWithNPS.length)
+    ? Math.round(customersWithNPS.reduce((sum, c) => sum + (c.nps_score || 0), 0) / customersWithNPS.length)
     : 0;
 
   // ARPU (Average Revenue Per User)
@@ -301,23 +389,26 @@ export const CustomerSuccess = () => {
 
   // Clientes que precisam de atenção (health score < 50 ou sem contato há mais de 30 dias)
   const needsAttention = customers.filter((c) => {
-    if (c.status !== "active") return false;
-    const daysSinceContact = c.lastContact 
-      ? Math.floor((new Date().getTime() - new Date(c.lastContact).getTime()) / (1000 * 60 * 60 * 24))
+    if (c.churn_risk === "high") return false;
+    const daysSinceContact = c.last_interaction
+      ? Math.floor((new Date().getTime() - new Date(c.last_interaction).getTime()) / (1000 * 60 * 60 * 24))
       : 999;
-    return c.healthScore < 50 || daysSinceContact > 30;
+    return c.health_score < 50 || daysSinceContact > 30;
   }).length;
 
   // Segmentação por Health Score
-  const healthyCustomers = customers.filter((c) => c.status === "active" && c.healthScore >= 80).length;
-  const mediumHealthCustomers = customers.filter((c) => c.status === "active" && c.healthScore >= 50 && c.healthScore < 80).length;
-  const lowHealthCustomers = customers.filter((c) => c.status === "active" && c.healthScore < 50).length;
+  const healthyCustomers = customers.filter((c) => c.churn_risk !== "high" && c.health_score >= 80).length;
+  const mediumHealthCustomers = customers.filter((c) => c.churn_risk !== "high" && c.health_score >= 50 && c.health_score < 80).length;
+  const lowHealthCustomers = customers.filter((c) => c.churn_risk !== "high" && c.health_score < 50).length;
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Customer Success</h1>
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Customer Success</h1>
+          <p className="text-muted-foreground">Gerencie o sucesso e a retenção de clientes</p>
+        </div>
       </div>
 
       {/* Métricas Principais */}
@@ -530,9 +621,8 @@ export const CustomerSuccess = () => {
           ) : (
             <div className="space-y-3">
               {filteredCustomers.map((customer) => {
-                const healthCategory = getHealthScoreCategory(customer.healthScore);
+                const healthCategory = getHealthScoreCategory(customer.health_score);
                 const healthConfig = healthScoreConfig[healthCategory];
-                const statusInfo = statusConfig[customer.status];
 
                 return (
                   <Card
@@ -545,13 +635,17 @@ export const CustomerSuccess = () => {
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-lg font-semibold">{customer.name}</h3>
-                                <Badge variant={statusInfo.variant}>
-                                  {statusInfo.label}
+                                <h3 className="text-lg font-semibold">{customer.customer_name}</h3>
+                                <Badge className={
+                                  customer.churn_risk === "low" ? "bg-success" :
+                                  customer.churn_risk === "medium" ? "bg-warning" : "bg-destructive"
+                                }>
+                                  {customer.churn_risk === "low" ? "Saudável" :
+                                   customer.churn_risk === "medium" ? "Em Risco" : "Crítico"}
                                 </Badge>
                               </div>
                               <p className="text-sm text-muted-foreground">
-                                {customer.company} • {customer.email}
+                                ID: {customer.customer_id}
                               </p>
                             </div>
                           </div>
@@ -563,7 +657,7 @@ export const CustomerSuccess = () => {
                                 <div
                                   className={`text-lg font-bold ${healthConfig.color}`}
                                 >
-                                  {customer.healthScore}%
+                                  {customer.health_score}%
                                 </div>
                                 <Badge
                                   variant="outline"
@@ -576,63 +670,76 @@ export const CustomerSuccess = () => {
                             <div>
                               <p className="text-xs text-muted-foreground mb-1">MRR</p>
                               <p className="text-sm font-semibold">
-                                {customer.mrr.toLocaleString("pt-BR", {
+                                {Number(customer.mrr || 0).toLocaleString("pt-BR", {
                                   style: "currency",
                                   currency: "BRL",
                                 })}
                               </p>
                             </div>
                             <div>
-                              <p className="text-xs text-muted-foreground mb-1">Segmento</p>
-                              <p className="text-sm font-semibold">{customer.segment || "N/A"}</p>
+                              <p className="text-xs text-muted-foreground mb-1">Risco Churn</p>
+                              <Badge variant="outline" className={
+                                customer.churn_risk === "low" ? "border-success text-success" :
+                                customer.churn_risk === "medium" ? "border-warning text-warning" :
+                                "border-destructive text-destructive"
+                              }>
+                                {customer.churn_risk === "low" ? "Baixo" :
+                                 customer.churn_risk === "medium" ? "Médio" : "Alto"}
+                              </Badge>
                             </div>
                             <div>
-                              <p className="text-xs text-muted-foreground mb-1">CSM</p>
-                              <p className="text-sm font-semibold">{customer.csm || "N/A"}</p>
+                              <p className="text-xs text-muted-foreground mb-1">Criado em</p>
+                              <p className="text-sm font-semibold">
+                                {customer.created_at ? new Date(customer.created_at).toLocaleDateString("pt-BR") : "N/A"}
+                              </p>
                             </div>
                           </div>
 
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            {customer.nps !== undefined && (
+                            {customer.nps_score !== null && customer.nps_score !== undefined && (
                               <div>
                                 <p className="text-xs text-muted-foreground mb-1">NPS</p>
                                 <div className="flex items-center gap-1">
-                                  <p className="text-sm font-semibold">{customer.nps}/10</p>
+                                  <p className="text-sm font-semibold">{customer.nps_score}/10</p>
                                   <Badge
                                     variant="outline"
                                     className={
-                                      customer.nps >= 9
+                                      customer.nps_score >= 9
                                         ? "bg-success/10 text-success border-transparent"
-                                        : customer.nps >= 7
+                                        : customer.nps_score >= 7
                                         ? "bg-warning/10 text-warning border-transparent"
                                         : "bg-destructive/10 text-destructive border-transparent"
                                     }
                                   >
-                                    {customer.nps >= 9 ? "Promotor" : customer.nps >= 7 ? "Passivo" : "Detrator"}
+                                    {customer.nps_score >= 9 ? "Promotor" : customer.nps_score >= 7 ? "Passivo" : "Detrator"}
                                   </Badge>
                                 </div>
                               </div>
                             )}
-                            {customer.contractEndDate && (
+                            {customer.contract_end_date && (
                               <div>
                                 <p className="text-xs text-muted-foreground mb-1">Renovação</p>
                                 <p className="text-sm font-semibold">
-                                  {new Date(customer.contractEndDate).toLocaleDateString("pt-BR")}
+                                  {new Date(customer.contract_end_date).toLocaleDateString("pt-BR")}
+                                </p>
+                              </div>
+                            )}
+                            {customer.last_interaction && (
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Última Interação</p>
+                                <p className="text-sm font-semibold">
+                                  {new Date(customer.last_interaction).toLocaleDateString("pt-BR")}
                                 </p>
                               </div>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              Onboarding: {new Date(customer.onboardingDate).toLocaleDateString("pt-BR")}
+                          {customer.notes && (
+                            <div className="pt-2 border-t">
+                              <p className="text-xs text-muted-foreground mb-1">Observações</p>
+                              <p className="text-sm">{customer.notes}</p>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Último contato: {new Date(customer.lastContact).toLocaleDateString("pt-BR")}
-                            </div>
-                          </div>
+                          )}
                         </div>
 
                         <div className="flex lg:flex-col gap-2">
@@ -686,50 +793,50 @@ export const CustomerSuccess = () => {
             <TabsContent value="basic" className="space-y-4 mt-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Nome *</label>
+                  <label className="text-sm font-medium">Nome do Cliente *</label>
                   <Input
-                    placeholder="Nome do contato"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Nome do cliente/empresa"
+                    value={formData.customer_name}
+                    onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Email *</label>
-                  <Input
-                    type="email"
-                    placeholder="email@empresa.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
+                  <label className="text-sm font-medium">Risco de Churn</label>
+                  <Select
+                    value={formData.churn_risk}
+                    onValueChange={(value: "low" | "medium" | "high") =>
+                      setFormData({ ...formData, churn_risk: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Baixo</SelectItem>
+                      <SelectItem value="medium">Médio</SelectItem>
+                      <SelectItem value="high">Alto</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Empresa *</label>
+                  <label className="text-sm font-medium">Última Interação</label>
                   <Input
-                    placeholder="Nome da empresa"
-                    value={formData.company}
-                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    type="date"
+                    value={formData.last_interaction}
+                    onChange={(e) => setFormData({ ...formData, last_interaction: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Segmento</label>
+                  <label className="text-sm font-medium">Término do Contrato</label>
                   <Input
-                    placeholder="Ex: SaaS, E-commerce, Educação"
-                    value={formData.segment}
-                    onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
+                    type="date"
+                    value={formData.contract_end_date}
+                    onChange={(e) => setFormData({ ...formData, contract_end_date: e.target.value })}
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">CSM Responsável</label>
-                <Input
-                  placeholder="Nome do Customer Success Manager"
-                  value={formData.csm}
-                  onChange={(e) => setFormData({ ...formData, csm: e.target.value })}
-                />
               </div>
 
               <div className="space-y-2">
@@ -752,9 +859,9 @@ export const CustomerSuccess = () => {
                     min="0"
                     max="100"
                     placeholder="75"
-                    value={formData.healthScore}
+                    value={formData.health_score}
                     onChange={(e) =>
-                      setFormData({ ...formData, healthScore: Number(e.target.value) })
+                      setFormData({ ...formData, health_score: Number(e.target.value) })
                     }
                   />
                   <p className="text-xs text-muted-foreground">
@@ -785,11 +892,11 @@ export const CustomerSuccess = () => {
                     min="0"
                     max="10"
                     placeholder="8"
-                    value={formData.nps || ""}
+                    value={formData.nps_score === "" ? "" : formData.nps_score}
                     onChange={(e) =>
                       setFormData({ 
                         ...formData, 
-                        nps: e.target.value ? Number(e.target.value) : undefined 
+                        nps_score: e.target.value === "" ? "" : Number(e.target.value)
                       })
                     }
                   />
@@ -798,33 +905,20 @@ export const CustomerSuccess = () => {
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Término do Contrato</label>
-                  <Input
-                    type="date"
-                    value={formData.contractEndDate || ""}
-                    onChange={(e) => setFormData({ ...formData, contractEndDate: e.target.value })}
-                  />
+                  <label className="text-sm font-medium">Status do Cliente</label>
+                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-background">
+                    <Badge className={
+                      formData.churn_risk === "low" ? "bg-success" :
+                      formData.churn_risk === "medium" ? "bg-warning" : "bg-destructive"
+                    }>
+                      {formData.churn_risk === "low" ? "Saudável" :
+                       formData.churn_risk === "medium" ? "Em Risco" : "Crítico"}
+                    </Badge>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Data de renovação (opcional)
+                    Baseado no risco de churn
                   </p>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status do Cliente</label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: any) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Ativo</SelectItem>
-                    <SelectItem value="at-risk">Em Risco</SelectItem>
-                    <SelectItem value="churned">Cancelado</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </TabsContent>
           </Tabs>
@@ -846,7 +940,7 @@ export const CustomerSuccess = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir o cliente "{selectedCustomer?.name}"? Esta ação não
+              Tem certeza que deseja excluir o cliente "{selectedCustomer?.customer_name}"? Esta ação não
               pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>

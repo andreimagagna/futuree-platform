@@ -59,7 +59,7 @@ export interface Lead {
   nextAction?: Date;
   tags: string[];
   notes: string;
-  status?: 'open' | 'won' | 'lost';
+  status?: 'open' | 'won' | 'lost' | 'archived';
   lostReason?: string;
   lostCompetitor?: string;
   wonDate?: Date;

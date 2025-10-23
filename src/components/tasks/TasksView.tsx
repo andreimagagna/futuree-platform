@@ -1,13 +1,13 @@
 import { useState, useMemo } from "react";
 import type { TaskStatus, Task, Priority } from "@/store/useStore";
-import { useTasks, useCreateTask } from '@/hooks/useTasksAPI';
+import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/useTasksAPI';
 // TODO: Substituir por useTasksAPI quando disponível
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { DndContext, DragEndEvent, closestCorners } from "@dnd-kit/core";
@@ -143,6 +143,8 @@ const TaskCard = ({ task, onOpen }: TaskCardProps) => {
 export const TasksView = () => {
   const { data: tasks = [] } = useTasks();
   const { mutate: createTask } = useCreateTask();
+  const { mutate: updateTask } = useUpdateTask();
+  const { mutate: deleteTask } = useDeleteTask();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | Priority>("all");
@@ -168,15 +170,23 @@ export const TasksView = () => {
   }, [tasks, search, statusFilter, priorityFilter, tagFilter]);
 
   const handleDragEnd = (event: DragEndEvent) => {
-    // TODO: Implementar atualização de status via backend
+    const { active, over } = event;
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const newStatus = over.id as TaskStatus;
+
+    // ✅ ATUALIZAR STATUS NO BACKEND
+    updateTask({ id: taskId, updates: { status: newStatus } });
   };
 
   return (
     <div className="space-y-4">
       {/* Header & Toolbar */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Tarefas & Projetos</h2>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Tarefas & Projetos</h1>
+          <p className="text-muted-foreground">Gerencie e organize suas tarefas e projetos</p>
         </div>
         <div className="flex items-center gap-2">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "board" | "calendar" | "list")}>
@@ -316,10 +326,14 @@ export const TasksView = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Nova Tarefa</DialogTitle>
+            <DialogDescription>
+              Crie uma nova tarefa para organizar seu trabalho
+            </DialogDescription>
           </DialogHeader>
           <TaskForm
             onSubmit={(task) => {
-              addTask(task);
+              // ✅ USAR createTask do hook ao invés de addTask
+              createTask(task as any);
               setOpenNewTask(false);
             }}
             onCancel={() => setOpenNewTask(false)}
@@ -331,7 +345,13 @@ export const TasksView = () => {
           open={detailOpen}
           onOpenChange={setDetailOpen}
           task={selectedTask}
-          onUpdate={(updates) => updateTask(selectedTask.id, updates)}
+          onUpdate={(updates) => {
+            // ✅ Atualizar no backend
+            updateTask({ id: selectedTask.id, updates });
+            
+            // ✅ Atualizar task local imediatamente para UX responsivo
+            setSelectedTask({ ...selectedTask, ...updates });
+          }}
         />
       )}
     </div>

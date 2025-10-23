@@ -12,13 +12,16 @@ import {
   Users,
   Zap,
   Calendar,
-  Filter as FilterIcon
+  Filter as FilterIcon,
+  Loader2
 } from "lucide-react";
 import { CampaignCard } from "@/components/marketing/CampaignCard";
 import { CampaignDialog } from "@/components/marketing/CampaignDialog";
 import { CampaignDetailsDialog } from "@/components/marketing/CampaignDetailsDialog";
 import { mockCampaigns, calculateCampaignMetrics, filterCampaigns } from "@/utils/marketingMockData";
 import { Campaign, CampaignStatus, CampaignType } from "@/types/Marketing";
+import { useCampaigns, useCreateCampaign, useUpdateCampaign, useDeleteCampaign } from "@/hooks/useMarketingAPI";
+import { dbToFECampaign, feToDBCampaign } from "@/utils/marketingConverters";
 import {
   Select,
   SelectContent,
@@ -32,7 +35,19 @@ import { useToast } from "@/hooks/use-toast";
 
 export const Campanhas = () => {
   const { toast } = useToast();
-  const [campaigns, setCampaigns] = useState<Campaign[]>(mockCampaigns);
+  
+  // Backend hooks
+  const { data: backendCampaignsDB = [], isLoading } = useCampaigns();
+  const { mutate: createCampaignDB } = useCreateCampaign();
+  const { mutate: updateCampaignDB } = useUpdateCampaign();
+  const { mutate: deleteCampaign } = useDeleteCampaign();
+  
+  // Converter dados do banco para o formato do frontend
+  const backendCampaigns = useMemo(
+    () => backendCampaignsDB.map(dbToFECampaign),
+    [backendCampaignsDB]
+  );
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<CampaignStatus[]>([]);
   const [typeFilter, setTypeFilter] = useState<CampaignType[]>([]);
@@ -42,6 +57,9 @@ export const Campanhas = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  
+  // Usar dados do backend se disponível, senão mock
+  const campaigns = backendCampaigns.length > 0 ? backendCampaigns : mockCampaigns;
   
   // Calcular métricas
   const metrics = useMemo(() => calculateCampaignMetrics(campaigns), [campaigns]);
@@ -67,18 +85,43 @@ export const Campanhas = () => {
   
   const handleSaveCampaign = (campaign: Campaign) => {
     if (editingCampaign) {
-      // Update existing
-      setCampaigns(prev => prev.map(c => c.id === campaign.id ? campaign : c));
-      toast({
-        title: "Campanha atualizada",
-        description: `A campanha "${campaign.name}" foi atualizada com sucesso.`,
+      // Update existing - converter para formato do banco
+      updateCampaignDB({
+        id: campaign.id,
+        updates: feToDBCampaign(campaign)
+      }, {
+        onSuccess: () => {
+          toast({
+            title: "Campanha atualizada",
+            description: `A campanha "${campaign.name}" foi atualizada com sucesso.`,
+          });
+          setDialogOpen(false);
+        },
+        onError: (error: any) => {
+          toast({
+            title: "Erro ao atualizar",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
       });
     } else {
-      // Create new
-      setCampaigns(prev => [campaign, ...prev]);
-      toast({
-        title: "Campanha criada",
-        description: `A campanha "${campaign.name}" foi criada com sucesso.`,
+      // Create new - converter para formato do banco
+      createCampaignDB(feToDBCampaign(campaign), {
+        onSuccess: () => {
+          toast({
+            title: "Campanha criada",
+            description: `A campanha "${campaign.name}" foi criada com sucesso.`,
+          });
+          setDialogOpen(false);
+        },
+        onError: (error: any) => {
+          toast({
+            title: "Erro ao criar",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
       });
     }
   };
@@ -89,29 +132,43 @@ export const Campanhas = () => {
   };
   
   const handleToggleStatus = (campaignId: string) => {
-    setCampaigns(prev => prev.map(c => {
-      if (c.id === campaignId) {
-        const newStatus = c.status === 'active' ? 'paused' : 'active';
+    const campaign = campaigns.find(c => c.id === campaignId);
+    if (!campaign) return;
+    
+    const newStatus = campaign.status === 'active' ? 'paused' : 'active';
+    
+    updateCampaignDB({
+      id: campaignId,
+      updates: { status: newStatus }
+    }, {
+      onSuccess: () => {
         toast({
           title: newStatus === 'active' ? "Campanha ativada" : "Campanha pausada",
-          description: `A campanha "${c.name}" foi ${newStatus === 'active' ? 'ativada' : 'pausada'}.`,
+          description: `A campanha "${campaign.name}" foi ${newStatus === 'active' ? 'ativada' : 'pausada'}.`,
         });
-        return {
-          ...c,
-          status: newStatus as CampaignStatus,
-        };
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Erro ao atualizar status",
+          description: error.message,
+          variant: "destructive",
+        });
       }
-      return c;
-    }));
+    });
   };
   
-  const handleDelete = (campaignId: string) => {
+  const handleDeleteCampaign = (campaignId: string) => {
     const campaign = campaigns.find(c => c.id === campaignId);
-    setCampaigns(prev => prev.filter(c => c.id !== campaignId));
-    toast({
-      title: "Campanha excluída",
-      description: `A campanha "${campaign?.name}" foi excluída.`,
-      variant: "destructive",
+    if (!campaign) return;
+    
+    deleteCampaign(campaignId, {
+      onSuccess: () => {
+        toast({
+          title: "Campanha excluída",
+          description: `A campanha "${campaign.name}" foi excluída com sucesso.`,
+          variant: "destructive",
+        });
+      }
     });
   };
   
@@ -129,46 +186,56 @@ export const Campanhas = () => {
   
   return (
     <div className="space-y-6">
-      {/* Header Simples */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">Campanhas</h1>
+      {/* Header Padronizado */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Campanhas</h1>
+          <p className="text-muted-foreground">Gerencie e acompanhe suas campanhas de marketing</p>
         </div>
-        <Button onClick={handleCreateCampaign} className="gap-2">
-          <Plus className="h-4 w-4" />
+        <Button onClick={handleCreateCampaign} className="gap-2" disabled={isLoading}>
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           Nova Campanha
         </Button>
       </div>
 
-      {/* KPIs Principais - Layout Simples */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Megaphone className="h-4 w-4" />
-              Campanhas Ativas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{metrics.activeCampaigns}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              de {metrics.totalCampaigns} total
-            </p>
-          </CardContent>
-        </Card>
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              Leads Gerados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-success">{formatNumber(metrics.totalLeads)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(metrics.costPerLead)} por lead
-            </p>
+      {!isLoading && (
+        <>
+          {/* KPIs Principais - Layout Simples */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Megaphone className="h-4 w-4" />
+                  Campanhas Ativas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{metrics.activeCampaigns}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  de {metrics.totalCampaigns} total
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Leads Gerados
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-success">{formatNumber(metrics.totalLeads)}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatCurrency(metrics.costPerLead)} por lead
+                </p>
           </CardContent>
         </Card>
 
@@ -346,7 +413,7 @@ export const Campanhas = () => {
                 key={campaign.id}
                 campaign={campaign}
                 onToggleStatus={handleToggleStatus}
-                onDelete={handleDelete}
+                onDelete={handleDeleteCampaign}
                 onViewDetails={handleViewDetails}
                 onEdit={handleEditCampaign}
               />
@@ -354,6 +421,8 @@ export const Campanhas = () => {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Dialogs */}
       <CampaignDialog

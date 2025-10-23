@@ -1,18 +1,13 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -21,688 +16,582 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Plus,
-  Search,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { 
+  DollarSign, 
+  TrendingUp, 
+  TrendingDown, 
+  Plus, 
+  Loader2,
   Edit,
   Trash2,
-  Calendar,
   ArrowUpRight,
   ArrowDownRight,
-  Wallet,
-  CreditCard,
-  PiggyBank,
-  Receipt,
-  FileText,
-  Target,
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
-interface Transaction {
+// ============================================================================
+// TYPES (conforme SQL criado)
+// ============================================================================
+
+interface FinanceRecord {
   id: string;
   type: "receita" | "despesa";
   category: string;
   description: string;
   amount: number;
   date: string;
-  status: "pago" | "pendente" | "atrasado";
-  paymentMethod?: string;
-  notes?: string;
+  status: "pago" | "pendente" | "atrasado" | null;
+  payment_method: string | null;
+  notes: string | null;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const categoryOptions = {
-  receita: [
-    "Vendas",
-    "Serviços",
-    "Assinaturas",
-    "Consultoria",
-    "Investimentos",
-    "Outros",
-  ],
-  despesa: [
-    "Salários",
-    "Marketing",
-    "Infraestrutura",
-    "Fornecedores",
-    "Impostos",
-    "Aluguel",
-    "Serviços",
-    "Outros",
-  ],
+  receita: ["Vendas", "Serviços", "Assinaturas", "Consultoria", "Investimentos", "Outros"],
+  despesa: ["Salários", "Marketing", "Infraestrutura", "Fornecedores", "Impostos", "Aluguel", "Serviços", "Outros"],
 };
 
-const statusConfig = {
-  pago: {
-    label: "Pago",
-    color: "text-success",
-    variant: "default" as const,
-  },
-  pendente: {
-    label: "Pendente",
-    color: "text-warning",
-    variant: "secondary" as const,
-  },
-  atrasado: {
-    label: "Atrasado",
-    color: "text-destructive",
-    variant: "outline" as const,
-  },
-};
+// ============================================================================
+// COMPONENT
+// ============================================================================
 
 export const Financas = () => {
   const { toast } = useToast();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const { user } = useAuthContext();
+  const queryClient = useQueryClient();
+
+  // ============================================================================
+  // SUPABASE HOOKS
+  // ============================================================================
+
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ['finance_records', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('finance_records')
+        .select('*')
+        .eq('owner_id', user?.id)
+        .order('date', { ascending: false });
+      
+      if (error) throw error;
+      return data as FinanceRecord[];
+    },
+    enabled: !!user?.id,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (newRecord: Partial<FinanceRecord>) => {
+      const { data, error } = await (supabase as any)
+        .from('finance_records')
+        .insert({ ...newRecord, owner_id: user?.id })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance_records'] });
+      toast({ title: "Transação criada com sucesso!" });
+      setIsDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro ao criar transação",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<FinanceRecord> }) => {
+      const { data, error } = await (supabase as any)
+        .from('finance_records')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance_records'] });
+      toast({ title: "Transação atualizada!" });
+      setIsDialogOpen(false);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('finance_records')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['finance_records'] });
+      toast({ title: "Transação removida!" });
+    },
+  });
+
+  // ============================================================================
+  // STATE & HANDLERS
+  // ============================================================================
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<FinanceRecord | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [filterMonth, setFilterMonth] = useState<string>("all");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [formData, setFormData] = useState<{
-    type: "receita" | "despesa";
-    category: string;
-    description: string;
-    amount: number;
-    date: string;
-    status: "pago" | "pendente" | "atrasado";
-    paymentMethod: string;
-    notes: string;
-  }>({
-    type: "receita",
+  const [formData, setFormData] = useState({
+    type: "receita" as "receita" | "despesa",
     category: "",
     description: "",
     amount: 0,
-    date: new Date().toISOString().split("T")[0],
-    status: "pendente",
-    paymentMethod: "",
+    date: new Date().toISOString().split('T')[0],
+    status: "pendente" as "pago" | "pendente" | "atrasado",
+    payment_method: "",
     notes: "",
   });
 
-  const filteredTransactions = transactions.filter((transaction) => {
-    const matchesSearch =
-      transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesType = filterType === "all" || transaction.type === filterType;
-    const matchesStatus = filterStatus === "all" || transaction.status === filterStatus;
-
-    const matchesMonth =
-      filterMonth === "all" ||
-      transaction.date.startsWith(filterMonth);
-
-    return matchesSearch && matchesType && matchesStatus && matchesMonth;
-  });
-
-  const handleOpenDialog = (transaction?: Transaction) => {
-    if (transaction) {
-      setSelectedTransaction(transaction);
+  const handleOpenDialog = (record?: FinanceRecord) => {
+    if (record) {
+      setSelectedRecord(record);
       setFormData({
-        type: transaction.type,
-        category: transaction.category,
-        description: transaction.description,
-        amount: transaction.amount,
-        date: transaction.date,
-        status: transaction.status,
-        paymentMethod: transaction.paymentMethod || "",
-        notes: transaction.notes || "",
+        type: record.type,
+        category: record.category,
+        description: record.description,
+        amount: record.amount,
+        date: record.date,
+        status: (record.status || "pendente") as "pago" | "pendente" | "atrasado",
+        payment_method: record.payment_method || "",
+        notes: record.notes || "",
       });
     } else {
-      setSelectedTransaction(null);
+      setSelectedRecord(null);
       setFormData({
         type: "receita",
         category: "",
         description: "",
         amount: 0,
-        date: new Date().toISOString().split("T")[0],
+        date: new Date().toISOString().split('T')[0],
         status: "pendente",
-        paymentMethod: "",
+        payment_method: "",
         notes: "",
       });
     }
     setIsDialogOpen(true);
   };
 
-  const handleSaveTransaction = () => {
-    if (!formData.description || !formData.category || formData.amount <= 0) {
+  const handleSave = () => {
+    if (!formData.description || formData.amount <= 0) {
       toast({
         title: "Erro",
-        description: "Preencha os campos obrigatórios: Descrição, Categoria e Valor",
+        description: "Preencha a descrição e valor corretamente",
         variant: "destructive",
       });
       return;
     }
 
-    if (selectedTransaction) {
-      setTransactions(
-        transactions.map((t) =>
-          t.id === selectedTransaction.id
-            ? { ...selectedTransaction, ...formData }
-            : t
-        )
-      );
-      toast({
-        title: "Transação atualizada",
-        description: "A transação foi atualizada com sucesso.",
-      });
+    // Preparar dados: converter strings vazias para null em campos de data
+    const dataToSave = {
+      ...formData,
+      date: formData.date || null,
+    };
+
+    if (selectedRecord) {
+      updateMutation.mutate({ id: selectedRecord.id, updates: dataToSave });
     } else {
-      const newTransaction: Transaction = {
-        id: Date.now().toString(),
-        ...formData,
-      };
-      setTransactions([...transactions, newTransaction]);
-      toast({
-        title: "Transação adicionada",
-        description: "Nova transação adicionada com sucesso.",
-      });
+      createMutation.mutate(dataToSave);
     }
-
-    setIsDialogOpen(false);
   };
 
-  const handleDeleteTransaction = () => {
-    if (selectedTransaction) {
-      setTransactions(transactions.filter((t) => t.id !== selectedTransaction.id));
-      toast({
-        title: "Transação removida",
-        description: "A transação foi removida com sucesso.",
-      });
+  const handleDelete = (id: string) => {
+    if (confirm("Tem certeza que deseja deletar esta transação?")) {
+      deleteMutation.mutate(id);
     }
-    setIsDeleteDialogOpen(false);
-    setSelectedTransaction(null);
   };
 
-  const openDeleteDialog = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    setIsDeleteDialogOpen(true);
-  };
+  // ============================================================================
+  // ANALYTICS
+  // ============================================================================
 
-  // Métricas Financeiras
-  const totalReceitas = transactions
-    .filter((t) => t.type === "receita" && t.status === "pago")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const filteredRecords = records.filter((record) => {
+    const matchesType = filterType === "all" || record.type === filterType;
+    const matchesStatus = filterStatus === "all" || record.status === filterStatus;
+    return matchesType && matchesStatus;
+  });
 
-  const totalDespesas = transactions
-    .filter((t) => t.type === "despesa" && t.status === "pago")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const totalReceita = records
+    .filter((r) => r.type === "receita" && r.status === "pago")
+    .reduce((sum, r) => sum + r.amount, 0);
 
-  const saldoAtual = totalReceitas - totalDespesas;
+  const totalDespesa = records
+    .filter((r) => r.type === "despesa" && r.status === "pago")
+    .reduce((sum, r) => sum + r.amount, 0);
 
-  const receitasPendentes = transactions
-    .filter((t) => t.type === "receita" && t.status === "pendente")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const saldoAtual = totalReceita - totalDespesa;
 
-  const despesasPendentes = transactions
-    .filter((t) => t.type === "despesa" && t.status === "pendente")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const pendingReceita = records
+    .filter((r) => r.type === "receita" && r.status === "pendente")
+    .reduce((sum, r) => sum + r.amount, 0);
 
-  const transacoesAtrasadas = transactions.filter((t) => t.status === "atrasado").length;
+  const pendingDespesa = records
+    .filter((r) => r.type === "despesa" && r.status === "pendente")
+    .reduce((sum, r) => sum + r.amount, 0);
 
-  // Receitas e Despesas do mês atual
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const receitasMesAtual = transactions
-    .filter((t) => t.type === "receita" && t.status === "pago" && t.date.startsWith(currentMonth))
-    .reduce((sum, t) => sum + t.amount, 0);
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
-  const despesasMesAtual = transactions
-    .filter((t) => t.type === "despesa" && t.status === "pago" && t.date.startsWith(currentMonth))
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const lucroMesAtual = receitasMesAtual - despesasMesAtual;
-
-  // Margem de lucro
-  const margemLucro = totalReceitas > 0 ? ((saldoAtual / totalReceitas) * 100).toFixed(1) : "0.0";
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Finanças</h1>
+        <Button onClick={() => handleOpenDialog()}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nova Transação
+        </Button>
       </div>
 
-      {/* Métricas Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-primary">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Saldo Atual
+      {/* ANALYTICS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-success" />
+              Total Receitas
             </CardTitle>
-            <Wallet className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${saldoAtual >= 0 ? 'text-success' : 'text-destructive'}`}>
-              {saldoAtual.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Margem: {margemLucro}%
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-success">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Receitas (Mês)
-            </CardTitle>
-            <ArrowUpRight className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-success">
-              {receitasMesAtual.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
+              R$ {totalReceita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Pendente: {receitasPendentes.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              Pendente: R$ {pendingReceita.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-destructive">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Despesas (Mês)
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <TrendingDown className="w-4 h-4 text-destructive" />
+              Total Despesas
             </CardTitle>
-            <ArrowDownRight className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">
-              {despesasMesAtual.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
+              R$ {totalDespesa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Pendente: {despesasPendentes.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              Pendente: R$ {pendingDespesa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-accent">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Lucro (Mês)
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <DollarSign className="w-4 h-4" />
+              Saldo Atual
             </CardTitle>
-            <Target className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${lucroMesAtual >= 0 ? 'text-success' : 'text-destructive'}`}>
-              {lucroMesAtual.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
+            <div className={`text-2xl font-bold ${saldoAtual >= 0 ? 'text-success' : 'text-destructive'}`}>
+              R$ {saldoAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {transacoesAtrasadas} em atraso
-            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Transações</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{records.length}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Resumo Geral */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Receitas
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold text-success">
-              {totalReceitas.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
-            </div>
-          </CardContent>
-        </Card>
+      {/* FILTERS */}
+      <div className="flex gap-4">
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os tipos</SelectItem>
+            <SelectItem value="receita">Receitas</SelectItem>
+            <SelectItem value="despesa">Despesas</SelectItem>
+          </SelectContent>
+        </Select>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Despesas
-            </CardTitle>
-            <TrendingDown className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold text-destructive">
-              {totalDespesas.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Saldo Total
-            </CardTitle>
-            <PiggyBank className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-xl font-bold ${saldoAtual >= 0 ? 'text-success' : 'text-destructive'}`}>
-              {saldoAtual.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos status</SelectItem>
+            <SelectItem value="pago">Pago</SelectItem>
+            <SelectItem value="pendente">Pendente</SelectItem>
+            <SelectItem value="atrasado">Atrasado</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Transações */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
-            <div>
-              <CardTitle>Transações</CardTitle>
-              <CardDescription>Gerencie receitas e despesas</CardDescription>
-            </div>
-            <Button onClick={() => handleOpenDialog()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nova Transação
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Filtros */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar transações..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Tipos</SelectItem>
-                <SelectItem value="receita">Receitas</SelectItem>
-                <SelectItem value="despesa">Despesas</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Status</SelectItem>
-                <SelectItem value="pago">Pago</SelectItem>
-                <SelectItem value="pendente">Pendente</SelectItem>
-                <SelectItem value="atrasado">Atrasado</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterMonth} onValueChange={setFilterMonth}>
-              <SelectTrigger>
-                <SelectValue placeholder="Mês" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os Meses</SelectItem>
-                <SelectItem value={new Date().toISOString().slice(0, 7)}>Mês Atual</SelectItem>
-                <SelectItem value={new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 7)}>
-                  Mês Anterior
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {/* TRANSACTIONS LIST - DESIGN MELHORADO */}
+      <Tabs defaultValue="all" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="all">Todas ({filteredRecords.length})</TabsTrigger>
+          <TabsTrigger value="receita">
+            Receitas ({filteredRecords.filter(r => r.type === "receita").length})
+          </TabsTrigger>
+          <TabsTrigger value="despesa">
+            Despesas ({filteredRecords.filter(r => r.type === "despesa").length})
+          </TabsTrigger>
+          <TabsTrigger value="pendente">
+            Pendentes ({filteredRecords.filter(r => r.status === "pendente").length})
+          </TabsTrigger>
+        </TabsList>
 
-          {/* Lista de Transações */}
-          {filteredTransactions.length === 0 ? (
-            <div className="text-center py-12">
-              <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nenhuma transação encontrada</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {transactions.length === 0
-                  ? "Adicione sua primeira transação para começar"
-                  : "Tente ajustar os filtros de busca"}
-              </p>
-              {transactions.length === 0 && (
-                <Button onClick={() => handleOpenDialog()}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Primeira Transação
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredTransactions.map((transaction) => {
-                const statusInfo = statusConfig[transaction.status];
-                const isReceita = transaction.type === "receita";
+        {["all", "receita", "despesa", "pendente"].map((tab) => {
+          const tabRecords = tab === "all" 
+            ? filteredRecords 
+            : tab === "pendente"
+            ? filteredRecords.filter(r => r.status === "pendente")
+            : filteredRecords.filter(r => r.type === tab);
 
-                return (
-                  <Card
-                    key={transaction.id}
-                    className={`border-l-4 ${
-                      isReceita ? "border-l-success" : "border-l-destructive"
-                    } hover:shadow-md transition-all`}
+          return (
+            <TabsContent key={tab} value={tab} className="space-y-3">
+              {tabRecords.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <DollarSign className="w-12 h-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Nenhuma transação encontrada</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                tabRecords.map((record) => (
+                  <Card 
+                    key={record.id} 
+                    className="hover:shadow-md transition-shadow border-l-4"
+                    style={{
+                      borderLeftColor: record.type === "receita" 
+                        ? "hsl(var(--success))" 
+                        : "hsl(var(--destructive))"
+                    }}
                   >
-                    <CardContent className="pt-6">
-                      <div className="flex flex-col lg:flex-row justify-between gap-4">
-                        <div className="flex-1 space-y-3">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                {isReceita ? (
-                                  <ArrowUpRight className="h-5 w-5 text-success" />
-                                ) : (
-                                  <ArrowDownRight className="h-5 w-5 text-destructive" />
-                                )}
-                                <h3 className="text-lg font-semibold">{transaction.description}</h3>
-                                <Badge variant={statusInfo.variant}>
-                                  {statusInfo.label}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                {transaction.category}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-1">Valor</p>
-                              <p
-                                className={`text-lg font-bold ${
-                                  isReceita ? "text-success" : "text-destructive"
-                                }`}
-                              >
-                                {transaction.amount.toLocaleString("pt-BR", {
-                                  style: "currency",
-                                  currency: "BRL",
-                                })}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-1">Data</p>
-                              <p className="text-sm font-semibold">
-                                {new Date(transaction.date).toLocaleDateString("pt-BR")}
-                              </p>
-                            </div>
-                            {transaction.paymentMethod && (
-                              <div>
-                                <p className="text-xs text-muted-foreground mb-1">Pagamento</p>
-                                <p className="text-sm font-semibold">{transaction.paymentMethod}</p>
-                              </div>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-4 flex-1">
+                          <div className={`p-3 rounded-full ${
+                            record.type === "receita" 
+                              ? "bg-success/10 text-success" 
+                              : "bg-destructive/10 text-destructive"
+                          }`}>
+                            {record.type === "receita" ? (
+                              <TrendingUp className="w-6 h-6" />
+                            ) : (
+                              <TrendingDown className="w-6 h-6" />
                             )}
                           </div>
-
-                          {transaction.notes && (
-                            <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                              {transaction.notes}
+                          
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-semibold text-lg">{record.description}</h3>
+                              <Badge 
+                                variant={
+                                  record.status === "pago" ? "default" :
+                                  record.status === "pendente" ? "secondary" :
+                                  "destructive"
+                                }
+                                className="text-xs"
+                              >
+                                {record.status}
+                              </Badge>
                             </div>
-                          )}
-                        </div>
+                            
+                            <div className="flex gap-3 text-sm text-muted-foreground flex-wrap">
+                              <span className="font-medium">{record.category}</span>
+                              <span>•</span>
+                              <span>{new Date(record.date).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: 'long', 
+                                year: 'numeric' 
+                              })}</span>
+                              {record.payment_method && (
+                                <>
+                                  <span>•</span>
+                                  <span>{record.payment_method}</span>
+                                </>
+                              )}
+                            </div>
 
-                        <div className="flex lg:flex-col gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenDialog(transaction)}
-                            className="flex-1 lg:flex-none"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDeleteDialog(transaction)}
-                            className="flex-1 lg:flex-none text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </Button>
+                            {record.notes && (
+                              <p className="text-sm text-muted-foreground mt-2 italic">
+                                "{record.notes}"
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col items-end gap-3">
+                          <div className={`text-2xl font-bold ${
+                            record.type === "receita" ? "text-success" : "text-destructive"
+                          }`}>
+                            {record.type === "receita" ? "+" : "-"} R$ {record.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </div>
+                          
+                          <div className="flex gap-1">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => handleOpenDialog(record)}
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Editar
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleDelete(record.id)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              {deleteMutation.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))
+              )}
+            </TabsContent>
+          );
+        })}
+      </Tabs>
 
-      {/* Dialog de Adicionar/Editar Transação */}
+      {/* DIALOG */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {selectedTransaction ? "Editar Transação" : "Nova Transação"}
-            </DialogTitle>
+            <DialogTitle>{selectedRecord ? "Editar" : "Nova"} Transação</DialogTitle>
             <DialogDescription>
-              Preencha as informações da transação
+              Preencha os dados da transação financeira
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Tipo *</label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value: "receita" | "despesa") =>
-                    setFormData({ ...formData, type: value, category: "" })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="receita">Receita</SelectItem>
-                    <SelectItem value="despesa">Despesa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Categoria *</label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryOptions[formData.type].map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium">Tipo</label>
+              <Select 
+                value={formData.type} 
+                onValueChange={(value: "receita" | "despesa") => 
+                  setFormData({ ...formData, type: value, category: "" })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="receita">Receita</SelectItem>
+                  <SelectItem value="despesa">Despesa</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Descrição *</label>
+            <div>
+              <label className="text-sm font-medium">Categoria</label>
+              <Select 
+                value={formData.category} 
+                onValueChange={(value) => setFormData({ ...formData, category: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions[formData.type].map((cat) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="text-sm font-medium">Descrição</label>
               <Input
-                placeholder="Ex: Pagamento de cliente X, Aluguel escritório..."
+                placeholder="Ex: Pagamento de cliente X"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Valor (R$) *</label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.amount || ""}
-                  onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Data *</label>
-                <Input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                />
-              </div>
+            <div>
+              <label className="text-sm font-medium">Valor (R$)</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.amount}
+                onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value: any) => setFormData({ ...formData, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pago">Pago</SelectItem>
-                    <SelectItem value="pendente">Pendente</SelectItem>
-                    <SelectItem value="atrasado">Atrasado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Forma de Pagamento</label>
-                <Input
-                  placeholder="Ex: PIX, Cartão, Boleto..."
-                  value={formData.paymentMethod}
-                  onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                />
-              </div>
+            <div>
+              <label className="text-sm font-medium">Data</label>
+              <Input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Observações</label>
-              <Textarea
-                placeholder="Informações adicionais sobre a transação..."
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={3}
+            <div>
+              <label className="text-sm font-medium">Status</label>
+              <Select 
+                value={formData.status} 
+                onValueChange={(value: any) => setFormData({ ...formData, status: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pago">Pago</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="atrasado">Atrasado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Método de Pagamento</label>
+              <Input
+                placeholder="Ex: Cartão de Crédito"
+                value={formData.payment_method}
+                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
               />
             </div>
           </div>
@@ -711,34 +600,18 @@ export const Financas = () => {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveTransaction}>
-              {selectedTransaction ? "Salvar Alterações" : "Adicionar Transação"}
+            <Button 
+              onClick={handleSave}
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              {(createMutation.isPending || updateMutation.isPending) && (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              )}
+              {selectedRecord ? "Atualizar" : "Criar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Dialog de Confirmação de Exclusão */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir a transação "{selectedTransaction?.description}"? Esta
-              ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteTransaction}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

@@ -16,6 +16,7 @@ export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProp
   const [searchOpen, setSearchOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const navigate = useNavigate();
 
   // Ativa atalhos de teclado para navegação rápida
@@ -23,16 +24,19 @@ export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProp
 
   const handleNavigate = (view: string) => {
     navigate(`/${view === 'dashboard' ? '' : view}`);
+    setMobileMenuOpen(false); // Fecha menu ao navegar
   };
 
   const handleViewChange = (view: string) => {
     navigate(`/${view === 'dashboard' ? '' : view}`);
+    setMobileMenuOpen(false); // Fecha menu ao navegar
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Topbar
         onOpenSearch={() => setSearchOpen(true)}
+        onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
       />
       
       <Sidebar 
@@ -40,13 +44,15 @@ export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProp
         onViewChange={handleViewChange}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
       />
 
       <main className={cn(
         "pt-[var(--topbar-height)] transition-all duration-300",
-        sidebarCollapsed ? "pl-[var(--sidebar-collapsed-width)]" : "pl-[var(--sidebar-width)]"
+        sidebarCollapsed ? "pl-0 md:pl-[var(--sidebar-collapsed-width)]" : "pl-0 md:pl-[var(--sidebar-width)]"
       )}>
-        <div className="p-4 lg:p-6 max-w-[1600px] mx-auto animate-in fade-in duration-300">
+        <div className="p-3 sm:p-4 lg:p-6 max-w-[1600px] mx-auto animate-in fade-in duration-300">
           {children}
         </div>
       </main>

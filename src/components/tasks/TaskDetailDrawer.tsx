@@ -39,12 +39,6 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
     availableTags, 
     projects, 
     leads,
-    addTaskActivity,
-    addTaskComment,
-    deleteTaskComment,
-    addChecklistItem,
-    deleteChecklistItem,
-    toggleChecklistItem,
   } = useStore();
   
   const [newComment, setNewComment] = useState("");
@@ -70,7 +64,10 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
       createdAt: new Date(),
       createdBy: "Você",
     };
-    addTaskComment(task.id, comment);
+    
+    // ✅ Salvar no backend via onUpdate
+    const updatedComments = [...task.comments, comment];
+    onUpdate({ comments: updatedComments });
     setNewComment("");
   };
 
@@ -84,14 +81,21 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
       createdBy: "Você",
       metadata: activityDuration ? { duration: parseInt(activityDuration) } : undefined,
     };
-    addTaskActivity(task.id, activity);
+    
+    // ✅ Salvar no backend via onUpdate
+    const updatedActivities = [...task.activities, activity];
+    onUpdate({ activities: updatedActivities });
     setActivityContent("");
     setActivityDuration("");
   };
 
   const handleAddChecklistItem = () => {
     if (!newChecklistItem.trim()) return;
-    addChecklistItem(task.id, newChecklistItem);
+    
+    // ✅ Salvar no backend via onUpdate
+    const newItem = { id: uuid(), text: newChecklistItem, done: false };
+    const updatedChecklist = [...task.checklist, newItem];
+    onUpdate({ checklist: updatedChecklist });
     setNewChecklistItem("");
   };
 
@@ -248,7 +252,13 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
                       <input 
                         type="checkbox" 
                         checked={c.done} 
-                        onChange={() => toggleChecklistItem(task.id, c.id)}
+                        onChange={() => {
+                          // ✅ Toggle no backend
+                          const updatedChecklist = task.checklist.map(item =>
+                            item.id === c.id ? { ...item, done: !item.done } : item
+                          );
+                          onUpdate({ checklist: updatedChecklist });
+                        }}
                         className="rounded"
                       />
                       <span className={`flex-1 text-sm ${c.done ? "line-through text-muted-foreground" : ""}`}>
@@ -258,7 +268,11 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                        onClick={() => deleteChecklistItem(task.id, c.id)}
+                        onClick={() => {
+                          // ✅ Deletar no backend
+                          const updatedChecklist = task.checklist.filter(item => item.id !== c.id);
+                          onUpdate({ checklist: updatedChecklist });
+                        }}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -432,7 +446,11 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                          onClick={() => deleteTaskComment(task.id, comment.id)}
+                          onClick={() => {
+                            // ✅ Deletar no backend
+                            const updatedComments = task.comments.filter(c => c.id !== comment.id);
+                            onUpdate({ comments: updatedComments });
+                          }}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>

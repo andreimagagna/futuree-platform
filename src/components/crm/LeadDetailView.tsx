@@ -1,6 +1,12 @@
 import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useStore, LeadStage, type Lead, type BANTMethodology, type Product, type Note, type Activity, type Settings } from "@/store/useStore";
+import { useSupabaseLeads } from "@/hooks/useSupabaseLeads";
+import { useSupabaseActivities } from "@/hooks/useSupabaseActivities";
+import { useSupabaseTasks } from "@/hooks/useSupabaseTasks";
+import { useLeadSources } from "@/hooks/useLeadSources";
+import { useAuth } from "@/hooks/useAuth";
+import { ActivityTimeline } from "./ActivityTimeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -90,10 +96,40 @@ interface TimelineItem {
 export const LeadDetailView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  // Buscar fontes de leads do Supabase (configuradas em Settings)
+  const { activeSources, isLoading: isLoadingLeadSources } = useLeadSources();
+  
+  // ============================================================================
+  // SUPABASE INTEGRATION
+  // ============================================================================
+  const { 
+    leads: supabaseLeads,
+    updateLead: updateSupabaseLead,
+    deleteLead: deleteSupabaseLead,
+  } = useSupabaseLeads({
+    filters: {
+      owner_id: user?.id,
+    },
+  });
+  
+  const { activities: supabaseActivities, createActivity, markAsCompleted, markAsPending } = useSupabaseActivities(id || undefined);
+  const { tasks: supabaseTasks, createTask, updateTask } = useSupabaseTasks(id || undefined);
+  
+  // ============================================================================
+  // LOCAL STORE (para funnels, tags, etc)
+  // ============================================================================
   const { leads, updateLead, addLead, deleteLead, notes, addNote, activities, addActivity, settings } = useStore();
-  const lead = leads.find((l) => l.id === id);
+  
+  // Buscar lead do Supabase primeiro, se não achar, busca do store local
+  const supabaseLead = supabaseLeads.find((l) => l.id === id);
+  const localLead = leads.find((l) => l.id === id);
+  const lead: any = supabaseLead || localLead; // Usar any para evitar conflito de tipos
+  
   const leadNotes = notes.filter((n) => n.leadId === id);
-  const leadActivities = activities.filter((a) => a.leadId === id);
+  // ✅ USAR ACTIVITIES DO SUPABASE ao invés do store local
+  const leadActivities = supabaseActivities || [];
   const { toast } = useToast();
 
   const [lostOpen, setLostOpen] = useState(false);
@@ -113,30 +149,101 @@ export const LeadDetailView = () => {
   const nextActionMissing = !nextActionText || !nextActionDate || !nextActionTime;
 
   const daysInStage = useMemo(() => {
-    if (!lead?.lastContact) return 0;
-    const diff = Date.now() - lead.lastContact.getTime();
+    const lastContactDate = lead?.last_contact_date || lead?.lastContact;
+    if (!lastContactDate) return 0;
+    const contactDate = typeof lastContactDate === 'string' ? new Date(lastContactDate) : lastContactDate;
+    const diff = Date.now() - contactDate.getTime();
     return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }, [lead?.lastContact]);
+  }, [lead]);
 
   const timelineItems = useMemo(() => buildTimeline(filters, leadNotes, leadActivities), [filters, leadNotes, leadActivities]);
 
   const followersCount = 3;
 
+  // ============================================================================
+  // WRAPPER: Atualizar lead no Supabase E no Store local
+  // ============================================================================
+  const handleUpdateLead = async (leadId: string, updates: Partial<any>) => {
+    try {
+      // Atualizar no Supabase
+      if (supabaseLead) {
+        // Preparar updates para o Supabase (mapear campos corretamente)
+        const supabaseUpdates: any = {};
+        
+        // Campos diretos que existem no schema
+        if (updates.score !== undefined) supabaseUpdates.score = updates.score;
+        if (updates.status) supabaseUpdates.status = updates.status;
+        if (updates.notes) supabaseUpdates.notes = updates.notes;
+        if (updates.tags) supabaseUpdates.tags = updates.tags;
+        if (updates.name) supabaseUpdates.name = updates.name;
+        if (updates.email) supabaseUpdates.email = updates.email;
+        if (updates.phone) supabaseUpdates.phone = updates.phone;
+        if (updates.whatsapp) supabaseUpdates.whatsapp = updates.whatsapp;
+        if (updates.position) supabaseUpdates.position = updates.position;
+        if (updates.source) supabaseUpdates.source = updates.source;
+        if (updates.campaign) supabaseUpdates.campaign = updates.campaign;
+        if (updates.medium) supabaseUpdates.medium = updates.medium;
+        if (updates.estimated_value) supabaseUpdates.estimated_value = updates.estimated_value;
+        if (updates.expected_close_date) supabaseUpdates.expected_close_date = updates.expected_close_date;
+        if (updates.next_action_date) supabaseUpdates.next_action_date = updates.next_action_date;
+        if (updates.last_contact_date) supabaseUpdates.last_contact_date = updates.last_contact_date;
+        
+        // ✅ MAPEAR campos do Store → Supabase
+        if (updates.dealValue !== undefined) supabaseUpdates.estimated_value = updates.dealValue;
+        if (updates.expectedCloseDate !== undefined) {
+          supabaseUpdates.expected_close_date = updates.expectedCloseDate instanceof Date 
+            ? updates.expectedCloseDate.toISOString().split('T')[0] 
+            : updates.expectedCloseDate;
+        }
+        
+        // Campos que vão para custom_fields (BANT, etc)
+        if (updates.bant || updates.wonDate || updates.lostDate || updates.lostReason || updates.lostCompetitor) {
+          const currentCustomFields = (supabaseLead as any).custom_fields || {};
+          supabaseUpdates.custom_fields = {
+            ...currentCustomFields,
+            ...(updates.bant && { bant: updates.bant }),
+            ...(updates.wonDate && { wonDate: updates.wonDate }),
+            ...(updates.lostDate && { lostDate: updates.lostDate }),
+            ...(updates.lostReason && { lostReason: updates.lostReason }),
+            ...(updates.lostCompetitor && { lostCompetitor: updates.lostCompetitor }),
+          };
+        }
+        
+        await updateSupabaseLead({
+          id: leadId,
+          updates: supabaseUpdates
+        });
+        console.log('[LeadDetailView] ✅ Lead atualizado no Supabase:', supabaseUpdates);
+      }
+      
+      // Atualizar no Store local também
+      updateLead(leadId, updates);
+    } catch (error) {
+      console.error('[LeadDetailView] ❌ Erro ao atualizar lead:', error);
+      toast({
+        title: "Erro ao atualizar lead",
+        description: "Não foi possível salvar as alterações",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleDuplicate = () => {
     if (!lead) return;
     
-    const duplicatedLead: Lead = {
+    const duplicatedLead: any = {
       ...lead,
       id: `lead-${Date.now()}`,
       name: `${lead.name} (Cópia)`,
       lastContact: new Date(),
+      last_contact_date: new Date().toISOString(),
     };
     
     addLead(duplicatedLead);
     navigate(`/crm/${duplicatedLead.id}`);
   };
 
-  const handleArchive = () => {
+  const handleArchive = async () => {
     if (!lead) return;
     
     // Add archived tag and update status
@@ -144,31 +251,38 @@ export const LeadDetailView = () => {
       ? lead.tags 
       : [...lead.tags, 'arquivado'];
     
-    updateLead(lead.id, { tags: archivedTags });
+    await handleUpdateLead(lead.id, { tags: archivedTags });
     navigate('/crm');
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!lead) return;
     
-    deleteLead(lead.id);
-    navigate('/crm');
+    try {
+      if (supabaseLead) {
+        await deleteSupabaseLead(lead.id);
+      }
+      deleteLead(lead.id);
+      navigate('/crm');
+    } catch (error) {
+      console.error('[LeadDetailView] ❌ Erro ao deletar lead:', error);
+    }
   };
 
-  const handleWon = () => {
+  const handleWon = async () => {
     if (!lead) return;
     
-    updateLead(lead.id, { 
-      status: 'won',
+    await handleUpdateLead(lead.id, { 
+      status: 'ganho', // ✅ ENUM CORRETO do Supabase
       wonDate: new Date()
     });
   };
 
-  const handleLost = () => {
+  const handleLost = async () => {
     if (!lead) return;
     
-    updateLead(lead.id, { 
-      status: 'lost',
+    await handleUpdateLead(lead.id, { 
+      status: 'perdido', // ✅ ENUM CORRETO do Supabase
       lostReason,
       lostCompetitor,
       lostDate: new Date()
@@ -177,28 +291,31 @@ export const LeadDetailView = () => {
     setLostOpen(false);
   };
 
-  const handleSaveNextAction = () => {
+  const handleSaveNextAction = async () => {
     if (!lead || nextActionMissing) return;
     
     // Combine date and time into a Date object
     const dateTimeString = `${nextActionDate}T${nextActionTime}`;
     const nextActionDate_obj = new Date(dateTimeString);
     
-    updateLead(lead.id, {
-      nextAction: nextActionDate_obj
+    // ✅ SALVAR NO SUPABASE (next_action_date)
+    await handleUpdateLead(lead.id, {
+      nextAction: nextActionDate_obj,
+      next_action_date: nextActionDate_obj.toISOString(),
     });
     
-    // Adicionar ao histórico
-    const newActivity: Activity = {
-      id: `activity-${Date.now()}`,
-      leadId: lead.id,
-      type: "nextAction",
-      content: `Próxima ação: ${nextActionText} - ${format(nextActionDate_obj, "dd/MM/yyyy 'às' HH:mm")}`,
-      createdAt: new Date(),
-      createdBy: lead.owner,
-    };
-    
-    addActivity(newActivity);
+    // Adicionar ao histórico usando useSupabaseActivities
+    try {
+      await createActivity({
+        lead_id: lead.id,
+        type: "nextAction",
+        title: `Próxima ação: ${nextActionText}`,
+        description: `Agendado para ${format(nextActionDate_obj, "dd/MM/yyyy 'às' HH:mm")}`,
+        activity_date: nextActionDate_obj.toISOString(),
+      });
+    } catch (error) {
+      console.error('[LeadDetailView] Erro ao criar activity:', error);
+    }
     
     // Show success message
     toast({
@@ -214,30 +331,31 @@ export const LeadDetailView = () => {
     setPriority("P2");
   };
 
-  const handleSaveNote = () => {
+  const handleSaveNote = async () => {
     if (!noteContent.trim() || !lead) return;
     
-    const newNote = {
-      id: `note-${Date.now()}`,
-      content: noteContent,
-      leadId: lead.id,
-      createdAt: new Date(),
-      createdBy: lead.owner, // Using lead owner as the creator
-    };
+    // ✅ SALVAR NOTA NO SUPABASE (notes field)
+    const currentNotes = (lead as any).notes || '';
+    const timestamp = format(new Date(), "dd/MM/yyyy HH:mm");
+    const newNoteText = `[${timestamp}] ${noteContent}`;
+    const updatedNotes = currentNotes ? `${currentNotes}\n\n${newNoteText}` : newNoteText;
     
-    addNote(newNote);
+    await handleUpdateLead(lead.id, {
+      notes: updatedNotes,
+    });
     
-    // Adicionar também ao histórico como activity
-    const newActivity: Activity = {
-      id: `activity-${Date.now()}`,
-      leadId: lead.id,
-      type: "note",
-      content: noteContent,
-      createdAt: new Date(),
-      createdBy: lead.owner,
-    };
+    // Adicionar também como activity para histórico
+    try {
+      await createActivity({
+        lead_id: lead.id,
+        type: "note",
+        title: "Nota adicionada",
+        description: noteContent,
+      });
+    } catch (error) {
+      console.error('[LeadDetailView] Erro ao criar activity:', error);
+    }
     
-    addActivity(newActivity);
     setNoteContent("");
     
     toast({
@@ -255,11 +373,11 @@ export const LeadDetailView = () => {
       {renderHeader({ lead, followersCount, daysInStage, setLostOpen, onWon: handleWon, onDuplicate: handleDuplicate, onArchive: handleArchive, onDeleteClick: () => setDeleteConfirmOpen(true) })}
 
       <div className="grid gap-4 xl:grid-cols-12">
-        {renderProfileColumn(lead, updateLead)}
+        {renderProfileColumn(lead, handleUpdateLead)}
 
         {renderCentralColumn({
           lead,
-          updateLead,
+          updateLead: handleUpdateLead,
           nextActionText,
           setNextActionText,
           nextActionDate,
@@ -274,6 +392,10 @@ export const LeadDetailView = () => {
           filters,
           setFilters,
           timelineItems,
+          leadActivities,
+          markAsCompleted,
+          markAsPending,
+          toast,
           onSaveNextAction: handleSaveNextAction,
           noteContent,
           setNoteContent,
@@ -288,8 +410,10 @@ export const LeadDetailView = () => {
           nextActionDate, 
           nextActionTime,
           daysInStage,
-          updateLead,
+          updateLead: handleUpdateLead,
           settings,
+          activeSources,
+          isLoadingLeadSources,
         })}
       </div>
 
@@ -345,7 +469,11 @@ function renderHeader({
   onArchive: () => void;
   onDeleteClick: () => void;
 }) {
-  const status = lead.status || 'open';
+  // ✅ CORRIGIDO: Considerar os status do Supabase (novo, contatado, qualificado, proposta, negociacao, ganho, perdido)
+  const status = (lead.status || 'open') as any;
+  const isWon = status === 'won' || status === 'ganho';
+  const isLost = status === 'lost' || status === 'perdido';
+  const isActive = !isWon && !isLost; // Qualquer status que não seja ganho ou perdido é ativo
   
   return (
     <div className="space-y-5">
@@ -362,11 +490,11 @@ function renderHeader({
                 {lead.company}
               </Link>
             </div>
-            {status !== "open" && (
+            {!isActive && (
               <Badge
-                className={status === "won" ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground"}
+                className={isWon ? "bg-success text-success-foreground" : "bg-destructive text-destructive-foreground"}
               >
-                {status === "won" ? "Ganho" : "Perdido"}
+                {isWon ? "Ganho" : "Perdido"}
               </Badge>
             )}
           </div>
@@ -381,10 +509,10 @@ function renderHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="sm" className="gap-2" onClick={onWon} disabled={status !== 'open'}>
+          <Button variant="secondary" size="sm" className="gap-2" onClick={onWon} disabled={!isActive}>
             <CheckCircle className="h-4 w-4" /> Ganho
           </Button>
-          <Button variant="secondary" size="sm" className="gap-2" onClick={() => setLostOpen(true)} disabled={status !== 'open'}>
+          <Button variant="secondary" size="sm" className="gap-2" onClick={() => setLostOpen(true)} disabled={!isActive}>
             <XCircle className="h-4 w-4" /> Perdido
           </Button>
           
@@ -459,7 +587,7 @@ function renderProfileColumn(
               </span>
               <Input 
                 type="number" 
-                defaultValue={lead.dealValue || 0} 
+                defaultValue={lead.dealValue || (lead as any).estimated_value || 0} 
                 placeholder="0,00"
                 step="0.01"
                 min={0}
@@ -514,16 +642,24 @@ function renderProfileColumn(
               <div className="flex items-center gap-2">
                 <Input
                   type="date"
-                  value={lead.expectedCloseDate ? new Date(lead.expectedCloseDate).toISOString().slice(0,10) : ''}
+                  value={
+                    lead.expectedCloseDate 
+                      ? new Date(lead.expectedCloseDate).toISOString().slice(0,10) 
+                      : ((lead as any).expected_close_date ? new Date((lead as any).expected_close_date).toISOString().slice(0,10) : '')
+                  }
                   onChange={(e) => {
                     const val = e.target.value;
                     const date = val ? new Date(`${val}T00:00:00`) : undefined;
                     updateLead(lead.id, { expectedCloseDate: date });
                   }}
                 />
-                {lead.expectedCloseDate && (
+                {(lead.expectedCloseDate || (lead as any).expected_close_date) && (
                   <Badge variant="secondary" className="text-xs">
-                    {format(new Date(lead.expectedCloseDate), "dd/MM/yyyy", { locale: ptBR })}
+                    {format(
+                      new Date(lead.expectedCloseDate || (lead as any).expected_close_date), 
+                      "dd/MM/yyyy", 
+                      { locale: ptBR }
+                    )}
                   </Badge>
                 )}
               </div>
@@ -640,6 +776,10 @@ function renderCentralColumn(params: {
   filters: TimelineFilterId[];
   setFilters: Dispatch<SetStateAction<TimelineFilterId[]>>;
   timelineItems: TimelineItem[];
+  leadActivities: any[];
+  markAsCompleted: (id: string) => Promise<any>;
+  markAsPending: (id: string) => Promise<any>;
+  toast: any;
   onSaveNextAction: () => void;
   noteContent: string;
   setNoteContent: (value: string) => void;
@@ -663,6 +803,10 @@ function renderCentralColumn(params: {
     filters,
     setFilters,
     timelineItems,
+    leadActivities,
+    markAsCompleted,
+    markAsPending,
+    toast,
     onSaveNextAction,
     noteContent,
     setNoteContent,
@@ -847,24 +991,24 @@ function renderCentralColumn(params: {
                 ))}
               </div>
 
-              <div className="space-y-3">
-                {timelineItems.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p className="text-sm">Nenhuma atividade registrada ainda</p>
-                    <p className="text-xs mt-1">O histórico de interações aparecerá aqui</p>
-                  </div>
-                ) : (
-                  timelineItems.map((item) => (
-                    <div key={item.id} className="flex items-start gap-3 rounded-lg border bg-card/80 p-3 shadow-sm">
-                      <Badge variant="secondary">{item.typeLabel}</Badge>
-                      <div className="space-y-1">
-                        <p className="text-sm text-foreground">{item.content}</p>
-                        <p className="text-xs text-muted-foreground">{format(item.date, "dd/MM/yyyy HH:mm")}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              {/* Nova Timeline com status visual */}
+              <ActivityTimeline
+                activities={leadActivities as any}
+                onMarkComplete={async (id) => {
+                  await markAsCompleted(id);
+                  toast({
+                    title: "Atividade concluída!",
+                    description: "A atividade foi marcada como concluída",
+                  });
+                }}
+                onMarkIncomplete={async (id) => {
+                  await markAsPending(id);
+                  toast({
+                    title: "Atividade reaberta",
+                    description: "A atividade foi marcada como pendente",
+                  });
+                }}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -1147,6 +1291,8 @@ function renderSummaryColumn({
   daysInStage,
   updateLead,
   settings,
+  activeSources,
+  isLoadingLeadSources,
 }: {
   lead: Lead;
   nextActionMissing: boolean;
@@ -1154,8 +1300,10 @@ function renderSummaryColumn({
   nextActionDate: string;
   nextActionTime: string;
   daysInStage: number;
-  updateLead: (id: string, updates: Partial<Lead>) => void;
+  updateLead: (id: string, updates: Partial<Lead>) => Promise<void>;
   settings: Settings;
+  activeSources: { id: string; name: string }[];
+  isLoadingLeadSources: boolean;
 }) {
   
   const getScoreColor = (score: number) => {
@@ -1173,8 +1321,10 @@ function renderSummaryColumn({
     return score;
   };
 
-  const handleBANTChange = (field: keyof BANTMethodology, value: boolean) => {
-    const currentBant = lead.bant || {
+  const handleBANTChange = async (field: keyof BANTMethodology, value: boolean) => {
+    // Buscar BANT do custom_fields se existir, senão usar bant do lead local
+    const customFieldsBant = (lead as any).custom_fields?.bant || {};
+    const currentBant = lead.bant || customFieldsBant || {
       budget: false,
       authority: false,
       need: false,
@@ -1184,38 +1334,50 @@ function renderSummaryColumn({
     const updatedBant = {
       ...currentBant,
       [field]: value,
-      qualifiedAt: currentBant.qualifiedAt || new Date(),
-      qualifiedBy: currentBant.qualifiedBy || lead.owner,
+      qualifiedAt: currentBant.qualifiedAt || new Date().toISOString(),
+      qualifiedBy: currentBant.qualifiedBy || (lead as any).owner_id || (lead as any).owner || 'Sistema',
     };
     
     const newScore = calculateBANTScore(updatedBant);
     
-    updateLead(lead.id, {
+    // Salvar usando a função updateLead passada por prop
+    await updateLead(lead.id, {
       bant: updatedBant,
       score: newScore,
     });
   };
 
+  // Buscar BANT do custom_fields ou do lead local
+  const leadBant = (lead as any).custom_fields?.bant || lead.bant || {
+    budget: false,
+    authority: false,
+    need: false,
+    timeline: false,
+  };
+
   return (
     <div className="space-y-4 xl:col-span-3">
-      {/* BANT Qualification Card */}
-      {lead.bant ? (
-        <Card className="border-2 border-primary/20">
+      {/* BANT Qualification Card - SEMPRE EDITÁVEL */}
+      <Card className={leadBant.budget || leadBant.authority || leadBant.need || leadBant.timeline 
+        ? "border-2 border-primary/20" 
+        : "border-2 border-dashed border-muted"}>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-success" />
+                <CheckCircle2 className={leadBant.budget || leadBant.authority || leadBant.need || leadBant.timeline 
+                  ? "h-5 w-5 text-success" 
+                  : "h-5 w-5 text-muted-foreground"} />
                 Qualificação BANT
               </CardTitle>
               <Badge variant="secondary" className={`${getScoreColor(lead.score)} font-bold`}>
-                {lead.score} pts
+                {lead.score || 0} pts
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {/* Budget */}
             <div className="flex items-center gap-3 p-2 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors cursor-pointer"
-                 onClick={() => handleBANTChange('budget', !lead.bant?.budget)}>
+                 onClick={() => handleBANTChange('budget', !leadBant?.budget)}>
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <DollarSign className="h-4 w-4 text-primary" />
               </div>
@@ -1224,7 +1386,7 @@ function renderSummaryColumn({
                 <p className="text-xs text-muted-foreground">Orçamento definido</p>
               </div>
               <Checkbox
-                checked={lead.bant.budget}
+                checked={leadBant.budget}
                 onCheckedChange={(checked) => handleBANTChange('budget', checked as boolean)}
                 className="h-5 w-5"
                 onClick={(e) => e.stopPropagation()}
@@ -1233,7 +1395,7 @@ function renderSummaryColumn({
 
             {/* Authority */}
             <div className="flex items-center gap-3 p-2 rounded-lg bg-accent/5 border border-accent/20 hover:bg-accent/10 transition-colors cursor-pointer"
-                 onClick={() => handleBANTChange('authority', !lead.bant?.authority)}>
+                 onClick={() => handleBANTChange('authority', !leadBant?.authority)}>
               <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
                 <Users className="h-4 w-4 text-accent-foreground" />
               </div>
@@ -1242,7 +1404,7 @@ function renderSummaryColumn({
                 <p className="text-xs text-muted-foreground">Fala com decisor</p>
               </div>
               <Checkbox
-                checked={lead.bant.authority}
+                checked={leadBant.authority}
                 onCheckedChange={(checked) => handleBANTChange('authority', checked as boolean)}
                 className="h-5 w-5"
                 onClick={(e) => e.stopPropagation()}
@@ -1251,7 +1413,7 @@ function renderSummaryColumn({
 
             {/* Need */}
             <div className="flex items-center gap-3 p-2 rounded-lg bg-warning/5 border border-warning/20 hover:bg-warning/10 transition-colors cursor-pointer"
-                 onClick={() => handleBANTChange('need', !lead.bant?.need)}>
+                 onClick={() => handleBANTChange('need', !leadBant?.need)}>
               <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
                 <Target className="h-4 w-4 text-warning-foreground" />
               </div>
@@ -1260,7 +1422,7 @@ function renderSummaryColumn({
                 <p className="text-xs text-muted-foreground">Necessidade clara</p>
               </div>
               <Checkbox
-                checked={lead.bant.need}
+                checked={leadBant.need}
                 onCheckedChange={(checked) => handleBANTChange('need', checked as boolean)}
                 className="h-5 w-5"
                 onClick={(e) => e.stopPropagation()}
@@ -1269,7 +1431,7 @@ function renderSummaryColumn({
 
             {/* Timeline */}
             <div className="flex items-center gap-3 p-2 rounded-lg bg-success/5 border border-success/20 hover:bg-success/10 transition-colors cursor-pointer"
-                 onClick={() => handleBANTChange('timeline', !lead.bant?.timeline)}>
+                 onClick={() => handleBANTChange('timeline', !leadBant?.timeline)}>
               <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
                 <Clock className="h-4 w-4 text-success-foreground" />
               </div>
@@ -1278,7 +1440,7 @@ function renderSummaryColumn({
                 <p className="text-xs text-muted-foreground">Prazo definido</p>
               </div>
               <Checkbox
-                checked={lead.bant.timeline}
+                checked={leadBant.timeline}
                 onCheckedChange={(checked) => handleBANTChange('timeline', checked as boolean)}
                 className="h-5 w-5"
                 onClick={(e) => e.stopPropagation()}
@@ -1286,42 +1448,29 @@ function renderSummaryColumn({
             </div>
 
             {/* Qualification Info */}
-            {lead.bant.qualifiedAt && (
+            {leadBant.qualifiedAt && (
               <div className="pt-2 border-t text-xs text-muted-foreground space-y-1">
                 <p>
                   <span className="font-medium">Qualificado:</span>{' '}
-                  {formatDistanceToNow(lead.bant.qualifiedAt, {
-                    addSuffix: true,
-                    locale: ptBR,
-                  })}
+                  {formatDistanceToNow(
+                    typeof leadBant.qualifiedAt === 'string' 
+                      ? new Date(leadBant.qualifiedAt) 
+                      : leadBant.qualifiedAt, 
+                    {
+                      addSuffix: true,
+                      locale: ptBR,
+                    }
+                  )}
                 </p>
-                {lead.bant.qualifiedBy && (
+                {leadBant.qualifiedBy && (
                   <p>
-                    <span className="font-medium">Por:</span> {lead.bant.qualifiedBy}
+                    <span className="font-medium">Por:</span> {leadBant.qualifiedBy}
                   </p>
                 )}
               </div>
             )}
           </CardContent>
         </Card>
-      ) : (
-        <Card className="border-2 border-dashed border-muted">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2 text-muted-foreground">
-              <AlertCircle className="h-5 w-5" />
-              Sem Qualificação BANT
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Este lead ainda não foi qualificado pela metodologia BANT.
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Score atual: <span className="font-semibold">{lead.score} pontos</span>
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
@@ -1361,16 +1510,22 @@ function renderSummaryColumn({
           <Select 
             value={lead.source} 
             onValueChange={(value) => updateLead(lead.id, { source: value })}
+            disabled={isLoadingLeadSources}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue placeholder={isLoadingLeadSources ? "Carregando..." : "Selecione a fonte"} />
             </SelectTrigger>
             <SelectContent>
-              {settings.leadSources.map((source) => (
-                <SelectItem key={source} value={source}>
-                  {source}
+              {activeSources.map((source) => (
+                <SelectItem key={source.id} value={source.name}>
+                  {source.name}
                 </SelectItem>
               ))}
+              {activeSources.length === 0 && !isLoadingLeadSources && (
+                <div className="p-2 text-xs text-muted-foreground text-center">
+                  Configure fontes em Configurações
+                </div>
+              )}
             </SelectContent>
           </Select>
         </CardContent>
@@ -1492,7 +1647,7 @@ function LostDealDialog({
   );
 }
 
-function buildTimeline(filters: TimelineFilterId[], notes: Note[], activities: Activity[]): TimelineItem[] {
+function buildTimeline(filters: TimelineFilterId[], notes: Note[], activities: any[]): TimelineItem[] {
   // Construir itens do histórico a partir das notas e activities
   const noteItems: TimelineItem[] = notes.map((note) => ({
     id: note.id,
@@ -1503,28 +1658,38 @@ function buildTimeline(filters: TimelineFilterId[], notes: Note[], activities: A
   }));
   
   const activityItems: TimelineItem[] = activities.map((activity) => {
-    const typeLabels = {
+    const typeLabels: Record<string, string> = {
       note: "Nota",
       call: "Chamada",
       email: "E-mail",
       wa: "WhatsApp",
+      whatsapp: "WhatsApp",
       file: "Arquivo",
       task: "Tarefa",
       nextAction: "Próxima Ação",
+      meeting: "Reunião",
+      status_change: "Mudança de Status",
     };
+    
+    // ✅ COMPATIBILIDADE: Supabase activities vs Store local
+    const activityType = activity.type || 'note';
+    const activityContent = activity.description || activity.title || activity.content || 'Sem descrição';
+    const activityDate = activity.created_at 
+      ? new Date(activity.created_at) 
+      : (activity.activity_date ? new Date(activity.activity_date) : (activity.createdAt || new Date()));
     
     return {
       id: activity.id,
-      type: activity.type as Exclude<TimelineFilterId, "all">,
-      typeLabel: typeLabels[activity.type],
-      content: activity.content,
-      date: activity.createdAt,
+      type: activityType as Exclude<TimelineFilterId, "all">,
+      typeLabel: typeLabels[activityType] || activityType,
+      content: activityContent,
+      date: activityDate,
     };
   });
   
   const items = [...noteItems, ...activityItems];
 
-  const activeFilters = filters.includes("all") ? ["note", "call", "email", "wa", "file", "task", "nextAction"] : filters;
+  const activeFilters = filters.includes("all") ? ["note", "call", "email", "wa", "whatsapp", "file", "task", "nextAction", "meeting", "status_change"] : filters;
   return items
     .filter((item) => activeFilters.includes(item.type))
     .sort((a, b) => b.date.getTime() - a.date.getTime());

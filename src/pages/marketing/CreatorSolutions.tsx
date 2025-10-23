@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCreatorSolutions } from '@/store/creatorSolutionsStore';
+import { 
+  useCreatorIdentity, 
+  useContentPillars, 
+  useEditorialCalendar, 
+  useContentIdeas 
+} from '@/hooks/useCreatorAPI';
 import { 
   User, 
   Target, 
@@ -11,7 +16,8 @@ import {
   BarChart3,
   TrendingUp,
   Users,
-  DollarSign
+  DollarSign,
+  Loader2
 } from 'lucide-react';
 import { CreatorIdentityForm } from '@/components/creator/CreatorIdentityForm';
 import { ContentPillarsManager } from '@/components/creator/ContentPillarsManager';
@@ -21,8 +27,15 @@ import { StorytellingGenerator } from '@/components/creator/StorytellingGenerato
 import { Badge } from '@/components/ui/badge';
 
 export function CreatorSolutions() {
-  const { identity, pillars, calendar, ideas } = useCreatorSolutions();
+  // 🔥 INTEGRAÇÃO COM SUPABASE - Usando React Query
+  const { data: identity, isLoading: loadingIdentity } = useCreatorIdentity();
+  const { data: pillars = [], isLoading: loadingPillars } = useContentPillars();
+  const { data: calendar = [], isLoading: loadingCalendar } = useEditorialCalendar();
+  const { data: ideas = [], isLoading: loadingIdeas } = useContentIdeas();
+  
   const [activeTab, setActiveTab] = useState('identity');
+  
+  const isLoading = loadingIdentity || loadingPillars || loadingCalendar || loadingIdeas;
 
   // Statistics
   const stats = {
@@ -40,21 +53,20 @@ export function CreatorSolutions() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">
-                Creator Solutions
-              </h1>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Header Padronizado */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Creator Solutions</h1>
+          <p className="text-muted-foreground">Crie conteúdo estratégico e fortaleça sua presença digital</p>
         </div>
+        {isLoading && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Carregando...</span>
+          </div>
+        )}
+      </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -63,7 +75,13 @@ export function CreatorSolutions() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Pilares Ativos</p>
-                  <p className="text-2xl font-bold">{stats.pillars}</p>
+                  <p className="text-2xl font-bold">
+                    {loadingPillars ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      stats.pillars
+                    )}
+                  </p>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <Target className="w-5 h-5 text-primary" />
@@ -77,7 +95,13 @@ export function CreatorSolutions() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Conteúdos Planejados</p>
-                  <p className="text-2xl font-bold">{stats.scheduledContent}</p>
+                  <p className="text-2xl font-bold">
+                    {loadingCalendar ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      stats.scheduledContent
+                    )}
+                  </p>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
                   <Calendar className="w-5 h-5 text-accent" />
@@ -91,7 +115,13 @@ export function CreatorSolutions() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Publicados</p>
-                  <p className="text-2xl font-bold">{stats.publishedContent}</p>
+                  <p className="text-2xl font-bold">
+                    {loadingCalendar ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      stats.publishedContent
+                    )}
+                  </p>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
                   <BarChart3 className="w-5 h-5 text-success" />
@@ -105,7 +135,13 @@ export function CreatorSolutions() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Ideias</p>
-                  <p className="text-2xl font-bold">{stats.activeIdeas}</p>
+                  <p className="text-2xl font-bold">
+                    {loadingIdeas ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      stats.activeIdeas
+                    )}
+                  </p>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
                   <Lightbulb className="w-5 h-5 text-warning" />
@@ -117,7 +153,7 @@ export function CreatorSolutions() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5">
             <TabsTrigger value="identity" className="gap-2">
               <User className="w-4 h-4" />
               <span className="hidden sm:inline">Identidade</span>
@@ -284,6 +320,5 @@ export function CreatorSolutions() {
           </Card>
         )}
       </div>
-    </div>
   );
 }

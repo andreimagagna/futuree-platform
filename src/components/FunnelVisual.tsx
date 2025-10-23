@@ -281,12 +281,22 @@ export const FunnelVisual = () => {
     }
     
     if (leadStage) {
-      // ✨ REGRA ESPECIAL: Só vai para "Vendas" se tiver status "won"
       let finalCategory = leadStage.category;
       
-      if (finalCategory === 'vendas' && lead.status !== 'won') {
-        // Se a categoria seria "vendas" mas o lead não está "won",
-        // considera como "fundo" (ainda não fechou)
+      // ✨ REGRA ESPECIAL: Status sobrepõe categoria do estágio
+      const statusStr = String(lead.status || '').toLowerCase();
+      const isWon = statusStr === 'won' || statusStr === 'ganho';
+      const isLost = statusStr === 'lost' || statusStr === 'perdido';
+      
+      if (isWon) {
+        // Lead ganho SEMPRE vai para "Vendas", independente do estágio
+        finalCategory = 'vendas';
+      } else if (isLost) {
+        // Lead perdido não entra em nenhuma categoria (pode adicionar categoria "perdidos" se quiser)
+        return; // Pula este lead
+      } else if (finalCategory === 'vendas') {
+        // Se a categoria seria "vendas" mas o lead não está ganho,
+        // considera como "fundo" (ainda em negociação)
         finalCategory = 'fundo';
       }
       
@@ -300,6 +310,29 @@ export const FunnelVisual = () => {
         // Adicionar nome da etapa se ainda não estiver
         if (!categoryMetrics[categoryIndex].stageNames.includes(leadStage.name)) {
           categoryMetrics[categoryIndex].stageNames.push(leadStage.name);
+        }
+      }
+    } else {
+      // Lead sem estágio definido - categorizar pelo status
+      const statusStr = String(lead.status || '').toLowerCase();
+      const isWon = statusStr === 'won' || statusStr === 'ganho';
+      const isLost = statusStr === 'lost' || statusStr === 'perdido';
+      
+      if (isWon) {
+        // Lead ganho vai para Vendas
+        const vendasIndex = categoryMetrics.findIndex(c => c.category === 'vendas');
+        if (vendasIndex !== -1) {
+          categoryMetrics[vendasIndex].count++;
+          categoryMetrics[vendasIndex].totalValue += lead.dealValue || 0;
+          categoryMetrics[vendasIndex].leads.push(lead);
+        }
+      } else if (!isLost) {
+        // Lead sem estágio e não perdido vai para Topo por padrão
+        const topoIndex = categoryMetrics.findIndex(c => c.category === 'topo');
+        if (topoIndex !== -1) {
+          categoryMetrics[topoIndex].count++;
+          categoryMetrics[topoIndex].totalValue += lead.dealValue || 0;
+          categoryMetrics[topoIndex].leads.push(lead);
         }
       }
     }
@@ -454,7 +487,10 @@ export const FunnelVisual = () => {
   const atRiskLeads = leads.filter(lead => {
     const lastContactDate = lead.lastContact || new Date();
     const daysSinceContact = Math.floor((now.getTime() - lastContactDate.getTime()) / (1000 * 60 * 60 * 24));
-    return daysSinceContact > 14 && lead.status !== 'won' && lead.status !== 'lost';
+    const statusStr = String(lead.status || '').toLowerCase();
+    const isWon = statusStr === 'won' || statusStr === 'ganho';
+    const isLost = statusStr === 'lost' || statusStr === 'perdido';
+    return daysSinceContact > 14 && !isWon && !isLost;
   });
   
   // Análise de risco por score
@@ -561,8 +597,9 @@ export const FunnelVisual = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Visão Geral do Funil</h2>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Funil de Vendas</h1>
+          <p className="text-muted-foreground">Visualize e analise seu pipeline de vendas</p>
         </div>
         <Button variant="outline" size="sm">
           <Filter className="h-4 w-4 mr-2" />
@@ -624,7 +661,7 @@ export const FunnelVisual = () => {
           </CardHeader>
           <CardContent>
             <div className={`text-3xl font-bold ${getConversionColor(overallConversion)}`}>
-              {overallConversion.toFixed(1)}%
+              {Math.round(overallConversion)}%
             </div>
             <p className="text-xs text-muted-foreground mt-1">topo → vendas</p>
           </CardContent>
@@ -678,7 +715,7 @@ export const FunnelVisual = () => {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="flex items-center justify-between p-2 rounded bg-muted/50">
                     <span className="text-muted-foreground">Conversão</span>
-                    <span className="font-semibold">{overallConversion.toFixed(0)}%</span>
+                    <span className="font-semibold">{Math.round(overallConversion)}%</span>
                   </div>
                   <div className="flex items-center justify-between p-2 rounded bg-muted/50">
                     <span className="text-muted-foreground">Leads</span>
@@ -1016,7 +1053,7 @@ export const FunnelVisual = () => {
                           Conversão
                         </div>
                         <div className={`text-2xl font-bold ${getConversionColor(metric.conversionRate)}`}>
-                          {metric.conversionRate.toFixed(1)}%
+                          {Math.round(metric.conversionRate)}%
                         </div>
                       </div>
                     )}
@@ -1042,7 +1079,7 @@ export const FunnelVisual = () => {
                       }}
                     >
                       <span className="text-xs font-bold text-white">
-                        {((metric.count / totalLeads) * 100).toFixed(0)}%
+                        {Math.round((metric.count / totalLeads) * 100)}%
                       </span>
                     </div>
                   </div>
@@ -1083,7 +1120,7 @@ export const FunnelVisual = () => {
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-medium">{lead.name}</span>
-                                  {lead.status === 'won' && (
+                                  {(String(lead.status).toLowerCase() === 'won' || String(lead.status).toLowerCase() === 'ganho') && (
                                     <Badge variant="default" className="bg-success text-success-foreground gap-1">
                                       <Award className="h-3 w-3" />
                                       Ganho
@@ -1162,7 +1199,7 @@ export const FunnelVisual = () => {
                     {metric.count} leads
                   </span>
                   <span className="text-sm font-bold">
-                    {((metric.count / totalLeads) * 100 || 0).toFixed(1)}%
+                    {Math.round((metric.count / totalLeads) * 100) || 0}%
                   </span>
                 </div>
               </div>

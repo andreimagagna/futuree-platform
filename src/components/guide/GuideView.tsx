@@ -119,6 +119,7 @@ export const GuideView = ({ onNavigate }: GuideViewProps = {}) => {
       description: 'Automatize processos e workflows',
       color: 'text-warning',
       path: '/automations',
+      comingSoon: true,
       items: [
         { title: 'Triggers Inteligentes', desc: 'Ative ações baseadas em eventos' },
         { title: 'Workflows Visuais', desc: 'Crie fluxos de automação com drag-and-drop' },
@@ -266,6 +267,7 @@ export const GuideView = ({ onNavigate }: GuideViewProps = {}) => {
           <div className="grid gap-4">
             {features.map((feature) => {
               const Icon = feature.icon;
+              const isComingSoon = !!feature.comingSoon;
               return (
                 <Card key={feature.id} className="hover:shadow-lg transition-all">
                   <CardHeader>
@@ -275,26 +277,26 @@ export const GuideView = ({ onNavigate }: GuideViewProps = {}) => {
                           <Icon className={`h-6 w-6 ${feature.color}`} />
                         </div>
                         <div>
-                          <CardTitle className="text-xl">{feature.title}</CardTitle>
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-xl">{feature.title}</CardTitle>
+                            {isComingSoon && (
+                              <Badge variant="secondary" className="text-xs">Em Breve</Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground mt-1">
                             {feature.description}
                           </p>
                         </div>
                       </div>
-                      {feature.comingSoon ? (
-                        <Badge variant="secondary" className="text-xs">
-                          Em Breve
-                        </Badge>
-                      ) : (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleNavigate(feature.path)}
-                        >
-                          Acessar
-                          <ArrowRight className="h-4 w-4 ml-2" />
-                        </Button>
-                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        disabled={isComingSoon}
+                        onClick={() => !isComingSoon && handleNavigate(feature.path)}
+                      >
+                        {isComingSoon ? 'Em Breve' : 'Acessar'}
+                        {!isComingSoon && <ArrowRight className="h-4 w-4 ml-2" />}
+                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent>

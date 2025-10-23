@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,45 +7,43 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCreatorSolutions } from '@/store/creatorSolutionsStore';
-import { Plus, Target, TrendingUp, Users, DollarSign, Edit, Trash2, X } from 'lucide-react';
-import type { ContentPillar } from '@/types/creator';
+import { useContentPillars, useCreateContentPillar, useUpdateContentPillar, useDeleteContentPillar } from '@/hooks/useCreatorAPI';
+import { Plus, Target, TrendingUp, Users, DollarSign, Edit, Trash2, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const OBJECTIVE_CONFIG = {
-  attraction: { label: 'Atração', icon: Users, color: 'bg-primary' },
-  authority: { label: 'Autoridade', icon: Target, color: 'bg-accent' },
-  engagement: { label: 'Engajamento', icon: TrendingUp, color: 'bg-success' },
-  conversion: { label: 'Conversão', icon: DollarSign, color: 'bg-warning' },
+  attraction: { label: 'Atração', icon: Users, color: 'bg-blue-500' },
+  authority: { label: 'Autoridade', icon: Target, color: 'bg-purple-500' },
+  engagement: { label: 'Engajamento', icon: TrendingUp, color: 'bg-green-500' },
+  conversion: { label: 'Conversão', icon: DollarSign, color: 'bg-orange-500' },
 };
 
 const PILLAR_COLORS = [
-  { value: 'hsl(0, 50%, 45%)', label: 'Vermelho Terroso' },
-  { value: 'hsl(35, 60%, 55%)', label: 'Laranja' },
-  { value: 'hsl(45, 70%, 50%)', label: 'Amarelo' },
-  { value: 'hsl(140, 30%, 40%)', label: 'Verde' },
-  { value: 'hsl(180, 25%, 45%)', label: 'Turquesa' },
-  { value: 'hsl(200, 15%, 45%)', label: 'Cinza Azulado' },
-  { value: 'hsl(25, 40%, 35%)', label: 'Marrom Quente' },
-  { value: 'hsl(30, 10%, 45%)', label: 'Cinza-Marrom' },
+  { value: '#ef4444', label: 'Vermelho' },
+  { value: '#f97316', label: 'Laranja' },
+  { value: '#eab308', label: 'Amarelo' },
+  { value: '#22c55e', label: 'Verde' },
+  { value: '#06b6d4', label: 'Ciano' },
+  { value: '#3b82f6', label: 'Azul' },
+  { value: '#8b5cf6', label: 'Roxo' },
+  { value: '#ec4899', label: 'Rosa' },
 ];
 
 export function ContentPillarsManager() {
-  const { pillars, addPillar, updatePillar, deletePillar } = useCreatorSolutions();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingPillar, setEditingPillar] = useState<ContentPillar | null>(null);
+  const { toast } = useToast();
+  const { data: pillars = [], isLoading } = useContentPillars();
+  const { mutate: createPillar, isPending: isCreating } = useCreateContentPillar();
+  const { mutate: updatePillar, isPending: isUpdating } = useUpdateContentPillar();
+  const { mutate: deletePillar } = useDeleteContentPillar();
 
-  const [formData, setFormData] = useState<Partial<ContentPillar>>({
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingPillar, setEditingPillar] = useState<any>(null);
+  const [formData, setFormData] = useState({
     name: '',
     description: '',
     color: PILLAR_COLORS[0].value,
-    objective: 'attraction',
-    keywords: [],
-    examples: [],
-    frequency: 1,
+    objective: 'attraction' as 'attraction' | 'authority' | 'engagement' | 'conversion',
   });
-
-  const [newKeyword, setNewKeyword] = useState('');
-  const [newExample, setNewExample] = useState('');
 
   const resetForm = () => {
     setFormData({
@@ -53,18 +51,18 @@ export function ContentPillarsManager() {
       description: '',
       color: PILLAR_COLORS[0].value,
       objective: 'attraction',
-      keywords: [],
-      examples: [],
-      frequency: 1,
     });
-    setNewKeyword('');
-    setNewExample('');
     setEditingPillar(null);
   };
 
-  const handleOpenDialog = (pillar?: ContentPillar) => {
+  const handleOpenDialog = (pillar?: any) => {
     if (pillar) {
-      setFormData(pillar);
+      setFormData({
+        name: pillar.name || '',
+        description: pillar.description || '',
+        color: pillar.color || PILLAR_COLORS[0].value,
+        objective: pillar.objective || 'attraction',
+      });
       setEditingPillar(pillar);
     } else {
       resetForm();
@@ -73,74 +71,73 @@ export function ContentPillarsManager() {
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.description) return;
-
-    const pillarData: ContentPillar = {
-      id: editingPillar?.id || `pillar-${Date.now()}`,
-      name: formData.name,
-      description: formData.description,
-      color: formData.color || PILLAR_COLORS[0].value,
-      objective: formData.objective || 'attraction',
-      keywords: formData.keywords || [],
-      examples: formData.examples || [],
-      frequency: formData.frequency,
-    };
-
-    if (editingPillar) {
-      updatePillar(editingPillar.id, pillarData);
-    } else {
-      addPillar(pillarData);
+    if (!formData.name.trim()) {
+      toast({
+        title: 'Nome obrigatório',
+        description: 'O pilar precisa ter um nome.',
+        variant: 'destructive',
+      });
+      return;
     }
 
-    setIsDialogOpen(false);
-    resetForm();
+    if (editingPillar) {
+      updatePillar(
+        { id: editingPillar.id, data: formData },
+        {
+          onSuccess: () => {
+            toast({ title: 'Pilar atualizado!', description: 'Suas alterações foram salvas.' });
+            setIsDialogOpen(false);
+            resetForm();
+          },
+          onError: () => {
+            toast({ title: 'Erro ao atualizar', variant: 'destructive' });
+          },
+        }
+      );
+    } else {
+      createPillar(formData, {
+        onSuccess: () => {
+          toast({ title: 'Pilar criado!', description: 'Novo pilar adicionado com sucesso.' });
+          setIsDialogOpen(false);
+          resetForm();
+        },
+        onError: () => {
+          toast({ title: 'Erro ao criar', variant: 'destructive' });
+        },
+      });
+    }
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este pilar?')) {
-      deletePillar(id);
-    }
-  };
+    if (!confirm('Tem certeza que deseja excluir este pilar?')) return;
 
-  const addKeyword = () => {
-    if (!newKeyword.trim()) return;
-    setFormData({
-      ...formData,
-      keywords: [...(formData.keywords || []), newKeyword.trim()],
-    });
-    setNewKeyword('');
-  };
-
-  const removeKeyword = (keyword: string) => {
-    setFormData({
-      ...formData,
-      keywords: formData.keywords?.filter((k) => k !== keyword),
+    deletePillar(id, {
+      onSuccess: () => {
+        toast({ title: 'Pilar excluído', description: 'O pilar foi removido.' });
+      },
+      onError: () => {
+        toast({ title: 'Erro ao excluir', variant: 'destructive' });
+      },
     });
   };
 
-  const addExample = () => {
-    if (!newExample.trim()) return;
-    setFormData({
-      ...formData,
-      examples: [...(formData.examples || []), newExample.trim()],
-    });
-    setNewExample('');
-  };
-
-  const removeExample = (example: string) => {
-    setFormData({
-      ...formData,
-      examples: formData.examples?.filter((e) => e !== example),
-    });
-  };
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-12 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Pilares de Conteúdo</h2>
-          <p className="text-muted-foreground">
-            Defina de 3 a 5 pilares que representem a essência do seu conteúdo
+          <h3 className="text-lg font-semibold">Pilares de Conteúdo</h3>
+          <p className="text-sm text-muted-foreground">
+            Defina os temas principais do seu conteúdo
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -150,147 +147,86 @@ export function ContentPillarsManager() {
               Novo Pilar
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>{editingPillar ? 'Editar Pilar' : 'Novo Pilar de Conteúdo'}</DialogTitle>
+              <DialogTitle>{editingPillar ? 'Editar Pilar' : 'Novo Pilar'}</DialogTitle>
               <DialogDescription>
-                Defina um pilar estratégico para organizar seu conteúdo
+                Crie pilares estratégicos para organizar seu conteúdo
               </DialogDescription>
             </DialogHeader>
-
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="pillar-name">Nome do Pilar *</Label>
+                <Label htmlFor="name">Nome do Pilar *</Label>
                 <Input
-                  id="pillar-name"
+                  id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Educação Financeira, Mindset, Produtividade..."
+                  placeholder="Ex: Dicas de Produtividade"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="pillar-description">Descrição *</Label>
+                <Label htmlFor="description">Descrição</Label>
                 <Textarea
-                  id="pillar-description"
+                  id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descreva do que se trata esse pilar e por que é importante"
+                  placeholder="Descreva o foco deste pilar..."
                   rows={3}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Cor</Label>
-                  <Select
-                    value={formData.color}
-                    onValueChange={(value) => setFormData({ ...formData, color: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PILLAR_COLORS.map((color) => (
-                        <SelectItem key={color.value} value={color.value}>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color.value }} />
-                            {color.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Objetivo</Label>
-                  <Select
-                    value={formData.objective}
-                    onValueChange={(value: any) => setFormData({ ...formData, objective: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(OBJECTIVE_CONFIG).map(([key, config]) => (
-                        <SelectItem key={key} value={key}>
+              <div className="space-y-2">
+                <Label htmlFor="objective">Objetivo</Label>
+                <Select
+                  value={formData.objective}
+                  onValueChange={(value: any) => setFormData({ ...formData, objective: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(OBJECTIVE_CONFIG).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex items-center gap-2">
+                          <config.icon className="w-4 h-4" />
                           {config.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Palavras-chave</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newKeyword}
-                    onChange={(e) => setNewKeyword(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addKeyword())}
-                    placeholder="Adicione palavras-chave relacionadas"
-                  />
-                  <Button type="button" onClick={addKeyword} size="icon">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.keywords?.map((keyword) => (
-                    <Badge key={keyword} variant="secondary" className="gap-1">
-                      {keyword}
-                      <X className="w-3 h-3 cursor-pointer" onClick={() => removeKeyword(keyword)} />
-                    </Badge>
+                <Label>Cor</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {PILLAR_COLORS.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, color: color.value })}
+                      className={`h-10 rounded-lg border-2 transition-all ${
+                        formData.color === color.value ? 'border-primary scale-110' : 'border-transparent'
+                      }`}
+                      style={{ backgroundColor: color.value }}
+                      title={color.label}
+                    />
                   ))}
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Exemplos de Temas</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={newExample}
-                    onChange={(e) => setNewExample(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addExample())}
-                    placeholder="Ex: Como economizar 30% da renda"
-                  />
-                  <Button type="button" onClick={addExample} size="icon">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <ul className="space-y-1 mt-2">
-                  {formData.examples?.map((example, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-sm">
-                      <span className="text-primary">•</span>
-                      <span className="flex-1">{example}</span>
-                      <X
-                        className="w-4 h-4 cursor-pointer text-muted-foreground hover:text-destructive"
-                        onClick={() => removeExample(example)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="frequency">Frequência Semanal Ideal</Label>
-                <Input
-                  id="frequency"
-                  type="number"
-                  min="1"
-                  max="7"
-                  value={formData.frequency}
-                  onChange={(e) => setFormData({ ...formData, frequency: parseInt(e.target.value) || 1 })}
-                />
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="flex-1">
-                  Cancelar
+                <Button
+                  onClick={handleSave}
+                  disabled={isCreating || isUpdating || !formData.name.trim()}
+                  className="flex-1"
+                >
+                  {(isCreating || isUpdating) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {editingPillar ? 'Salvar' : 'Criar'}
                 </Button>
-                <Button onClick={handleSave} disabled={!formData.name || !formData.description} className="flex-1">
-                  {editingPillar ? 'Salvar Alterações' : 'Criar Pilar'}
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancelar
                 </Button>
               </div>
             </div>
@@ -299,12 +235,12 @@ export function ContentPillarsManager() {
       </div>
 
       {pillars.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Target className="w-12 h-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum pilar criado ainda</h3>
-            <p className="text-sm text-muted-foreground text-center mb-4">
-              Comece criando seus primeiros pilares de conteúdo
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Target className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum pilar criado</h3>
+            <p className="text-muted-foreground mb-4">
+              Crie pilares para organizar seu conteúdo estrategicamente
             </p>
             <Button onClick={() => handleOpenDialog()}>
               <Plus className="w-4 h-4 mr-2" />
@@ -315,29 +251,28 @@ export function ContentPillarsManager() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {pillars.map((pillar) => {
-            const ObjectiveIcon = OBJECTIVE_CONFIG[pillar.objective].icon;
+            const ObjectiveIcon = OBJECTIVE_CONFIG[pillar.objective as keyof typeof OBJECTIVE_CONFIG]?.icon || Target;
             return (
-              <Card key={pillar.id} className="border-2 hover:shadow-lg transition-shadow">
-                <CardHeader>
+              <Card key={pillar.id} className="relative overflow-hidden">
+                <div
+                  className="absolute top-0 left-0 w-1 h-full"
+                  style={{ backgroundColor: pillar.color || '#3b82f6' }}
+                />
+                <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div
-                        className="w-3 h-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: pillar.color }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-lg truncate">{pillar.name}</CardTitle>
-                        <CardDescription className="flex items-center gap-1 text-xs">
-                          <ObjectiveIcon className="w-3 h-3" />
-                          {OBJECTIVE_CONFIG[pillar.objective].label}
-                        </CardDescription>
-                      </div>
+                    <div className="flex-1">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <ObjectiveIcon className="w-5 h-5" />
+                        {pillar.name}
+                      </CardTitle>
+                      <Badge variant="secondary" className="mt-2">
+                        {OBJECTIVE_CONFIG[pillar.objective as keyof typeof OBJECTIVE_CONFIG]?.label || 'Atração'}
+                      </Badge>
                     </div>
                     <div className="flex gap-1">
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8"
                         onClick={() => handleOpenDialog(pillar)}
                       >
                         <Edit className="w-4 h-4" />
@@ -345,38 +280,20 @@ export function ContentPillarsManager() {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-destructive"
                         onClick={() => handleDelete(pillar.id)}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground line-clamp-2">{pillar.description}</p>
-                  
-                  {pillar.keywords.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {pillar.keywords.slice(0, 3).map((keyword) => (
-                        <Badge key={keyword} variant="outline" className="text-xs">
-                          {keyword}
-                        </Badge>
-                      ))}
-                      {pillar.keywords.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{pillar.keywords.length - 3}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-
-                  {pillar.frequency && (
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-medium">{pillar.frequency}x</span> por semana
-                    </div>
-                  )}
-                </CardContent>
+                {pillar.description && (
+                  <CardContent className="pt-0">
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {pillar.description}
+                    </p>
+                  </CardContent>
+                )}
               </Card>
             );
           })}

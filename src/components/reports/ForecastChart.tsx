@@ -30,7 +30,7 @@ const ForecastChart = ({ data }: ForecastChartProps) => {
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-primary">
-              {achievementRate.toFixed(0)}%
+              {Math.round(achievementRate)}%
             </div>
             <div className="text-sm text-muted-foreground flex items-center gap-1">
               <Target className="h-4 w-4" />
@@ -129,7 +129,7 @@ const ForecastChart = ({ data }: ForecastChartProps) => {
           </div>
           <div className="text-center p-3 rounded-lg bg-muted/50">
             <div className="text-sm text-muted-foreground">Atingimento</div>
-            <div className="text-lg font-bold text-primary">{achievementRate.toFixed(0)}%</div>
+            <div className="text-lg font-bold text-primary">{Math.round(achievementRate)}%</div>
           </div>
         </div>
       </CardContent>

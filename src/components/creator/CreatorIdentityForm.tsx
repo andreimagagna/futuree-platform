@@ -1,475 +1,402 @@
-import { useState } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { useCreatorSolutions } from '@/store/creatorSolutionsStore';
-import { Sparkles, User, Heart, Target, MessageSquare, Plus, X } from 'lucide-react';
-import type { CreatorIdentity } from '@/types/creator';
+import { useCreatorIdentity, useUpsertCreatorIdentity } from '@/hooks/useCreatorAPI';
+import { Sparkles, User, Target, MessageSquare, Plus, X, Loader2, Users } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export function CreatorIdentityForm() {
-  const { identity, setIdentity, updateIdentity } = useCreatorSolutions();
-  const [isEditing, setIsEditing] = useState(!identity);
+  const { toast } = useToast();
+  const { data: identity, isLoading } = useCreatorIdentity();
+  const { mutate: upsertIdentity, isPending } = useUpsertCreatorIdentity();
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    niche: '',
+    bio: '',
+    target_audience: [] as string[],
+    objectives: {
+      attraction: false,
+      authority: false,
+      engagement: false,
+      conversion: false,
+    },
+    tone_of_voice: '',
+  });
 
-  const [formData, setFormData] = useState<Partial<CreatorIdentity>>(
-    identity || {
-      name: '',
-      positioning: '',
-      personality: [],
-      purpose: '',
-      voiceAndTone: {
-        voice: '',
-        tone: '',
-        vocabulary: [],
-      },
-      storytelling: {
-        origin: '',
-        journey: '',
-        impact: '',
-        differentials: [],
-      },
+  const [newAudience, setNewAudience] = useState('');
+
+  useEffect(() => {
+    if (identity) {
+      setFormData({
+        name: identity.name || '',
+        niche: identity.niche || '',
+        bio: identity.bio || '',
+        target_audience: identity.target_audience || [],
+        objectives: {
+          attraction: identity.objectives?.attraction || false,
+          authority: identity.objectives?.authority || false,
+          engagement: identity.objectives?.engagement || false,
+          conversion: identity.objectives?.conversion || false,
+        },
+        tone_of_voice: identity.tone_of_voice || '',
+      });
     }
-  );
-
-  const [newPersonalityTrait, setNewPersonalityTrait] = useState('');
-  const [newVocabularyWord, setNewVocabularyWord] = useState('');
-  const [newDifferential, setNewDifferential] = useState('');
+  }, [identity]);
 
   const handleSave = () => {
-    if (!formData.name) return;
-
-    const identityData: CreatorIdentity = {
-      id: identity?.id || `identity-${Date.now()}`,
-      name: formData.name,
-      positioning: formData.positioning || '',
-      personality: formData.personality || [],
-      purpose: formData.purpose || '',
-      voiceAndTone: formData.voiceAndTone || { voice: '', tone: '', vocabulary: [] },
-      storytelling: formData.storytelling || { origin: '', journey: '', impact: '', differentials: [] },
-      createdAt: identity?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (identity) {
-      updateIdentity(identityData);
-    } else {
-      setIdentity(identityData);
+    if (!formData.name || !formData.niche) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Preencha nome e nicho para continuar.',
+        variant: 'destructive',
+      });
+      return;
     }
 
-    setIsEditing(false);
-  };
-
-  const addPersonalityTrait = () => {
-    if (!newPersonalityTrait.trim()) return;
-    setFormData({
-      ...formData,
-      personality: [...(formData.personality || []), newPersonalityTrait.trim()],
-    });
-    setNewPersonalityTrait('');
-  };
-
-  const removePersonalityTrait = (trait: string) => {
-    setFormData({
-      ...formData,
-      personality: formData.personality?.filter((t) => t !== trait),
-    });
-  };
-
-  const addVocabularyWord = () => {
-    if (!newVocabularyWord.trim()) return;
-    setFormData({
-      ...formData,
-      voiceAndTone: {
-        ...formData.voiceAndTone!,
-        vocabulary: [...(formData.voiceAndTone?.vocabulary || []), newVocabularyWord.trim()],
+    upsertIdentity(formData, {
+      onSuccess: () => {
+        toast({
+          title: 'Identidade salva!',
+          description: 'Suas informações foram atualizadas com sucesso.',
+        });
+        setIsEditing(false);
       },
-    });
-    setNewVocabularyWord('');
-  };
-
-  const removeVocabularyWord = (word: string) => {
-    setFormData({
-      ...formData,
-      voiceAndTone: {
-        ...formData.voiceAndTone!,
-        vocabulary: formData.voiceAndTone?.vocabulary.filter((w) => w !== word) || [],
+      onError: (error: any) => {
+        toast({
+          title: 'Erro ao salvar',
+          description: error.message || 'Tente novamente.',
+          variant: 'destructive',
+        });
       },
     });
   };
 
-  const addDifferential = () => {
-    if (!newDifferential.trim()) return;
+  const addAudience = () => {
+    if (!newAudience.trim()) return;
     setFormData({
       ...formData,
-      storytelling: {
-        ...formData.storytelling!,
-        differentials: [...(formData.storytelling?.differentials || []), newDifferential.trim()],
-      },
+      target_audience: [...formData.target_audience, newAudience.trim()],
     });
-    setNewDifferential('');
+    setNewAudience('');
   };
 
-  const removeDifferential = (diff: string) => {
+  const removeAudience = (audience: string) => {
     setFormData({
       ...formData,
-      storytelling: {
-        ...formData.storytelling!,
-        differentials: formData.storytelling?.differentials.filter((d) => d !== diff) || [],
-      },
+      target_audience: formData.target_audience.filter((a) => a !== audience),
     });
   };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-12 flex flex-col items-center justify-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Carregando identidade...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!isEditing && identity) {
     return (
       <div className="space-y-6">
-        {/* Header Card */}
-        <Card className="border-2 border-primary/20 bg-muted/50">
+        <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-2xl shadow-lg">
                   {identity.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
                   <CardTitle className="text-2xl">{identity.name}</CardTitle>
-                  <CardDescription className="text-base">{identity.positioning}</CardDescription>
+                  <CardDescription className="text-base mt-1">{identity.niche}</CardDescription>
                 </div>
               </div>
               <Button onClick={() => setIsEditing(true)} variant="outline">
                 <Sparkles className="w-4 h-4 mr-2" />
-                Editar Identidade
+                Editar
               </Button>
             </div>
           </CardHeader>
         </Card>
 
-        {/* Personality & Purpose */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <User className="w-5 h-5" />
-                Personalidade
+                Bio
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {identity.bio || 'Nenhuma bio definida'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Target className="w-5 h-5" />
+                Objetivos
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {identity.personality.map((trait) => (
-                  <Badge key={trait} variant="secondary">
-                    {trait}
+                {identity.objectives?.attraction && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Users className="w-3 h-3" />
+                    Atração
+                  </Badge>
+                )}
+                {identity.objectives?.authority && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Target className="w-3 h-3" />
+                    Autoridade
+                  </Badge>
+                )}
+                {identity.objectives?.engagement && (
+                  <Badge variant="secondary" className="gap-1">
+                    <MessageSquare className="w-3 h-3" />
+                    Engajamento
+                  </Badge>
+                )}
+                {identity.objectives?.conversion && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    Conversão
+                  </Badge>
+                )}
+                {!Object.values(identity.objectives || {}).some(v => v) && (
+                  <p className="text-sm text-muted-foreground">Nenhum objetivo definido</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {identity.target_audience && identity.target_audience.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Users className="w-5 h-5" />
+                Público-Alvo
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {identity.target_audience.map((audience, idx) => (
+                  <Badge key={idx} variant="outline" className="px-3 py-1">
+                    {audience}
                   </Badge>
                 ))}
               </div>
             </CardContent>
           </Card>
+        )}
 
+        {identity.tone_of_voice && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                Propósito
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <MessageSquare className="w-5 h-5" />
+                Tom de Voz
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">{identity.purpose}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {identity.tone_of_voice}
+              </p>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Voice & Tone */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5" />
-              Voz e Tom
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs text-muted-foreground">Voz</Label>
-                <p className="font-medium">{identity.voiceAndTone.voice}</p>
-              </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Tom</Label>
-                <p className="font-medium">{identity.voiceAndTone.tone}</p>
-              </div>
-            </div>
-            {identity.voiceAndTone.vocabulary.length > 0 && (
-              <div>
-                <Label className="text-xs text-muted-foreground mb-2 block">Vocabulário Característico</Label>
-                <div className="flex flex-wrap gap-2">
-                  {identity.voiceAndTone.vocabulary.map((word) => (
-                    <Badge key={word} variant="outline">
-                      {word}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Storytelling */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Heart className="w-5 h-5" />
-              Storytelling Base
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="text-sm font-semibold">Origem</Label>
-              <p className="text-sm text-muted-foreground mt-1">{identity.storytelling.origin}</p>
-            </div>
-            <div>
-              <Label className="text-sm font-semibold">Jornada</Label>
-              <p className="text-sm text-muted-foreground mt-1">{identity.storytelling.journey}</p>
-            </div>
-            <div>
-              <Label className="text-sm font-semibold">Impacto Desejado</Label>
-              <p className="text-sm text-muted-foreground mt-1">{identity.storytelling.impact}</p>
-            </div>
-            {identity.storytelling.differentials.length > 0 && (
-              <div>
-                <Label className="text-sm font-semibold mb-2 block">Diferenciais</Label>
-                <ul className="space-y-1">
-                  {identity.storytelling.differentials.map((diff, idx) => (
-                    <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <span className="text-primary mt-1">•</span>
-                      <span>{diff}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5" />
-            {identity ? 'Editar Identidade do Creator' : 'Criar Identidade do Creator'}
-          </CardTitle>
-          <CardDescription>
-            Defina quem você é, o que você representa e como se comunica com seu público
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Nome e Posicionamento */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome do Creator *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ex: João Silva"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="positioning">Posicionamento</Label>
-              <Input
-                id="positioning"
-                value={formData.positioning}
-                onChange={(e) => setFormData({ ...formData, positioning: e.target.value })}
-                placeholder="Ex: Creator de produtividade para empreendedores"
-              />
-            </div>
-          </div>
-
-          {/* Propósito */}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5" />
+          {identity ? 'Editar Identidade' : 'Criar Identidade do Creator'}
+        </CardTitle>
+        <CardDescription>
+          Defina quem você é, seu nicho e como se comunica com seu público
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="purpose">Propósito / Missão</Label>
-            <Textarea
-              id="purpose"
-              value={formData.purpose}
-              onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-              placeholder="Ex: Ajudar empreendedores a otimizarem seu tempo e alcançarem mais resultados com menos esforço"
-              rows={3}
+            <Label htmlFor="name">Nome / Nome Artístico *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Seu nome como creator"
             />
           </div>
 
-          {/* Personalidade */}
           <div className="space-y-2">
-            <Label>Traços de Personalidade</Label>
-            <div className="flex gap-2">
-              <Input
-                value={newPersonalityTrait}
-                onChange={(e) => setNewPersonalityTrait(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPersonalityTrait())}
-                placeholder="Ex: Autêntico, Inspirador, Técnico..."
-              />
-              <Button type="button" onClick={addPersonalityTrait} size="icon">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formData.personality?.map((trait) => (
-                <Badge key={trait} variant="secondary" className="gap-1">
-                  {trait}
-                  <X className="w-3 h-3 cursor-pointer" onClick={() => removePersonalityTrait(trait)} />
-                </Badge>
-              ))}
-            </div>
+            <Label htmlFor="niche">Nicho *</Label>
+            <Input
+              id="niche"
+              value={formData.niche}
+              onChange={(e) => setFormData({ ...formData, niche: e.target.value })}
+              placeholder="Ex: Design, Marketing, Tecnologia..."
+            />
           </div>
+        </div>
 
-          {/* Voz e Tom */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="voice">Voz</Label>
-              <Input
-                id="voice"
-                value={formData.voiceAndTone?.voice}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    voiceAndTone: { ...formData.voiceAndTone!, voice: e.target.value },
-                  })
-                }
-                placeholder="Ex: Amigável, Profissional, Irreverente"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tone">Tom</Label>
-              <Input
-                id="tone"
-                value={formData.voiceAndTone?.tone}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    voiceAndTone: { ...formData.voiceAndTone!, tone: e.target.value },
-                  })
-                }
-                placeholder="Ex: Motivacional, Educativo, Humorístico"
-              />
-            </div>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="bio">Bio</Label>
+          <Textarea
+            id="bio"
+            value={formData.bio}
+            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+            placeholder="Conte um pouco sobre você e seu trabalho..."
+            rows={4}
+          />
+        </div>
 
-          {/* Vocabulário */}
-          <div className="space-y-2">
-            <Label>Vocabulário Característico</Label>
-            <div className="flex gap-2">
-              <Input
-                value={newVocabularyWord}
-                onChange={(e) => setNewVocabularyWord(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addVocabularyWord())}
-                placeholder="Palavras e expressões que você usa com frequência"
-              />
-              <Button type="button" onClick={addVocabularyWord} size="icon">
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formData.voiceAndTone?.vocabulary.map((word) => (
-                <Badge key={word} variant="outline" className="gap-1">
-                  {word}
-                  <X className="w-3 h-3 cursor-pointer" onClick={() => removeVocabularyWord(word)} />
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* Storytelling */}
-          <div className="space-y-4 border-t pt-4">
-            <h3 className="font-semibold text-lg">Storytelling Base</h3>
-            
-            <div className="space-y-2">
-              <Label htmlFor="origin">Origem - De onde você veio?</Label>
-              <Textarea
-                id="origin"
-                value={formData.storytelling?.origin}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    storytelling: { ...formData.storytelling!, origin: e.target.value },
-                  })
-                }
-                placeholder="Conte sua história de origem, seu background, de onde começou..."
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="journey">Jornada - Como chegou até aqui?</Label>
-              <Textarea
-                id="journey"
-                value={formData.storytelling?.journey}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    storytelling: { ...formData.storytelling!, journey: e.target.value },
-                  })
-                }
-                placeholder="Descreva sua trajetória, os desafios, as transformações..."
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="impact">Impacto - Que diferença quer fazer?</Label>
-              <Textarea
-                id="impact"
-                value={formData.storytelling?.impact}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    storytelling: { ...formData.storytelling!, impact: e.target.value },
-                  })
-                }
-                placeholder="Qual impacto você deseja gerar nas pessoas que te seguem?"
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Diferenciais - O que te torna único?</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={newDifferential}
-                  onChange={(e) => setNewDifferential(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addDifferential())}
-                  placeholder="Ex: 10 anos de experiência, metodologia própria..."
-                />
-                <Button type="button" onClick={addDifferential} size="icon">
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-              <ul className="space-y-1 mt-2">
-                {formData.storytelling?.differentials.map((diff, idx) => (
-                  <li key={idx} className="flex items-center gap-2 text-sm">
-                    <span className="text-primary">•</span>
-                    <span className="flex-1">{diff}</span>
-                    <X className="w-4 h-4 cursor-pointer text-muted-foreground hover:text-destructive" onClick={() => removeDifferential(diff)} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t">
-            {identity && (
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
-                Cancelar
-              </Button>
-            )}
-            <Button onClick={handleSave} disabled={!formData.name} className="flex-1">
-              <Sparkles className="w-4 h-4 mr-2" />
-              {identity ? 'Salvar Alterações' : 'Criar Identidade'}
+        <div className="space-y-2">
+          <Label>Público-Alvo</Label>
+          <div className="flex gap-2">
+            <Input
+              value={newAudience}
+              onChange={(e) => setNewAudience(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addAudience())}
+              placeholder="Ex: Empreendedores, Designers..."
+            />
+            <Button type="button" onClick={addAudience} size="icon">
+              <Plus className="w-4 h-4" />
             </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          {formData.target_audience.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.target_audience.map((audience, idx) => (
+                <Badge key={idx} variant="secondary" className="gap-1 px-3 py-1">
+                  {audience}
+                  <X
+                    className="w-3 h-3 cursor-pointer hover:text-destructive"
+                    onClick={() => removeAudience(audience)}
+                  />
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <Label>Objetivos de Conteúdo</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+              <input
+                type="checkbox"
+                id="attraction"
+                checked={formData.objectives.attraction}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    objectives: { ...formData.objectives, attraction: e.target.checked },
+                  })
+                }
+                className="w-4 h-4 rounded"
+              />
+              <Label htmlFor="attraction" className="cursor-pointer flex-1">
+                <span className="font-medium">Atração</span>
+                <p className="text-xs text-muted-foreground">Conquistar novos seguidores</p>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+              <input
+                type="checkbox"
+                id="authority"
+                checked={formData.objectives.authority}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    objectives: { ...formData.objectives, authority: e.target.checked },
+                  })
+                }
+                className="w-4 h-4 rounded"
+              />
+              <Label htmlFor="authority" className="cursor-pointer flex-1">
+                <span className="font-medium">Autoridade</span>
+                <p className="text-xs text-muted-foreground">Demonstrar expertise</p>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+              <input
+                type="checkbox"
+                id="engagement"
+                checked={formData.objectives.engagement}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    objectives: { ...formData.objectives, engagement: e.target.checked },
+                  })
+                }
+                className="w-4 h-4 rounded"
+              />
+              <Label htmlFor="engagement" className="cursor-pointer flex-1">
+                <span className="font-medium">Engajamento</span>
+                <p className="text-xs text-muted-foreground">Criar conexão</p>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
+              <input
+                type="checkbox"
+                id="conversion"
+                checked={formData.objectives.conversion}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    objectives: { ...formData.objectives, conversion: e.target.checked },
+                  })
+                }
+                className="w-4 h-4 rounded"
+              />
+              <Label htmlFor="conversion" className="cursor-pointer flex-1">
+                <span className="font-medium">Conversão</span>
+                <p className="text-xs text-muted-foreground">Gerar vendas</p>
+              </Label>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="tone_of_voice">Tom de Voz</Label>
+          <Textarea
+            id="tone_of_voice"
+            value={formData.tone_of_voice}
+            onChange={(e) => setFormData({ ...formData, tone_of_voice: e.target.value })}
+            placeholder="Ex: Inspirador e acessível, técnico mas didático, casual e bem-humorado..."
+            rows={3}
+          />
+        </div>
+
+        <div className="flex gap-3 pt-4 border-t">
+          <Button onClick={handleSave} disabled={isPending || !formData.name || !formData.niche} className="flex-1">
+            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <Sparkles className="w-4 h-4 mr-2" />
+            Salvar Identidade
+          </Button>
+          {identity && (
+            <Button variant="outline" onClick={() => setIsEditing(false)}>
+              Cancelar
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

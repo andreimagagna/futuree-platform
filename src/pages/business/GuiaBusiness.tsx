@@ -54,12 +54,13 @@ const GuiaBusiness = () => {
       description: 'Gestão de operações e processos diários',
       color: 'text-green-500',
       path: '/business/operacional',
+      comingSoon: true,
       items: [
         { title: 'Processos & SOPs', desc: 'Padronize procedimentos operacionais' },
         { title: 'Gestão de Recursos', desc: 'Alocação de equipe e materiais' },
         { title: 'Indicadores Operacionais', desc: 'Produtividade, eficiência e qualidade' },
         { title: 'Cadeia de Suprimentos', desc: 'Fornecedores, estoque e logística' },
-        { title: 'Automação de Processos', desc: 'Workflows e integrações automatizadas' },
+  { title: 'Automação de Processos', desc: 'Workflows e integrações automatizadas', comingSoon: true },
         { title: 'Controle de Qualidade', desc: 'Métricas de performance e satisfação' },
       ]
     },
@@ -122,7 +123,7 @@ const GuiaBusiness = () => {
         { title: 'Templates de Negócio', desc: 'Modelos prontos para diferentes áreas' },
         { title: 'Databases Conectadas', desc: 'CRM, projetos e tarefas sincronizados' },
         { title: 'Dashboards Notion', desc: 'Visões personalizadas e relatórios' },
-        { title: 'Automações', desc: 'Integre com Zapier e Make' },
+  { title: 'Automações', desc: 'Integre com Zapier e Make', comingSoon: true },
         { title: 'Colaboração', desc: 'Workspaces compartilhados com o time' },
         { title: 'Wiki Empresarial', desc: 'Base de conhecimento centralizada' },
       ]
@@ -257,8 +258,9 @@ const GuiaBusiness = () => {
           <div className="grid gap-4">
             {businessFeatures.map((feature) => {
               const Icon = feature.icon;
+              const isComingSoon = feature.comingSoon;
               return (
-                <Card key={feature.id} className="hover:shadow-lg transition-all">
+                <Card key={feature.id} className="hover:shadow-lg transition-all opacity-100">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
@@ -266,7 +268,12 @@ const GuiaBusiness = () => {
                           <Icon className={`h-6 w-6 ${feature.color}`} />
                         </div>
                         <div>
-                          <CardTitle className="text-xl">{feature.title}</CardTitle>
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-xl">{feature.title}</CardTitle>
+                            {isComingSoon && (
+                              <Badge variant="secondary" className="text-xs">Em Breve</Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground mt-1">
                             {feature.description}
                           </p>
@@ -275,10 +282,11 @@ const GuiaBusiness = () => {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleNavigate(feature.path)}
+                        disabled={isComingSoon}
+                        onClick={() => !isComingSoon && handleNavigate(feature.path)}
                       >
-                        Acessar
-                        <ArrowRight className="h-4 w-4 ml-2" />
+                        {isComingSoon ? 'Em Breve' : 'Acessar'}
+                        {!isComingSoon && <ArrowRight className="h-4 w-4 ml-2" />}
                       </Button>
                     </div>
                   </CardHeader>
