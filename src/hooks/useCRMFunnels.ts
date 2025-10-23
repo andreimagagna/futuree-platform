@@ -346,9 +346,11 @@ export function useSyncCRMFunnelsToStore() {
     const dbIds = new Set(convertedFunnels.map(f => f.id));
     const storeIds = new Set(storeFunnels.map(f => f.id));
 
-    // Remove funis que não existem mais no DB
+    // Remove funis que não existem mais no DB (mas não remove funis mockados/locais)
     storeFunnels.forEach(storeFunnel => {
-      if (!dbIds.has(storeFunnel.id) && !storeFunnel.id.startsWith('default')) {
+      // Só remove se não estiver no DB e não for um funil local (identificado por não ter created_at)
+      const isMockFunnel = !storeFunnel.createdAt; // Funis mockados não têm createdAt
+      if (!dbIds.has(storeFunnel.id) && !isMockFunnel) {
         console.log('[useSyncCRMFunnelsToStore] 🗑️ Removendo funil:', storeFunnel.name);
         deleteFunnel(storeFunnel.id);
       }

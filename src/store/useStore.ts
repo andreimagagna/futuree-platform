@@ -272,7 +272,7 @@ interface StoreState {
 // Mock data
 const mockFunnels: Funnel[] = [
   {
-    id: 'default',
+    id: crypto.randomUUID(),
     name: 'Funil Padrão',
     isDefault: true,
     stages: [
@@ -284,7 +284,7 @@ const mockFunnels: Funnel[] = [
     ],
   },
   {
-    id: 'enterprise',
+    id: crypto.randomUUID(),
     name: 'Funil Enterprise',
     isDefault: false,
     stages: [
@@ -444,10 +444,18 @@ export const useStore = create<StoreState>((set) => ({
   updateFunnel: (id, updates) => set((state) => ({
     funnels: state.funnels.map((f) => (f.id === id ? { ...f, ...updates } : f)),
   })),
-  deleteFunnel: (id) => set((state) => ({ 
-    funnels: state.funnels.filter((f) => f.id !== id),
-    activeFunnelId: state.activeFunnelId === id ? 'default' : state.activeFunnelId,
-  })),
+  deleteFunnel: (id) => set((state) => {
+    const remainingFunnels = state.funnels.filter((f) => f.id !== id);
+    const defaultFunnel = remainingFunnels.find(f => f.isDefault);
+    const firstFunnel = remainingFunnels[0];
+    
+    return {
+      funnels: remainingFunnels,
+      activeFunnelId: state.activeFunnelId === id 
+        ? (defaultFunnel?.id || firstFunnel?.id || state.activeFunnelId)
+        : state.activeFunnelId,
+    };
+  }),
   addStageToFunnel: (funnelId, stage) => set((state) => ({
     funnels: state.funnels.map((f) => 
       f.id === funnelId ? { ...f, stages: [...f.stages, stage] } : f

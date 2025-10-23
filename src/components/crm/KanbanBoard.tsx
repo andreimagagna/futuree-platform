@@ -414,7 +414,7 @@ export const KanbanBoard = () => {
     }
     
     // Update lead stage no Store local
-    if (activeFunnelId === 'default') {
+    if (activeFunnel.isDefault) {
       updateLead(draggedLead.id, { stage: stageId as any });
     } else {
       updateLead(draggedLead.id, { 
@@ -428,7 +428,7 @@ export const KanbanBoard = () => {
 
   const getLeadsForStage = (stageId: string) => {
     let stageLeads: Lead[];
-    if (activeFunnelId === 'default') {
+    if (activeFunnel.isDefault) {
       stageLeads = filteredLeads.filter((l) => l.stage === stageId);
     } else {
       stageLeads = filteredLeads.filter((l) => l.customStageId === stageId);
