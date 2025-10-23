@@ -147,10 +147,10 @@ const Reports = () => {
       
       console.log('📊 Reports - Buscando leads do Supabase...');
       
-      // ✅ RLS já filtra por usuário, não precisa de .eq('owner_id')
       const { data, error } = await supabase
         .from('leads')
         .select('id, name, status, funnel_stage, estimated_value, created_at, updated_at, score, email, phone, whatsapp, source, tags, notes, company_id')
+        .eq('owner_id', user?.id)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -196,10 +196,10 @@ const Reports = () => {
       
       console.log('📊 Reports - Buscando tasks do Supabase...');
       
-      // ✅ RLS já filtra por usuário
       const { data, error } = await supabase
         .from('tasks')
         .select('id, title, description, status, priority, due_date, created_at, updated_at, completed_at, assigned_to, tags, checklist, created_by')
+        .eq('created_by', user?.id)
         .order('created_at', { ascending: false });
       
       if (error) {
