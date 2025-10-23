@@ -656,6 +656,38 @@ export default function ConstrutorFunil() {
     });
   };
 
+  const handleClearFunnel = () => {
+    const hasSavedFunnels = (savedFunnels as any[] || []).length > 0;
+    
+    if (!hasSavedFunnels) {
+      toast({
+        title: "Não é possível limpar",
+        description: "Você precisa ter pelo menos um funil salvo antes de limpar o canvas.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Confirmar antes de limpar
+    if (nodes.length > 0) {
+      if (!confirm('Tem certeza que deseja limpar o funil atual? Esta ação não pode ser desfeita.')) {
+        return;
+      }
+    }
+
+    // Limpar canvas
+    setNodes([]);
+    setConnections([]);
+    setSelectedNode(null);
+    setEditingConnection(null);
+    setIsConnecting(null);
+
+    toast({
+      title: "Canvas limpo!",
+      description: "O funil foi removido. Você pode começar do zero ou carregar um funil salvo.",
+    });
+  };
+
   const executeFunnel = () => {
     const startNode = nodes.find(node => node.type === 'start');
     if (!startNode) {
@@ -1189,6 +1221,15 @@ export default function ConstrutorFunil() {
           <Button variant="outline" size="sm" onClick={loadFunnels}>
             <FolderOpen className="w-4 h-4 mr-2" />
             Carregar
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleClearFunnel}
+            className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Limpar
           </Button>
           <Button size="sm" onClick={openSaveDialog}>
             <Save className="w-4 h-4 mr-2" />

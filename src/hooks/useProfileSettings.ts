@@ -84,9 +84,32 @@ export const useProfileSettings = () => {
         throw error;
       }
       
+      // Se não encontrar perfil, criar um novo
       if (!data) {
-        console.warn('[useProfileSettings] ⚠️ Dados vazios retornados!');
-        throw new Error('Perfil não encontrado');
+        console.warn('[useProfileSettings] ⚠️ Perfil não existe. Criando novo perfil...');
+        
+        const newProfile = {
+          id: user.id,
+          email: user.email || '',
+          nome: user.email?.split('@')[0] || '',
+          full_name: user.email?.split('@')[0] || '',
+          role: 'user' as const,
+          preferences: {},
+        };
+        
+        const { data: createdProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert([newProfile])
+          .select()
+          .maybeSingle();
+        
+        if (createError) {
+          console.error('[useProfileSettings] ❌ Erro ao criar perfil:', createError);
+          throw createError;
+        }
+        
+        console.log('[useProfileSettings] ✅ Perfil criado com sucesso!');
+        return createdProfile as Profile;
       }
       
       const profile = data as any;
