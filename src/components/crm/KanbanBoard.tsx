@@ -538,11 +538,23 @@ export const KanbanBoard = () => {
     
     try {
       if (deleteTarget.type === 'funnel') {
-        await deleteFunnelMutation.mutateAsync(deleteTarget.id);
-        console.log('✅ Funil deletado com sucesso');
+        // Se for funil mockado, remove apenas do store local
+        if (deleteTarget.id.startsWith('mock-')) {
+          deleteFunnel(deleteTarget.id);
+          console.log('✅ Funil mockado removido localmente');
+        } else {
+          // Funil real: deleta do Supabase
+          await deleteFunnelMutation.mutateAsync(deleteTarget.id);
+          console.log('✅ Funil deletado com sucesso');
+        }
       } else if (deleteTarget.type === 'stage' && deleteTarget.funnelId) {
-        await deleteStageMutation.mutateAsync(deleteTarget.id);
-        console.log('✅ Estágio deletado com sucesso');
+        // Se for estágio mockado, remove apenas do store local
+        if (deleteTarget.id.startsWith('mock-')) {
+          console.log('⚠️ Estágios mockados não podem ser deletados individualmente');
+        } else {
+          await deleteStageMutation.mutateAsync(deleteTarget.id);
+          console.log('✅ Estágio deletado com sucesso');
+        }
       } else if (deleteTarget.type === 'tag') {
         await deleteTagMutation.mutateAsync(deleteTarget.id);
         console.log('✅ Tag deletada com sucesso');
