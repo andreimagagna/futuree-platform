@@ -7,19 +7,17 @@
  */
 
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
 
 export function AuthPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const navigate = useNavigate();
-  const location = useLocation();
 
   const handleSuccess = () => {
-    // Redireciona para a rota de origem (se houver) ou para o dashboard
-    const from = (location.state as any)?.from?.pathname || '/dashboard';
-    navigate(from, { replace: true });
+    // Redireciona para o dashboard após login/signup bem-sucedido
+    navigate('/');
   };
 
   return (
