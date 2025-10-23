@@ -1219,12 +1219,13 @@ export const KanbanBoard = () => {
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            {!funnel.isDefault && (
+                            {funnels.length > 1 && (
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 className="text-destructive hover:text-destructive"
                                 onClick={() => handleDeleteClick('funnel', funnel.id)}
+                                title={funnel.isDefault ? "Você pode deletar o funil padrão desde que tenha outros funis" : "Deletar funil"}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1336,12 +1337,13 @@ export const KanbanBoard = () => {
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            {!activeFunnel.isDefault && (
+                            {activeFunnel.stages.length > 1 && (
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 className="text-destructive hover:text-destructive"
                                 onClick={() => handleDeleteClick('stage', stage.id, activeFunnelId)}
+                                title="Você pode deletar desde que haja pelo menos 1 estágio restante"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
