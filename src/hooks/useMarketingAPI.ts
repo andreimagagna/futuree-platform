@@ -180,6 +180,7 @@ export function useCampaigns() {
       const { data, error } = await supabaseClient
         .from('marketing_campaigns')
         .select('*')
+        .eq('owner_id', user?.id)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -225,6 +226,7 @@ export function useCreateCampaign() {
 
 export function useUpdateCampaign() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Campaign> }) => {
@@ -237,6 +239,7 @@ export function useUpdateCampaign() {
         .from('marketing_campaigns')
         .update(updateData)
         .eq('id', id)
+        .eq('owner_id', user?.id)
         .select();
       
       if (error) {
@@ -254,13 +257,15 @@ export function useUpdateCampaign() {
 
 export function useDeleteCampaign() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabaseClient
         .from('marketing_campaigns')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('owner_id', user?.id);
       
       if (error) throw new Error(error.message);
       return { id };
@@ -286,6 +291,7 @@ export function useFunnels() {
       const { data, error } = await supabaseClient
         .from('marketing_funnels')
         .select('*')
+        .eq('owner_id', user?.id)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -331,6 +337,7 @@ export function useCreateFunnel() {
 
 export function useUpdateFunnel() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Funnel> }) => {
@@ -343,6 +350,7 @@ export function useUpdateFunnel() {
         .from('marketing_funnels')
         .update(updateData)
         .eq('id', id)
+        .eq('owner_id', user?.id)
         .select();
       
       if (error) {
@@ -360,13 +368,15 @@ export function useUpdateFunnel() {
 
 export function useDeleteFunnel() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabaseClient
         .from('marketing_funnels')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('owner_id', user?.id);
       
       if (error) throw new Error(error.message);
       return { id };
@@ -392,6 +402,7 @@ export function useLandingPages() {
       const { data, error } = await supabaseClient
         .from('landing_pages')
         .select('*')
+        .eq('owner_id', user?.id)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -437,6 +448,7 @@ export function useCreateLandingPage() {
 
 export function useUpdateLandingPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<LandingPage> }) => {
@@ -449,6 +461,7 @@ export function useUpdateLandingPage() {
         .from('landing_pages')
         .update(updateData)
         .eq('id', id)
+        .eq('owner_id', user?.id)
         .select();
       
       if (error) {
@@ -466,13 +479,15 @@ export function useUpdateLandingPage() {
 
 export function useDeleteLandingPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabaseClient
         .from('landing_pages')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('owner_id', user?.id);
       
       if (error) throw new Error(error.message);
       return { id };
@@ -498,6 +513,7 @@ export function useABTests() {
       const { data, error } = await supabaseClient
         .from('ab_tests')
         .select('*')
+        .eq('owner_id', user?.id)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -543,6 +559,7 @@ export function useCreateABTest() {
 
 export function useUpdateABTest() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<ABTest> }) => {
@@ -555,6 +572,7 @@ export function useUpdateABTest() {
         .from('ab_tests')
         .update(updateData)
         .eq('id', id)
+        .eq('owner_id', user?.id)
         .select();
       
       if (error) {
@@ -585,6 +603,7 @@ export function useBrandSettings() {
       const { data, error } = await supabaseClient
         .from('brand_settings')
         .select('*')
+        .eq('owner_id', user?.id)
         .order('created_at', { ascending: false })
         .limit(1);
       
@@ -631,6 +650,7 @@ export function useCreateBrandSettings() {
 
 export function useUpdateBrandSettings() {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<BrandSettings> }) => {
@@ -643,6 +663,7 @@ export function useUpdateBrandSettings() {
         .from('brand_settings')
         .update(updateData)
         .eq('id', id)
+        .eq('owner_id', user?.id)
         .select();
       
       if (error) {
