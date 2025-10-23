@@ -37,7 +37,7 @@ const solutions: SolutionGroup[] = [
         id: "dashboard",
         label: "Dashboard",
         icon: LayoutDashboard,
-  path: "/dashboard",
+        path: "/",
       },
       {
         id: "crm",

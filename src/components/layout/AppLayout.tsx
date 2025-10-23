@@ -23,14 +23,12 @@ export const AppLayout = ({ children, currentView = "dashboard" }: AppLayoutProp
   useKeyboardShortcuts();
 
   const handleNavigate = (view: string) => {
-    const path = view.startsWith('/') ? view : `/${view}`;
-    navigate(path);
+    navigate(`/${view === 'dashboard' ? '' : view}`);
     setMobileMenuOpen(false); // Fecha menu ao navegar
   };
 
   const handleViewChange = (view: string) => {
-    const path = view.startsWith('/') ? view : `/${view}`;
-    navigate(path);
+    navigate(`/${view === 'dashboard' ? '' : view}`);
     setMobileMenuOpen(false); // Fecha menu ao navegar
   };
 

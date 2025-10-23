@@ -602,7 +602,7 @@ export const GuideView = ({ onNavigate }: GuideViewProps = {}) => {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => handleNavigate('/dashboard')}>
+              <Button variant="outline" onClick={() => handleNavigate('/')}>
                 <LayoutDashboard className="h-4 w-4 mr-2" />
                 Ir para Dashboard
               </Button>
