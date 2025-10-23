@@ -360,15 +360,24 @@ export function useSyncCRMFunnelsToStore() {
     // Converte funis do DB para formato do Store
     const convertedFunnels = dbFunnels.map(dbFunnelToStore);
 
+    // Se o usuário já tem funis no DB, remove os funis mockados
+    if (convertedFunnels.length > 0) {
+      const mockFunnels = storeFunnels.filter(f => f.id.startsWith('mock-'));
+      mockFunnels.forEach(mockFunnel => {
+        console.log('[useSyncCRMFunnelsToStore] 🗑️ Removendo funil mockado (usuário tem funis próprios):', mockFunnel.name);
+        deleteFunnel(mockFunnel.id);
+      });
+    }
+
     // Atualiza store apenas se houver diferenças
     const dbIds = new Set(convertedFunnels.map(f => f.id));
     const storeIds = new Set(storeFunnels.map(f => f.id));
 
-    // Remove funis que não existem mais no DB (mas não remove funis mockados/locais)
+    // Remove funis que não existem mais no DB (mas não remove funis mockados se não houver funis no DB)
     storeFunnels.forEach(storeFunnel => {
-      // Só remove se não estiver no DB e não for um funil mock (identificado pelo prefixo 'mock-')
       const isMockFunnel = storeFunnel.id.startsWith('mock-');
-      if (!dbIds.has(storeFunnel.id) && !isMockFunnel) {
+      // Remove se: não está no DB, não é mock, OU é mock mas o usuário já tem funis próprios
+      if (!dbIds.has(storeFunnel.id) && (!isMockFunnel || convertedFunnels.length > 0)) {
         console.log('[useSyncCRMFunnelsToStore] 🗑️ Removendo funil:', storeFunnel.name);
         deleteFunnel(storeFunnel.id);
       }

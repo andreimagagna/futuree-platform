@@ -538,23 +538,12 @@ export const KanbanBoard = () => {
     
     try {
       if (deleteTarget.type === 'funnel') {
-        // Se for funil mockado, remove apenas do store local
-        if (deleteTarget.id.startsWith('mock-')) {
-          deleteFunnel(deleteTarget.id);
-          console.log('✅ Funil mockado removido localmente');
-        } else {
-          // Funil real: deleta do Supabase
-          await deleteFunnelMutation.mutateAsync(deleteTarget.id);
-          console.log('✅ Funil deletado com sucesso');
-        }
+        // Deleta funil do Supabase (funis mockados são removidos automaticamente pela sincronização)
+        await deleteFunnelMutation.mutateAsync(deleteTarget.id);
+        console.log('✅ Funil deletado com sucesso');
       } else if (deleteTarget.type === 'stage' && deleteTarget.funnelId) {
-        // Se for estágio mockado, remove apenas do store local
-        if (deleteTarget.id.startsWith('mock-')) {
-          console.log('⚠️ Estágios mockados não podem ser deletados individualmente');
-        } else {
-          await deleteStageMutation.mutateAsync(deleteTarget.id);
-          console.log('✅ Estágio deletado com sucesso');
-        }
+        await deleteStageMutation.mutateAsync(deleteTarget.id);
+        console.log('✅ Estágio deletado com sucesso');
       } else if (deleteTarget.type === 'tag') {
         await deleteTagMutation.mutateAsync(deleteTarget.id);
         console.log('✅ Tag deletada com sucesso');
@@ -1223,24 +1212,31 @@ export const KanbanBoard = () => {
                             {funnel.isDefault && (
                               <Badge variant="secondary">Padrão</Badge>
                             )}
+                            {funnel.id.startsWith('mock-') && (
+                              <Badge variant="outline" className="text-muted-foreground">Exemplo</Badge>
+                            )}
                             <Badge variant="outline">{funnel.stages.length} estágios</Badge>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEditFunnel(funnel.id)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            {funnels.length > 1 && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteClick('funnel', funnel.id)}
-                                title={funnel.isDefault ? "Você pode deletar o funil padrão desde que tenha outros funis" : "Deletar funil"}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            {!funnel.id.startsWith('mock-') && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditFunnel(funnel.id)}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                {funnels.length > 1 && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteClick('funnel', funnel.id)}
+                                    title={funnel.isDefault ? "Você pode deletar o funil padrão desde que tenha outros funis" : "Deletar funil"}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </>
                         )}
@@ -1342,23 +1338,27 @@ export const KanbanBoard = () => {
                             <Badge variant="secondary">
                               {getLeadsForStage(stage.id).length} leads
                             </Badge>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEditStage(stage.id)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            {activeFunnel.stages.length > 1 && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteClick('stage', stage.id, activeFunnelId)}
-                                title="Você pode deletar desde que haja pelo menos 1 estágio restante"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            {!stage.id.startsWith('mock-') && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleEditStage(stage.id)}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                {activeFunnel.stages.length > 1 && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteClick('stage', stage.id, activeFunnelId)}
+                                    title="Você pode deletar desde que haja pelo menos 1 estágio restante"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </>
                             )}
                           </>
                         )}
