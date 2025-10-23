@@ -225,13 +225,14 @@ export const Sidebar = ({ currentView, onViewChange, collapsed, onToggleCollapse
         />
       )}
       
+      {/* Mobile Sidebar */}
       <aside
         className={cn(
           "fixed left-0 top-[var(--topbar-height)] bottom-0 z-40",
           "bg-gradient-to-b from-card via-card to-muted/30 border-r border-border/50",
           "transition-all duration-300 ease-in-out shadow-sm",
-          // Mobile: slide in/out
-          "md:hidden",
+          // Forçar apenas mobile: visível abaixo de md breakpoint
+          "block md:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "w-[280px]"
         )}
