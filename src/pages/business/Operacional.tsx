@@ -378,9 +378,7 @@ export default function Operacional() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `processos-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
     toast({ title: 'Processos exportados com sucesso!' });
   };

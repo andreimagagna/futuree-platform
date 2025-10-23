@@ -317,9 +317,7 @@ export const Arquivos = () => {
       const a = window.document.createElement('a');
       a.href = url;
       a.download = document.name;
-      window.document.body.appendChild(a);
       a.click();
-      window.document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
       toast({ title: "Download iniciado!" });
