@@ -395,12 +395,14 @@ export const KanbanBoard = () => {
     if (!draggedLead) return;
     
     try {
-      // ✅ SALVAR NO SUPABASE (custom_fields.stage_id)
+      // ✅ SALVAR NO SUPABASE fazendo merge dos custom_fields existentes
+      const currentCustomFields = (draggedLead as any).custom_fields || (draggedLead as any).customFields || {};
+      
       await updateSupabaseLead({
         id: draggedLead.id,
         updates: {
           custom_fields: {
-            ...((draggedLead as any).customFields || {}),
+            ...currentCustomFields, // ✅ Preserva todos os campos existentes (company, owner, etc)
             stage_id: stageId,
             stage_name: activeFunnel.stages.find(s => s.id === stageId)?.name || stageId,
             funnel_id: activeFunnelId,

@@ -52,6 +52,7 @@ import {
   Plus,
   Minus,
   Package,
+  ArrowLeft,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -125,7 +126,17 @@ export const LeadDetailView = () => {
   // Buscar lead do Supabase primeiro, se não achar, busca do store local
   const supabaseLead = supabaseLeads.find((l) => l.id === id);
   const localLead = leads.find((l) => l.id === id);
-  const lead: any = supabaseLead || localLead; // Usar any para evitar conflito de tipos
+  const rawLead: any = supabaseLead || localLead; // Usar any para evitar conflito de tipos
+  
+  // ✅ Mapear campos de custom_fields para facilitar acesso
+  const lead: any = rawLead ? {
+    ...rawLead,
+    company: rawLead.custom_fields?.company || rawLead.company || '',
+    owner: rawLead.custom_fields?.owner || rawLead.owner || '',
+    website: rawLead.custom_fields?.website || rawLead.website || '',
+    companySize: rawLead.custom_fields?.companySize || rawLead.companySize || '',
+    employeeCount: rawLead.custom_fields?.employeeCount || rawLead.employeeCount || '',
+  } : null;
   
   const leadNotes = notes.filter((n) => n.leadId === id);
   // ✅ USAR ACTIVITIES DO SUPABASE ao invés do store local
@@ -196,8 +207,9 @@ export const LeadDetailView = () => {
             : updates.expectedCloseDate;
         }
         
-        // Campos que vão para custom_fields (BANT, etc)
-        if (updates.bant || updates.wonDate || updates.lostDate || updates.lostReason || updates.lostCompetitor) {
+        // Campos que vão para custom_fields (BANT, company, owner, website, etc)
+        if (updates.bant || updates.wonDate || updates.lostDate || updates.lostReason || updates.lostCompetitor || 
+            updates.company || updates.owner || updates.website || updates.companySize || updates.employeeCount) {
           const currentCustomFields = (supabaseLead as any).custom_fields || {};
           supabaseUpdates.custom_fields = {
             ...currentCustomFields,
@@ -206,6 +218,11 @@ export const LeadDetailView = () => {
             ...(updates.lostDate && { lostDate: updates.lostDate }),
             ...(updates.lostReason && { lostReason: updates.lostReason }),
             ...(updates.lostCompetitor && { lostCompetitor: updates.lostCompetitor }),
+            ...(updates.company !== undefined && { company: updates.company }),
+            ...(updates.owner !== undefined && { owner: updates.owner }),
+            ...(updates.website !== undefined && { website: updates.website }),
+            ...(updates.companySize !== undefined && { companySize: updates.companySize }),
+            ...(updates.employeeCount !== undefined && { employeeCount: updates.employeeCount }),
           };
         }
         
@@ -370,6 +387,17 @@ export const LeadDetailView = () => {
 
   return (
     <div className="space-y-6">
+      {/* Botão Voltar para CRM */}
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="gap-2"
+        onClick={() => navigate('/crm')}
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Voltar para CRM
+      </Button>
+      
       {renderHeader({ lead, followersCount, daysInStage, setLostOpen, onWon: handleWon, onDuplicate: handleDuplicate, onArchive: handleArchive, onDeleteClick: () => setDeleteConfirmOpen(true) })}
 
       <div className="grid gap-4 xl:grid-cols-12">

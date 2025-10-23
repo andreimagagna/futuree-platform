@@ -152,7 +152,6 @@ export function useSupabaseLeads(options: UseSupabaseLeadsOptions = {}) {
         .from('leads')
         .update(updates)
         .eq('id', id)
-        .eq('owner_id', user?.id)
         .select()
         .maybeSingle();
 
@@ -162,8 +161,8 @@ export function useSupabaseLeads(options: UseSupabaseLeadsOptions = {}) {
       }
 
       if (!data) {
-        console.error('[useSupabaseLeads] Lead não encontrado ou não pertence ao usuário');
-        throw new Error('Lead não encontrado ou sem permissão para atualizar');
+        console.error('[useSupabaseLeads] Lead não encontrado');
+        throw new Error('Lead não encontrado');
       }
 
       console.log('[useSupabaseLeads] ✅ Lead atualizado:', data);
