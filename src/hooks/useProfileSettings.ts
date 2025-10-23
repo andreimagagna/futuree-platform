@@ -75,7 +75,7 @@ export const useProfileSettings = () => {
         .from('profiles')
         .select('id, email, nome, full_name, avatar_url, role, phone, department, position, bio, preferences, created_at, updated_at')
         .eq('id', user.id)
-        .maybeSingle();
+        .single();
       
       console.log('[useProfileSettings] 📦 Query executada. Data:', data, 'Error:', error);
 
@@ -84,32 +84,9 @@ export const useProfileSettings = () => {
         throw error;
       }
       
-      // Se não encontrar perfil, criar um novo
       if (!data) {
-        console.warn('[useProfileSettings] ⚠️ Perfil não existe. Criando novo perfil...');
-        
-        const newProfile = {
-          id: user.id,
-          email: user.email || '',
-          nome: user.email?.split('@')[0] || '',
-          full_name: user.email?.split('@')[0] || '',
-          role: 'user' as const,
-          preferences: {},
-        };
-        
-        const { data: createdProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert([newProfile])
-          .select()
-          .maybeSingle();
-        
-        if (createError) {
-          console.error('[useProfileSettings] ❌ Erro ao criar perfil:', createError);
-          throw createError;
-        }
-        
-        console.log('[useProfileSettings] ✅ Perfil criado com sucesso!');
-        return createdProfile as Profile;
+        console.warn('[useProfileSettings] ⚠️ Dados vazios retornados!');
+        throw new Error('Perfil não encontrado');
       }
       
       const profile = data as any;
@@ -157,7 +134,7 @@ export const useProfileSettings = () => {
         .update(validUpdates)
         .eq('id', user.id)
         .select()
-        .maybeSingle();
+        .single();
 
       if (error) {
         console.error('[useProfileSettings] ❌ Erro ao atualizar:', error);

@@ -146,18 +146,27 @@ export function useSupabaseLeads(options: UseSupabaseLeadsOptions = {}) {
   // ============================================================================
   const { mutateAsync: updateLead, isPending: isUpdating } = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: LeadUpdate }) => {
-      const { data, error } = await (supabase
+      console.log('[useSupabaseLeads] 📝 Atualizando lead:', id, updates);
+      
+      const { data, error } = await (supabase as any)
         .from('leads')
-        .update(updates as Record<string, any>) as any)
+        .update(updates)
         .eq('id', id)
+        .eq('owner_id', user?.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('[useSupabaseLeads] Erro ao atualizar lead:', error);
         throw new Error(error.message);
       }
 
+      if (!data) {
+        console.error('[useSupabaseLeads] Lead não encontrado ou não pertence ao usuário');
+        throw new Error('Lead não encontrado ou sem permissão para atualizar');
+      }
+
+      console.log('[useSupabaseLeads] ✅ Lead atualizado:', data);
       return data as Lead;
     },
     onSuccess: (updatedLead) => {
