@@ -398,19 +398,27 @@ export const KanbanBoard = () => {
       // ✅ SALVAR NO SUPABASE fazendo merge dos custom_fields existentes
       const currentCustomFields = (draggedLead as any).custom_fields || (draggedLead as any).customFields || {};
       
-      await updateSupabaseLead({
-        id: draggedLead.id,
-        updates: {
-          custom_fields: {
-            ...currentCustomFields, // ✅ Preserva todos os campos existentes (company, owner, etc)
-            stage_id: stageId,
-            stage_name: activeFunnel.stages.find(s => s.id === stageId)?.name || stageId,
-            funnel_id: activeFunnelId,
-          }
+      console.log('[KanbanBoard] 🔄 Movendo lead:', draggedLead.name, draggedLead.id);
+      console.log('[KanbanBoard] 📦 custom_fields atuais:', currentCustomFields);
+      console.log('[KanbanBoard] 🎯 Novo stage:', stageId);
+      
+      const updates = {
+        custom_fields: {
+          ...currentCustomFields, // ✅ Preserva todos os campos existentes (company, owner, etc)
+          stage_id: stageId,
+          stage_name: activeFunnel.stages.find(s => s.id === stageId)?.name || stageId,
+          funnel_id: activeFunnelId,
         }
+      };
+      
+      console.log('[KanbanBoard] 📝 Updates a serem enviados:', updates);
+      
+      const result = await updateSupabaseLead({
+        id: draggedLead.id,
+        updates
       });
       
-      console.log('[KanbanBoard] ✅ Lead movido para stage:', stageId);
+      console.log('[KanbanBoard] ✅ Lead movido para stage:', stageId, 'Resultado:', result);
     } catch (error) {
       console.error('[KanbanBoard] ❌ Erro ao mover lead:', error);
     }
