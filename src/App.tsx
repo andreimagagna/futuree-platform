@@ -4,6 +4,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import CRM from "./pages/CRM";
@@ -44,16 +45,37 @@ function NavigationCleaner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Cleanup function que roda antes de cada mudança de rota
     return () => {
-      // Permitir que React termine de desmontar antes de limpar portals
-      requestAnimationFrame(() => {
-        // Remover todos os portais Radix UI órfãos
-        const portals = document.querySelectorAll('[data-radix-portal]');
-        portals.forEach(portal => {
-          if (portal.parentNode) {
-            portal.parentNode.removeChild(portal);
-          }
-        });
-      });
+      // Aguardar React terminar o unmount cycle
+      setTimeout(() => {
+        try {
+          // Remover todos os portais Radix UI órfãos de forma segura
+          const portals = document.querySelectorAll('[data-radix-portal]');
+          portals.forEach(portal => {
+            try {
+              if (portal && portal.parentNode) {
+                portal.parentNode.removeChild(portal);
+              }
+            } catch (e) {
+              // Ignorar erros de removeChild - o portal já foi removido
+              console.debug('[NavigationCleaner] Portal já foi removido:', e);
+            }
+          });
+          
+          // Também limpar quaisquer overlays ou backdrop órfãos
+          const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-popover-content]');
+          overlays.forEach(overlay => {
+            try {
+              if (overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+              }
+            } catch (e) {
+              console.debug('[NavigationCleaner] Overlay já foi removido:', e);
+            }
+          });
+        } catch (error) {
+          console.debug('[NavigationCleaner] Erro durante cleanup:', error);
+        }
+      }, 0);
     };
   }, [location.pathname]);
 
@@ -61,13 +83,14 @@ function NavigationCleaner({ children }: { children: React.ReactNode }) {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <AuthProvider>
-        <BrowserRouter>
-          <NavigationCleaner>
-            <Routes>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <AuthProvider>
+          <BrowserRouter>
+            <NavigationCleaner>
+              <Routes>
           {/* ============================================ */}
           {/* ROTA PÚBLICA - Login/Cadastro como INICIAL */}
           {/* ============================================ */}
@@ -124,6 +147,7 @@ const App = () => (
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
