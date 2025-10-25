@@ -74,7 +74,7 @@ Contexto atual do CRM:
 ${contextPrompt}
 
 Seja objetivo, prático e forneça insights acionáveis. Use dados concretos quando disponíveis.`,
-      model: 'command-r-plus',
+      model: 'command-r',
       temperature: 0.7,
     });
 
@@ -118,7 +118,7 @@ Forneça a análise em formato JSON com:
 
     const response = await cohere.chat({
       message: prompt,
-      model: 'command-r-plus',
+      model: 'command-r',
       temperature: 0.3,
     });
 
@@ -180,7 +180,7 @@ Forneça a análise em formato JSON com:
 
     const response = await cohere.chat({
       message: prompt,
-      model: 'command-r-plus',
+      model: 'command-r',
       temperature: 0.5,
     });
 
@@ -224,7 +224,7 @@ Retorne apenas um array JSON de strings com as 3 ações:
 
     const response = await cohere.chat({
       message: prompt,
-      model: 'command-r-plus',
+      model: 'command-r',
       temperature: 0.6,
     });
 
@@ -333,7 +333,7 @@ Retorne em formato JSON:
 
     const response = await cohere.chat({
       message: prompt,
-      model: 'command-r-plus',
+      model: 'command-r',
       temperature: 0.3,
     });
 
