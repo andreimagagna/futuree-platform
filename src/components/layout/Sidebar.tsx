@@ -71,6 +71,12 @@ const solutions: SolutionGroup[] = [
         comingSoon: true,
       },
       {
+        id: "ai",
+        label: "AI",
+        icon: Brain,
+        path: "/ai",
+      },
+      {
         id: "agent",
         label: "Agente Virtual",
         icon: Bot,

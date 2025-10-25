@@ -129,11 +129,11 @@ export function AIChat({ onClose, initialContext = 'leads' }: AIChatProps) {
       {/* Header */}
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-full bg-gradient-to-br from-purple-500 to-pink-500">
-            <Bot className="h-5 w-5 text-white" />
+          <div className="p-2 rounded-full bg-gradient-to-br from-amber-900 to-amber-700">
+            <Bot className="h-5 w-5 text-amber-50" />
           </div>
           <div>
-            <CardTitle className="text-lg font-bold">Assistente IA</CardTitle>
+            <CardTitle className="text-lg font-bold">AI</CardTitle>
             <p className="text-sm text-muted-foreground">
               Análise inteligente do seu CRM
             </p>
@@ -259,7 +259,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
         className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
           isUser
             ? 'bg-primary text-primary-foreground'
-            : 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
+            : 'bg-gradient-to-br from-amber-900 to-amber-700 text-amber-50'
         }`}
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
@@ -269,7 +269,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
       <div
         className={`flex-1 rounded-lg p-4 ${
           isUser
-            ? 'bg-primary text-primary-foreground ml-12'
+            ? 'bg-amber-900 text-white ml-12'
             : 'bg-muted mr-12'
         }`}
       >
