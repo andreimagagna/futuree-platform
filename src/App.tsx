@@ -32,6 +32,7 @@ import Operacional from './pages/business/Operacional';
 import Arquivos from './pages/business/Arquivos';
 import NotionSolutions from './pages/business/NotionSolutions';
 import GuiaBusiness from './pages/business/GuiaBusiness';
+import { BusinessChat } from './pages/business/BusinessChat';
 import Automations from "./pages/Automations";
 import { AuthPage } from "./pages/AuthPage";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
@@ -131,6 +132,7 @@ const App = () => (
           <Route path="/business/operacional" element={<ProtectedRoute><AppLayout currentView="operacional"><Operacional /></AppLayout></ProtectedRoute>} />
           <Route path="/business/arquivos" element={<ProtectedRoute><AppLayout currentView="arquivos"><Arquivos /></AppLayout></ProtectedRoute>} />
           <Route path="/business/notion" element={<ProtectedRoute><AppLayout currentView="notion"><NotionSolutions /></AppLayout></ProtectedRoute>} />
+          <Route path="/business/chat" element={<ProtectedRoute><AppLayout currentView="business-chat"><BusinessChat /></AppLayout></ProtectedRoute>} />
           <Route path="/business/guia" element={<ProtectedRoute><AppLayout currentView="business-guide"><GuiaBusiness /></AppLayout></ProtectedRoute>} />
           
           {/* ============================================ */}

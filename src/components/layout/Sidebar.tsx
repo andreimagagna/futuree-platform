@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap, Layout, Sparkles, Database, HeartHandshake, DollarSign, Settings as SettingsIcon, FileText, Layers, ChevronDown, TrendingUpIcon, X } from "lucide-react";
+import { LayoutDashboard, Users2, CheckSquare, Target, BarChart4, Settings, ChevronRight, ChevronLeft, FileSpreadsheet, Radio, Building2, Bot, BookOpen, Megaphone, TrendingUp, FolderOpen, Brain, GitBranch, Zap, Layout, Sparkles, Database, HeartHandshake, DollarSign, Settings as SettingsIcon, FileText, Layers, ChevronDown, TrendingUpIcon, X, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -174,6 +174,12 @@ const solutions: SolutionGroup[] = [
         label: "Notion Solutions",
         icon: Layers,
         path: "/business/notion",
+      },
+      {
+        id: "business-chat",
+        label: "Chat com IA",
+        icon: MessageSquare,
+        path: "/business/chat",
       },
       {
         id: "operacional",

@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/command";
 import { useLeads } from "@/hooks/useLeadsAPI";
 import { useTasks } from "@/hooks/useTasksAPI";
-import { Users, CheckSquare, Target, Briefcase, TrendingUp, Calendar } from "lucide-react";
+import { Users, CheckSquare, Target, Briefcase, TrendingUp, Calendar, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface GlobalSearchProps {
@@ -69,6 +69,7 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
     { id: 'estrategico', name: 'Estratégico', icon: Target, path: 'business/estrategico' },
     { id: 'arquivos', name: 'Arquivos', icon: Briefcase, path: 'business/arquivos' },
     { id: 'notion', name: 'Notion Solutions', icon: Briefcase, path: 'business/notion' },
+    { id: 'business-chat', name: 'Chat com IA', icon: MessageSquare, path: 'business/chat' },
     { id: 'business-guide', name: 'Guia de Business', icon: Briefcase, path: 'business/guia' },
   ].filter(page => 
     page.name.toLowerCase().includes(search.toLowerCase())
