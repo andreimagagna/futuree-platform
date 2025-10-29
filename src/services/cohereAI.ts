@@ -70,10 +70,13 @@ export async function chatWithAI(
       preamble: `Você é um assistente de IA especializado em CRM e vendas B2B. 
 Você tem acesso aos dados do CRM do usuário e pode fornecer insights, análises e recomendações.
 
+IMPORTANTE: Sempre use NOMES das pessoas e empresas, NUNCA use IDs ou códigos. Seja pessoal e humanizado.
+
 Contexto atual do CRM:
 ${contextPrompt}
 
-Seja objetivo, prático e forneça insights acionáveis. Use dados concretos quando disponíveis.`,
+Seja objetivo, prático e forneça insights acionáveis. Use dados concretos quando disponíveis.
+Quando mencionar leads, use o formato: "João Silva (Empresa XYZ)" ou apenas "João Silva".`,
       model: 'command-r-08-2024',
       temperature: 0.7,
     });
@@ -250,16 +253,46 @@ Retorne apenas um array JSON de strings com as 3 ações:
 // ============================================================================
 
 function buildContextPrompt(context: any): string {
-  const { leads = [], funnels = [], activities = [], user = {} } = context;
+  const { leads = [], funnels = [], user = {}, stats = {} } = context;
+
+  // Enviar apenas resumo dos dados, não os dados completos
+  const leadsByStatus = getLeadsByStatus(leads);
+  const leadsByStage = getLeadsByStage(leads);
+  const leadsBySource = getLeadsBySource(leads);
+  
+  // Calcular métricas importantes
+  const conversionRate = calculateConversionRate(leads);
+  const totalValue = calculateTotalValue(leads);
+  
+  // Top 5 leads mais importantes (por score e valor)
+  const topLeads = leads
+    .filter((l: any) => l.status !== 'ganho' && l.status !== 'perdido')
+    .sort((a: any, b: any) => {
+      const scoreA = a.score || 0;
+      const scoreB = b.score || 0;
+      const valueA = a.dealValue || a.estimated_value || 0;
+      const valueB = b.dealValue || b.estimated_value || 0;
+      return (scoreB + valueB) - (scoreA + valueA);
+    })
+    .slice(0, 5)
+    .map((l: any) => `${l.name} (${l.company || 'Sem empresa'}) - Score: ${l.score || 0}, Valor: R$ ${l.dealValue || l.estimated_value || 0}`);
 
   return `
+**Resumo do CRM:**
 - Total de Leads: ${leads.length}
 - Funis Ativos: ${funnels.length}
-- Atividades Recentes: ${activities.length}
-- Usuário: ${user.email || 'Não identificado'}
-- Leads Novos: ${leads.filter((l: any) => l.status === 'novo').length}
-- Leads em Negociação: ${leads.filter((l: any) => l.status === 'negociacao').length}
-- Taxa de Conversão: ${calculateConversionRate(leads)}%
+- Leads por Status: ${leadsByStatus}
+- Leads por Estágio: ${leadsByStage}
+- Taxa de Conversão: ${conversionRate}%
+- Valor Total em Pipeline: R$ ${totalValue}
+
+**Distribuição por Fonte:**
+${leadsBySource}
+
+**Top 5 Leads Prioritários:**
+${topLeads.map((l, i) => `${i + 1}. ${l}`).join('\n')}
+
+**Usuário:** ${user.email || 'Não identificado'}
   `.trim();
 }
 

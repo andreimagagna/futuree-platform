@@ -1,32 +1,46 @@
-import { useState } from "react";
+/**
+ * ============================================================================
+ * NOTION SOLUTIONS - Versão Simples com Auto-Save
+ * ============================================================================
+ * Editor de páginas estilo Notion com salvamento automático
+ * ============================================================================
+ */
+
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { 
   FileText,
   Plus,
   Loader2,
-  Edit,
   Trash2,
   Star,
-  Lock,
-  BookTemplate,
+  Check,
+  Clock,
+  ArrowLeft,
+  Bold,
+  Italic,
+  List,
+  ListOrdered,
+  Heading1,
+  Heading2,
+  Heading3,
+  Quote,
+  Code,
+  Link,
+  Sparkles,
+  Send,
+  X,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useDebounce } from "@/hooks/use-debounce";
+import { assistTextWithAI } from "@/services/textAssistantAI";
 
 // ============================================================================
 // TYPES
@@ -36,11 +50,7 @@ interface NotionPage {
   id: string;
   title: string;
   content: string | null;
-  description: string | null;
-  tags: string[] | null;
   is_favorite: boolean;
-  is_private: boolean;
-  is_template: boolean;
   owner_id: string;
   created_at: string;
   updated_at: string;
@@ -55,48 +65,33 @@ export const NotionSolutions = () => {
   const { user } = useAuthContext();
   const queryClient = useQueryClient();
 
-  // ============================================================================
-  // STATE
-  // ============================================================================
-
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPage, setSelectedPage] = useState<NotionPage | null>(null);
-  const [filterFavorites, setFilterFavorites] = useState(false);
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isMarkdownMode, setIsMarkdownMode] = useState(true);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
+  const [isAILoading, setIsAILoading] = useState(false);
 
-  const [formData, setFormData] = useState<{
-    title: string;
-    content: string;
-    description: string;
-    is_favorite: boolean;
-    is_private: boolean;
-    is_template: boolean;
-  }>({
-    title: "",
-    content: "",
-    description: "",
-    is_favorite: false,
-    is_private: false,
-    is_template: false,
-  });
+  // Debounce para auto-save (1.5 segundos)
+  const debouncedTitle = useDebounce(title, 1500);
+  const debouncedContent = useDebounce(content, 1500);
 
   // ============================================================================
-  // SUPABASE HOOKS
+  // QUERIES
   // ============================================================================
 
   const { data: pages = [], isLoading } = useQuery({
-    queryKey: ['notion_pages', user?.id, filterFavorites],
+    queryKey: ['notion_pages', user?.id],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('notion_pages')
         .select('*')
         .eq('owner_id', user?.id)
-        .order('created_at', { ascending: false });
-
-      if (filterFavorites) {
-        query = query.eq('is_favorite', true);
-      }
-      
-      const { data, error } = await query;
+        .order('updated_at', { ascending: false });
       
       if (error) throw error;
       return data as NotionPage[];
@@ -104,50 +99,48 @@ export const NotionSolutions = () => {
     enabled: !!user?.id,
   });
 
+  // ============================================================================
+  // MUTATIONS
+  // ============================================================================
+
   const createMutation = useMutation({
-    mutationFn: async (newPage: Partial<NotionPage>) => {
+    mutationFn: async () => {
       const { data, error } = await supabase
         .from('notion_pages')
-        .insert([{ 
-          ...newPage, 
+        .insert({
+          title: "Sem título",
+          content: "",
+          is_favorite: false,
           owner_id: user?.id,
-        }] as any)
-        .select('*')
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notion_pages'] });
-      toast({ title: "Página criada com sucesso!" });
-      setIsDialogOpen(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao criar página",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<NotionPage> }) => {
-      const { data, error } = await (supabase as any)
-        .from('notion_pages')
-        .update(updates)
-        .eq('id', id)
+        } as any)
         .select()
         .single();
       
       if (error) throw error;
-      return data;
+      return data as NotionPage;
+    },
+    onSuccess: (newPage) => {
+      if (!newPage) return;
+      queryClient.invalidateQueries({ queryKey: ['notion_pages'] });
+      setSelectedPage(newPage);
+      setTitle(newPage.title);
+      setContent(newPage.content || "");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
+      const { error } = await supabase
+        .from('notion_pages')
+        .update({ ...updates, updated_at: new Date().toISOString() } as any)
+        .eq('id', id);
+      
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notion_pages'] });
-      toast({ title: "Página atualizada!" });
-      setIsDialogOpen(false);
+      setIsSaving(false);
+      setLastSaved(new Date());
     },
   });
 
@@ -162,77 +155,226 @@ export const NotionSolutions = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notion_pages'] });
-      toast({ title: "Página removida!" });
+      setSelectedPage(null);
+      setTitle("");
+      setContent("");
+      toast({ title: "Página deletada com sucesso" });
     },
   });
+
+  // ============================================================================
+  // AUTO-SAVE EFFECT
+  // ============================================================================
+
+  useEffect(() => {
+    if (!selectedPage) return;
+    if (title === selectedPage.title && content === (selectedPage.content || "")) return;
+
+    setIsSaving(true);
+    updateMutation.mutate({
+      id: selectedPage.id,
+      updates: { title, content },
+    });
+  }, [debouncedTitle, debouncedContent]);
+
+  // ============================================================================
+  // KEYBOARD SHORTCUTS
+  // ============================================================================
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedPage) return;
+
+      // Ctrl/Cmd + B = Negrito
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        formatBold();
+      }
+
+      // Ctrl/Cmd + I = Itálico
+      if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+        e.preventDefault();
+        formatItalic();
+      }
+
+      // Ctrl/Cmd + K = Link
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        formatLink();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPage, content]);
 
   // ============================================================================
   // HANDLERS
   // ============================================================================
 
-  const handleOpenDialog = (page?: NotionPage) => {
-    if (page) {
-      setSelectedPage(page);
-      setFormData({
-        title: page.title || "",
-        content: page.content || "",
-        description: page.description || "",
-        is_favorite: page.is_favorite,
-        is_private: page.is_private,
-        is_template: page.is_template,
-      });
-    } else {
-      setSelectedPage(null);
-      setFormData({
-        title: "",
-        content: "",
-        description: "",
-        is_favorite: false,
-        is_private: false,
-        is_template: false,
-      });
-    }
-    setIsDialogOpen(true);
+  const handleSelectPage = (page: NotionPage) => {
+    setSelectedPage(page);
+    setTitle(page.title);
+    setContent(page.content || "");
   };
 
-  const handleSave = () => {
-    if (!formData.title) {
+  const handleNewPage = () => {
+    createMutation.mutate();
+  };
+
+  const handleDelete = () => {
+    if (!selectedPage) return;
+    if (confirm("Deletar esta página?")) {
+      deleteMutation.mutate(selectedPage.id);
+    }
+  };
+
+  const handleToggleFavorite = () => {
+    if (!selectedPage) return;
+    updateMutation.mutate({
+      id: selectedPage.id,
+      updates: { is_favorite: !selectedPage.is_favorite },
+    });
+    setSelectedPage({ ...selectedPage, is_favorite: !selectedPage.is_favorite });
+  };
+
+  const handleBack = () => {
+    setSelectedPage(null);
+    setTitle("");
+    setContent("");
+    setShowAIAssistant(false);
+    setAiPrompt("");
+    setAiResponse("");
+  };
+
+  // ============================================================================
+  // AI ASSISTANT
+  // ============================================================================
+
+  const handleAIRequest = async () => {
+    if (!aiPrompt.trim()) return;
+
+    setIsAILoading(true);
+    setAiResponse("");
+
+    try {
+      const response = await assistTextWithAI(aiPrompt, title, content);
+      setAiResponse(response);
+      
       toast({
-        title: "Erro",
-        description: "Preencha o título da página",
+        title: "✨ IA respondeu!",
+        description: "Confira a sugestão abaixo",
+      });
+    } catch (error) {
+      console.error("Erro ao consultar IA:", error);
+      toast({
+        title: "Erro ao consultar IA",
+        description: "Tente novamente em alguns instantes",
         variant: "destructive",
       });
-      return;
-    }
-
-    if (selectedPage) {
-      updateMutation.mutate({ id: selectedPage.id, updates: formData });
-    } else {
-      createMutation.mutate(formData);
+    } finally {
+      setIsAILoading(false);
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("Tem certeza que deseja deletar esta página?")) {
-      deleteMutation.mutate(id);
-    }
-  };
-
-  const handleToggleFavorite = (page: NotionPage) => {
-    updateMutation.mutate({
-      id: page.id,
-      updates: { is_favorite: !page.is_favorite }
+  const handleInsertAIResponse = () => {
+    if (!aiResponse) return;
+    
+    setContent(prev => {
+      if (!prev) return aiResponse;
+      return `${prev}\n\n${aiResponse}`;
+    });
+    
+    setAiResponse("");
+    setAiPrompt("");
+    
+    toast({
+      title: "✅ Texto inserido!",
+      description: "A sugestão da IA foi adicionada ao documento",
     });
   };
 
   // ============================================================================
-  // ANALYTICS
+  // FORMATAÇÃO DE TEXTO
   // ============================================================================
 
-  const totalPages = pages.length;
-  const favoritePages = pages.filter(p => p.is_favorite).length;
-  const templatePages = pages.filter(p => p.is_template).length;
-  const privatePages = pages.filter(p => p.is_private).length;
+  const insertFormatting = (before: string, after: string = before, placeholder: string = "texto") => {
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    const textToInsert = selectedText || placeholder;
+    
+    const newContent = 
+      content.substring(0, start) + 
+      before + textToInsert + after + 
+      content.substring(end);
+    
+    setContent(newContent);
+    
+    // Manter foco e reposicionar cursor
+    setTimeout(() => {
+      textarea.focus();
+      const newPosition = start + before.length + textToInsert.length;
+      textarea.setSelectionRange(newPosition, newPosition);
+    }, 0);
+  };
+
+  const formatBold = () => insertFormatting("**", "**", "negrito");
+  const formatItalic = () => insertFormatting("*", "*", "itálico");
+  const formatH1 = () => insertFormatting("# ", "", "Título 1");
+  const formatH2 = () => insertFormatting("## ", "", "Título 2");
+  const formatH3 = () => insertFormatting("### ", "", "Título 3");
+  const formatList = () => insertFormatting("- ", "", "item");
+  const formatOrderedList = () => insertFormatting("1. ", "", "item");
+  const formatQuote = () => insertFormatting("> ", "", "citação");
+  const formatCode = () => insertFormatting("`", "`", "código");
+  const formatLink = () => insertFormatting("[", "](url)", "texto do link");
+
+  // ============================================================================
+  // RENDERIZAR CONTEÚDO COM FORMATAÇÃO
+  // ============================================================================
+
+  const renderFormattedContent = (text: string) => {
+    if (!text) return "";
+
+    let html = text;
+
+    // Títulos (H1, H2, H3)
+    html = html.replace(/^### (.+)$/gm, '<h3 class="text-2xl font-bold mt-6 mb-3">$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2 class="text-3xl font-bold mt-8 mb-4">$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1 class="text-4xl font-bold mt-8 mb-4">$1</h1>');
+
+    // Negrito
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold">$1</strong>');
+
+    // Itálico
+    html = html.replace(/\*(.+?)\*/g, '<em class="italic">$1</em>');
+
+    // Listas não ordenadas
+    html = html.replace(/^- (.+)$/gm, '<li class="ml-6 list-disc">$1</li>');
+    html = html.replace(/(<li class="ml-6 list-disc">.+<\/li>\n?)+/g, '<ul class="my-3">$&</ul>');
+
+    // Listas ordenadas
+    html = html.replace(/^\d+\. (.+)$/gm, '<li class="ml-6 list-decimal">$1</li>');
+    html = html.replace(/(<li class="ml-6 list-decimal">.+<\/li>\n?)+/g, '<ol class="my-3">$&</ol>');
+
+    // Citações
+    html = html.replace(/^> (.+)$/gm, '<blockquote class="border-l-4 border-primary pl-4 italic my-3 text-muted-foreground">$1</blockquote>');
+
+    // Código inline
+    html = html.replace(/`(.+?)`/g, '<code class="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">$1</code>');
+
+    // Links
+    html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" class="text-primary underline" target="_blank" rel="noopener noreferrer">$1</a>');
+
+    // Quebras de linha
+    html = html.replace(/\n/g, '<br />');
+
+    return html;
+  };
 
   // ============================================================================
   // RENDER
@@ -241,293 +383,383 @@ export const NotionSolutions = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  // VIEW: Editor de Página
+  if (selectedPage) {
+    return (
+      <div className="h-screen flex flex-col bg-background">
+        {/* Topbar */}
+        <div className="border-b bg-card px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={handleBack}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex items-center gap-2">
+              {isSaving ? (
+                <Clock className="h-4 w-4 text-muted-foreground animate-pulse" />
+              ) : lastSaved ? (
+                <Check className="h-4 w-4 text-success" />
+              ) : null}
+              <span className="text-sm text-muted-foreground">
+                {isSaving ? "Salvando..." : lastSaved ? "Salvo" : ""}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant={isMarkdownMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsMarkdownMode(true)}
+            >
+              Markdown
+            </Button>
+            <Button
+              variant={!isMarkdownMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsMarkdownMode(false)}
+            >
+              Texto Puro
+            </Button>
+            <div className="w-px h-6 bg-border mx-1" />
+            <Button
+              variant={showAIAssistant ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowAIAssistant(!showAIAssistant)}
+              className="gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              {showAIAssistant ? "Fechar IA" : "Assistente IA"}
+            </Button>
+            <div className="w-px h-6 bg-border mx-1" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleToggleFavorite}
+            >
+              <Star
+                className={cn(
+                  "h-5 w-5",
+                  selectedPage.is_favorite && "fill-warning text-warning"
+                )}
+              />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleDelete}>
+              <Trash2 className="h-5 w-5 text-destructive" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Toolbar de Formatação - Sempre visível */}
+        <div className="border-b bg-card px-6 py-2 flex items-center gap-1 overflow-x-auto">
+          <Button variant="ghost" size="sm" onClick={formatBold} title="Negrito (Ctrl+B)">
+            <Bold className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={formatItalic} title="Itálico (Ctrl+I)">
+            <Italic className="h-4 w-4" />
+          </Button>
+          <div className="w-px h-6 bg-border mx-1" />
+          <Button variant="ghost" size="sm" onClick={formatH1} title="Título 1">
+            <Heading1 className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={formatH2} title="Título 2">
+            <Heading2 className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={formatH3} title="Título 3">
+            <Heading3 className="h-4 w-4" />
+          </Button>
+          <div className="w-px h-6 bg-border mx-1" />
+          <Button variant="ghost" size="sm" onClick={formatList} title="Lista">
+            <List className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={formatOrderedList} title="Lista Numerada">
+            <ListOrdered className="h-4 w-4" />
+          </Button>
+          <div className="w-px h-6 bg-border mx-1" />
+          <Button variant="ghost" size="sm" onClick={formatQuote} title="Citação">
+            <Quote className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={formatCode} title="Código">
+            <Code className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={formatLink} title="Link">
+            <Link className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Editor */}
+        <div className="flex-1 overflow-auto flex">
+          {/* Conteúdo Principal */}
+          <div className={cn("flex-1 overflow-auto", showAIAssistant && "border-r")}>
+            <div className="max-w-5xl mx-auto px-16 py-12">
+              {/* Título */}
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Sem título"
+                className="text-5xl font-bold border-none shadow-none focus-visible:ring-0 px-0 mb-6 placeholder:text-muted-foreground/40"
+              />
+
+              {/* Conteúdo com formatação condicional */}
+              {isMarkdownMode ? (
+                <div 
+                  className="min-h-[600px] text-lg prose prose-lg max-w-none cursor-text"
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={(e) => setContent(e.currentTarget.textContent || "")}
+                  dangerouslySetInnerHTML={{ __html: renderFormattedContent(content) }}
+                />
+              ) : (
+                <Textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Cole seu texto aqui..."
+                  className="min-h-[600px] text-lg border-none shadow-none focus-visible:ring-0 px-0 resize-none placeholder:text-muted-foreground/40"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Assistente IA - Sidebar */}
+          {showAIAssistant && (
+            <div className="w-[400px] bg-muted/30 overflow-auto">
+              <div className="p-6 space-y-4 sticky top-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg">Assistente IA</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Auxílio inteligente para seus textos
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowAIAssistant(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <Card className="border-2">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        O que você precisa?
+                      </label>
+                      <Textarea
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        placeholder="Ex: Melhore este texto, torne mais profissional, corrija gramática, resuma em tópicos..."
+                        rows={4}
+                        className="resize-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            e.preventDefault();
+                            handleAIRequest();
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleAIRequest}
+                      disabled={!aiPrompt.trim() || isAILoading}
+                      className="w-full gap-2"
+                    >
+                      {isAILoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processando...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Enviar para IA
+                        </>
+                      )}
+                    </Button>
+
+                    <p className="text-xs text-muted-foreground text-center">
+                      Ctrl/Cmd + Enter para enviar
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Resposta da IA */}
+                {aiResponse && (
+                  <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+                    <CardContent className="p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-semibold flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          Sugestão da IA
+                        </label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAiResponse("")}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+
+                      {/* Overview da resposta */}
+                      <div className="bg-card/50 rounded-lg p-3 border">
+                        <div className="flex items-start gap-2">
+                          <Check className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              Overview
+                            </p>
+                            <p className="text-sm">
+                              {aiResponse.length > 150 
+                                ? `${aiResponse.substring(0, 150).split('\n')[0]}...` 
+                                : aiResponse.split('\n')[0]}
+                            </p>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span>{aiResponse.split('\n').length} linhas</span>
+                              <span>•</span>
+                              <span>{aiResponse.split(' ').length} palavras</span>
+                              <span>•</span>
+                              <span>{aiResponse.length} caracteres</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Conteúdo completo com formatação */}
+                      <div 
+                        className="bg-card rounded-lg p-4 text-sm max-h-[400px] overflow-auto prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ 
+                          __html: renderFormattedContent(aiResponse) 
+                        }}
+                      />
+
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={handleInsertAIResponse}
+                          className="flex-1 gap-2"
+                          size="sm"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Inserir no Documento
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            navigator.clipboard.writeText(aiResponse);
+                            toast({
+                              title: "📋 Copiado!",
+                              description: "Texto copiado para área de transferência",
+                            });
+                          }}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Copiar
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Sugestões rápidas */}
+                {!aiResponse && !isAILoading && (
+                  <Card>
+                    <CardContent className="p-4 space-y-2">
+                      <label className="text-sm font-medium">Sugestões rápidas:</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          "Melhore este texto",
+                          "Torne mais profissional",
+                          "Corrija gramática",
+                          "Resuma em tópicos",
+                          "Expanda as ideias",
+                          "Simplifique a linguagem",
+                        ].map((suggestion) => (
+                          <Button
+                            key={suggestion}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAiPrompt(suggestion)}
+                            className="text-xs"
+                          >
+                            {suggestion}
+                          </Button>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // VIEW: Lista de Páginas
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Notion Solutions</h1>
-        <div className="flex gap-2">
-          <Button
-            variant={filterFavorites ? "default" : "outline"}
-            onClick={() => setFilterFavorites(!filterFavorites)}
-          >
-            <Star className={`w-4 h-4 mr-2 ${filterFavorites ? "fill-current" : ""}`} />
-            Favoritos
-          </Button>
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nova Página
-          </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Notion Solutions</h1>
+          <p className="text-muted-foreground mt-1">Suas páginas e documentos</p>
         </div>
+        <Button onClick={handleNewPage}>
+          <Plus className="w-4 h-4 mr-2" />
+          Nova Página
+        </Button>
       </div>
 
-      {/* ANALYTICS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total de Páginas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
-              <span className="text-2xl font-bold">{totalPages}</span>
-            </div>
-          </CardContent>
+      {pages.length === 0 ? (
+        <Card className="p-12 text-center">
+          <FileText className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-xl font-semibold mb-2">Nenhuma página ainda</h3>
+          <p className="text-muted-foreground mb-6">
+            Crie sua primeira página para começar a organizar suas ideias
+          </p>
+          <Button onClick={handleNewPage}>
+            <Plus className="w-4 h-4 mr-2" />
+            Criar Primeira Página
+          </Button>
         </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Favoritas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-warning" />
-              <span className="text-2xl font-bold">{favoritePages}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Templates
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <BookTemplate className="w-5 h-5 text-accent" />
-              <span className="text-2xl font-bold">{templatePages}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Privadas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Lock className="w-5 h-5 text-destructive" />
-              <span className="text-2xl font-bold">{privatePages}</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* PAGES LIST */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {pages.length === 0 ? (
-          <div className="col-span-full">
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <FileText className="w-12 h-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">
-                  {filterFavorites ? "Nenhuma página favorita" : "Nenhuma página criada"}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          pages.map((page) => (
-            <Card 
-              key={page.id} 
-              className="hover:shadow-lg transition-shadow"
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {pages.map((page) => (
+            <Card
+              key={page.id}
+              className="p-6 cursor-pointer hover:shadow-lg transition-all hover:border-primary/50"
+              onClick={() => handleSelectPage(page)}
             >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3 flex-1">
-                    <FileText className="w-8 h-8 text-primary" />
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{page.title}</CardTitle>
-                      {page.description && (
-                        <CardDescription className="mt-1 line-clamp-2">
-                          {page.description}
-                        </CardDescription>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Preview do conteúdo */}
-                {page.content && (
-                  <div 
-                    className="mt-3 text-sm text-muted-foreground line-clamp-3 prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: page.content }}
-                  />
+              <div className="flex items-start justify-between mb-3">
+                <FileText className="w-5 h-5 text-primary" />
+                {page.is_favorite && (
+                  <Star className="w-4 h-4 fill-warning text-warning" />
                 )}
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-2 flex-wrap">
-                    {page.is_favorite && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Star className="w-3 h-3 mr-1 fill-current" />
-                        Favorito
-                      </Badge>
-                    )}
-                    {page.is_template && (
-                      <Badge variant="outline" className="text-xs">
-                        <BookTemplate className="w-3 h-3 mr-1" />
-                        Template
-                      </Badge>
-                    )}
-                    {page.is_private && (
-                      <Badge variant="destructive" className="text-xs">
-                        <Lock className="w-3 h-3 mr-1" />
-                        Privado
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleToggleFavorite(page)}
-                    >
-                      <Star
-                        className={`w-4 h-4 ${
-                          page.is_favorite ? "fill-warning text-warning" : ""
-                        }`}
-                      />
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleOpenDialog(page)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleDelete(page.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="mt-4 text-xs text-muted-foreground">
-                  Criado em {new Date(page.created_at).toLocaleDateString('pt-BR')}
-                </div>
-              </CardContent>
+              </div>
+              <h3 className="font-semibold text-lg mb-2 line-clamp-2">
+                {page.title || "Sem título"}
+              </h3>
+              <p className="text-sm text-muted-foreground line-clamp-3">
+                {page.content || "Vazio"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-4">
+                Atualizado {new Date(page.updated_at).toLocaleDateString('pt-BR')}
+              </p>
             </Card>
-          ))
-        )}
-      </div>
-
-      {/* DIALOG COM EDITOR RICO */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedPage ? "Editar Página" : "Nova Página"}
-            </DialogTitle>
-            <DialogDescription>
-              Crie anotações rápidas com formatação completa, igual ao Notion
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4">
-            <div>
-              <label className="text-sm font-medium">Título *</label>
-              <Input
-                placeholder="Ex: Meu Plano Estratégico 2025"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Descrição</label>
-              <Textarea
-                placeholder="Breve descrição da página..."
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Conteúdo</label>
-              <RichTextEditor
-                content={formData.content}
-                onChange={(content) => setFormData({ ...formData, content })}
-                placeholder="Comece a escrever sua anotação..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="favorite"
-                  checked={formData.is_favorite}
-                  onChange={(e) => setFormData({ ...formData, is_favorite: e.target.checked })}
-                  className="rounded"
-                />
-                <label htmlFor="favorite" className="text-sm font-medium">
-                  Marcar como favorito
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="template"
-                  checked={formData.is_template}
-                  onChange={(e) => setFormData({ ...formData, is_template: e.target.checked })}
-                  className="rounded"
-                />
-                <label htmlFor="template" className="text-sm font-medium">
-                  Salvar como template
-                </label>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="private"
-                  checked={formData.is_private}
-                  onChange={(e) => setFormData({ ...formData, is_private: e.target.checked })}
-                  className="rounded"
-                />
-                <label htmlFor="private" className="text-sm font-medium">
-                  Página privada
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={createMutation.isPending || updateMutation.isPending}>
-              {(createMutation.isPending || updateMutation.isPending) && (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              )}
-              {selectedPage ? "Atualizar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -638,12 +638,12 @@ function renderProfileColumn(
               <p className="text-sm font-semibold">
                 {lead.createdAt 
                   ? `${Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24))} dias`
-                  : 'N/A'}
+                  : '0 dias'}
               </p>
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Média p/ ganhar</Label>
-              <p className="text-sm font-semibold text-muted-foreground">
+              <p className="text-sm font-semibold">
                 30 dias
               </p>
             </div>
@@ -652,7 +652,9 @@ function renderProfileColumn(
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Inativo (dias)</Label>
               <p className="text-sm font-semibold">
-                {Math.floor((Date.now() - new Date(lead.lastContact).getTime()) / (1000 * 60 * 60 * 24))} dias
+                {lead.lastContact 
+                  ? Math.floor((Date.now() - new Date(lead.lastContact).getTime()) / (1000 * 60 * 60 * 24))
+                  : 0} dias
               </p>
             </div>
             <div className="space-y-1">
@@ -660,7 +662,7 @@ function renderProfileColumn(
               <p className="text-sm font-semibold">
                 {lead.createdAt 
                   ? format(new Date(lead.createdAt), "dd/MM/yyyy", { locale: ptBR })
-                  : 'N/A'}
+                  : format(new Date(), "dd/MM/yyyy", { locale: ptBR })}
               </p>
             </div>
           </div>
@@ -758,31 +760,6 @@ function renderProfileColumn(
           </Field>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Comercial</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Field label="Etapa">
-            <Select value={lead.stage} onValueChange={(value: LeadStage) => updateLead(lead.id, { stage: value })}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(STAGE_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Probabilidade %">
-            <Input type="number" defaultValue={70} min={0} max={100} />
-          </Field>
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -861,13 +838,23 @@ function renderCentralColumn(params: {
         {/* ABA FOCO - Próxima Ação + Notas */}
         <TabsContent value="focus" className="space-y-4">
           {/* Próxima Ação */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-semibold">Próxima Ação</CardTitle>
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-transparent">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Target className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl font-bold">Próxima Ação</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Agende e acompanhe o próximo passo com este lead
+                  </p>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-3 p-5 pt-0">
+            <CardContent className="space-y-4 p-6 pt-4">
               <form
-                className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:items-end"
+                className="grid gap-4 md:grid-cols-2"
                 onSubmit={e => {
                   e.preventDefault();
                   if (!nextActionMissing) {
@@ -875,14 +862,14 @@ function renderCentralColumn(params: {
                   }
                 }}
               >
-                <div className="xl:col-span-2">
+                <div className="md:col-span-2">
                   <Field label="Tipo de ação">
                     <Select
                       value={nextActionText}
                       onValueChange={v => setNextActionText(v)}
                     >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Escolha o tipo" />
+                      <SelectTrigger className="w-full h-11">
+                        <SelectValue placeholder="Escolha o tipo de ação" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Reunião">📅 Reunião</SelectItem>
@@ -890,6 +877,8 @@ function renderCentralColumn(params: {
                         <SelectItem value="E-mail">📧 E-mail</SelectItem>
                         <SelectItem value="Ligação">📞 Ligação</SelectItem>
                         <SelectItem value="Técnica">🔧 Técnica</SelectItem>
+                        <SelectItem value="Follow-up">🔔 Follow-up</SelectItem>
+                        <SelectItem value="Apresentação">🎯 Apresentação</SelectItem>
                       </SelectContent>
                     </Select>
                   </Field>
@@ -902,6 +891,7 @@ function renderCentralColumn(params: {
                       onChange={e => setNextActionDate(e.target.value)}
                       required
                       placeholder="dd/mm/aaaa"
+                      className="h-11"
                     />
                   </Field>
                 </div>
@@ -913,34 +903,51 @@ function renderCentralColumn(params: {
                       onChange={e => setNextActionTime(e.target.value)}
                       required
                       placeholder="--:--"
+                      className="h-11"
                     />
                   </Field>
                 </div>
-                <div className="xl:col-span-4 flex flex-wrap items-center gap-2">
-                  <Select value={priority} onValueChange={setPriority}>
-                    <SelectTrigger className="w-[104px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="P1">P1</SelectItem>
-                      <SelectItem value="P2">P2</SelectItem>
-                      <SelectItem value="P3">P3</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Field label="Prioridade">
+                      <Select value={priority} onValueChange={setPriority}>
+                        <SelectTrigger className="h-11">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="P1">🔴 P1 - Urgente</SelectItem>
+                          <SelectItem value="P2">🟡 P2 - Importante</SelectItem>
+                          <SelectItem value="P3">🟢 P3 - Normal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+                <div className="flex items-end">
                   <Button
                     type="submit"
                     variant="default"
                     disabled={nextActionMissing}
-                    className="ml-auto"
+                    className="w-full h-11 font-semibold"
+                    size="lg"
                   >
-                    Salvar
+                    {nextActionMissing ? "Preencha os campos" : "Salvar Próxima Ação"}
                   </Button>
                 </div>
               </form>
               {nextActionMissing && (
-                <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Preencha todos os campos para salvar a próxima ação</span>
+                <div className="flex items-center gap-2 rounded-lg bg-warning/10 border border-warning/20 px-4 py-3 text-sm text-warning-foreground">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                  <span>Preencha todos os campos acima para salvar a próxima ação</span>
+                </div>
+              )}
+              {!nextActionMissing && (
+                <div className="flex items-center gap-2 rounded-lg bg-success/10 border border-success/20 px-4 py-3 text-sm text-success">
+                  <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
+                  <span>
+                    Próxima ação agendada: <strong>{nextActionText}</strong> em{" "}
+                    {format(new Date(`${nextActionDate}T${nextActionTime}`), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </span>
                 </div>
               )}
             </CardContent>
@@ -950,18 +957,35 @@ function renderCentralColumn(params: {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Notas</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Cole seu texto abaixo. A formatação será preservada automaticamente.
+              </p>
             </CardHeader>
             <CardContent className="space-y-4 p-4">
               <div className="space-y-2">
                 <Textarea 
-                  placeholder="Escreva uma nota..."
+                  placeholder="Escreva ou cole uma nota..."
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
-                  rows={3}
+                  rows={6}
+                  className="font-mono text-sm whitespace-pre-wrap"
+                  style={{ 
+                    whiteSpace: 'pre-wrap',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word'
+                  }}
                 />
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={handleSaveNote} disabled={!noteContent.trim()}>
-                    Salvar
+                    Salvar Nota
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setNoteContent('')}
+                    disabled={!noteContent.trim()}
+                  >
+                    Limpar
                   </Button>
                 </div>
               </div>
@@ -976,8 +1000,8 @@ function renderCentralColumn(params: {
                   leadNotes
                     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
                     .map((note) => (
-                      <div key={note.id} className="rounded-lg border bg-card p-3 shadow-sm">
-                        <div className="flex items-start justify-between gap-2 mb-2">
+                      <div key={note.id} className="rounded-lg border bg-card p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-2 mb-3">
                           <div className="flex items-center gap-2">
                             <Badge variant="secondary" className="text-xs">
                               {note.createdBy}
@@ -987,7 +1011,17 @@ function renderCentralColumn(params: {
                             </span>
                           </div>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+                        <div 
+                          className="text-sm whitespace-pre-wrap font-mono bg-muted/30 p-3 rounded-md"
+                          style={{ 
+                            whiteSpace: 'pre-wrap',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word',
+                            lineHeight: '1.6'
+                          }}
+                        >
+                          {note.content}
+                        </div>
                       </div>
                     ))
                 )}
@@ -997,20 +1031,30 @@ function renderCentralColumn(params: {
         </TabsContent>
 
         {/* ABA HISTÓRICO - Timeline de Atividades */}
-        <TabsContent value="history">
+        <TabsContent value="history" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Timeline</CardTitle>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-bold">Histórico de Atividades</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Acompanhe todas as interações e ações realizadas
+                  </p>
+                </div>
+                <Badge variant="secondary" className="text-base px-3 py-1">
+                  {leadActivities.length} atividades
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 {TIMELINE_FILTERS.map((filter) => (
                   <button
                     key={filter.id}
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                    className={`rounded-full border px-4 py-1.5 text-xs font-semibold transition-all shadow-sm ${
                       isFilterActive(filters, filter.id)
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
+                        ? "border-primary bg-primary text-primary-foreground shadow-md scale-105"
+                        : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-accent"
                     }`}
                     onClick={() => toggleFilter(filter.id, setFilters)}
                   >
@@ -1025,15 +1069,15 @@ function renderCentralColumn(params: {
                 onMarkComplete={async (id) => {
                   await markAsCompleted(id);
                   toast({
-                    title: "Atividade concluída!",
-                    description: "A atividade foi marcada como concluída",
+                    title: "✅ Atividade concluída!",
+                    description: "A atividade foi marcada como concluída com sucesso",
                   });
                 }}
                 onMarkIncomplete={async (id) => {
                   await markAsPending(id);
                   toast({
-                    title: "Atividade reaberta",
-                    description: "A atividade foi marcada como pendente",
+                    title: "🔄 Atividade reaberta",
+                    description: "A atividade foi marcada como pendente novamente",
                   });
                 }}
               />
@@ -1509,24 +1553,6 @@ function renderSummaryColumn({
           <SummaryRow label="Empresa" value={lead.company} />
           <SummaryRow label="Etapa" value={STAGE_LABELS[lead.stage]} />
           <SummaryRow label="Probabilidade" value="70%" />
-          <SummaryRow
-            label="Próxima ação"
-            value={nextActionMissing ? "—" : `${nextActionText} · ${nextActionDate} ${nextActionTime}`}
-          />
-          <SummaryRow
-            label="Idade do negócio"
-            value={lead.createdAt 
-              ? formatDistanceToNow(lead.createdAt, { addSuffix: false, locale: ptBR })
-              : "—"
-            }
-          />
-          <SummaryRow
-            label="Criado em"
-            value={lead.createdAt 
-              ? format(lead.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
-              : "—"
-            }
-          />
         </CardContent>
       </Card>
 
@@ -1556,31 +1582,6 @@ function renderSummaryColumn({
               )}
             </SelectContent>
           </Select>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Alertas</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {nextActionMissing && <AlertRow text="Sem próxima ação (crítico)" />}
-          {daysInStage > 7 && <AlertRow text={`Parado há ${daysInStage} dias no estágio`} />}
-          {lead.lastContact && (
-            (() => {
-              const hoursSinceContact = Math.floor((Date.now() - lead.lastContact.getTime()) / (1000 * 60 * 60));
-              if (hoursSinceContact > 48) {
-                const days = Math.floor(hoursSinceContact / 24);
-                return <AlertRow text={`Sem resposta há ${days} dias`} />;
-              } else if (hoursSinceContact > 24) {
-                return <AlertRow text={`Sem resposta há ${hoursSinceContact} horas`} />;
-              }
-              return null;
-            })()
-          )}
-          {lead.dealValue && lead.dealValue > 50000 && (!lead.bant || Object.values(lead.bant).filter(v => v === true).length < 3) && (
-            <AlertRow text="Probabilidade baixa vs valor alto" />
-          )}
         </CardContent>
       </Card>
     </div>

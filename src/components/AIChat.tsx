@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Loader2, X, TrendingUp, AlertCircle, Lightbulb } from 'lucide-react';
+import { Send, Bot, User, Loader2, X, TrendingUp, AlertCircle, Lightbulb, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ScrollArea } from './ui/scroll-area';
@@ -125,36 +125,42 @@ export function AIChat({ onClose, initialContext = 'leads' }: AIChatProps) {
   ];
 
   return (
-    <Card className="flex flex-col h-[600px] w-full max-w-2xl">
+    <Card className="flex flex-col h-[700px] w-full shadow-2xl border-2 border-primary/20 bg-gradient-to-br from-card to-card/80 backdrop-blur-sm">
       {/* Header */}
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b bg-gradient-to-r from-primary/5 to-transparent">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-full bg-gradient-to-br from-amber-900 to-amber-700">
-            <Bot className="h-5 w-5 text-amber-50" />
+          <div className="p-2.5 rounded-xl bg-primary/10 border-2 border-primary/20 shadow-sm">
+            <Bot className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-lg font-bold">AI</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Análise inteligente do seu CRM
+            <CardTitle className="text-xl font-bold text-primary flex items-center gap-2">
+              Análise Inteligente do seu CRM
+              <Badge variant="outline" className="gap-1 border-primary/30 text-primary text-xs">
+                <Sparkles className="h-3 w-3" />
+                Online
+              </Badge>
+            </CardTitle>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Assistente de IA para vendas
             </p>
           </div>
         </div>
         {onClose && (
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-destructive/10">
             <X className="h-4 w-4" />
           </Button>
         )}
       </CardHeader>
 
       {/* Stats Bar */}
-      <div className="flex gap-2 px-6 py-3 bg-muted/30 border-b">
-        <Badge variant="outline" className="gap-1">
-          <TrendingUp className="h-3 w-3" />
-          {leads.length} Leads
+      <div className="flex gap-3 px-6 py-4 bg-muted/30 border-b">
+        <Badge variant="outline" className="gap-1.5 px-3 py-1.5 border-primary/30">
+          <TrendingUp className="h-3.5 w-3.5 text-primary" />
+          <span className="font-semibold">{leads.length}</span> Leads
         </Badge>
-        <Badge variant="outline" className="gap-1">
-          <Lightbulb className="h-3 w-3" />
-          {funnels.length} Funis
+        <Badge variant="outline" className="gap-1.5 px-3 py-1.5 border-accent/30">
+          <Lightbulb className="h-3.5 w-3.5 text-accent" />
+          <span className="font-semibold">{funnels.length}</span> Funis
         </Badge>
       </div>
 
@@ -166,9 +172,14 @@ export function AIChat({ onClose, initialContext = 'leads' }: AIChatProps) {
           ))}
           
           {isLoading && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-sm">Analisando dados...</span>
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-br from-muted to-muted/50 border border-border mr-12 animate-pulse">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border-2 border-primary/20 flex items-center justify-center">
+                <Bot className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm font-medium">Analisando dados...</span>
+              </div>
             </div>
           )}
           
@@ -178,8 +189,11 @@ export function AIChat({ onClose, initialContext = 'leads' }: AIChatProps) {
 
       {/* Quick Actions */}
       {messages.length <= 2 && (
-        <div className="px-6 py-3 border-t border-b bg-muted/20">
-          <p className="text-xs text-muted-foreground mb-2">Sugestões rápidas:</p>
+        <div className="px-6 py-4 border-t border-b bg-gradient-to-r from-primary/5 to-transparent">
+          <p className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Sugestões rápidas:
+          </p>
           <div className="flex flex-wrap gap-2">
             {quickActions.map((action, idx) => (
               <Button
@@ -190,7 +204,7 @@ export function AIChat({ onClose, initialContext = 'leads' }: AIChatProps) {
                   setInput(action.prompt);
                   setTimeout(() => handleSendMessage(), 100);
                 }}
-                className="text-xs"
+                className="text-xs hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all"
               >
                 {action.label}
               </Button>
@@ -210,30 +224,31 @@ export function AIChat({ onClose, initialContext = 'leads' }: AIChatProps) {
       )}
 
       {/* Input Area */}
-      <CardContent className="p-4 border-t">
-        <div className="flex gap-2">
+      <CardContent className="p-5 border-t bg-gradient-to-r from-muted/30 to-transparent">
+        <div className="flex gap-3">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder="Pergunte sobre seus leads, pipeline, ou peça insights..."
             disabled={isLoading}
-            className="flex-1"
+            className="flex-1 h-12 px-4 text-base border-2 focus:border-primary transition-all"
           />
           <Button
             onClick={handleSendMessage}
             disabled={!input.trim() || isLoading}
             size="icon"
-            className="shrink-0"
+            className="shrink-0 h-12 w-12 shadow-lg hover:shadow-xl transition-all bg-primary hover:bg-primary/90"
           >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Send className="h-4 w-4" />
+              <Send className="h-5 w-5" />
             )}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
+        <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
+          <Lightbulb className="h-3.5 w-3.5" />
           A IA tem acesso aos seus dados do CRM para fornecer insights personalizados
         </p>
       </CardContent>
@@ -253,27 +268,27 @@ function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'USER';
 
   return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
       {/* Avatar */}
       <div
-        className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+        className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-md ${
           isUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-gradient-to-br from-amber-900 to-amber-700 text-amber-50'
+            ? 'bg-gradient-to-br from-primary to-primary/80 text-white'
+            : 'bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20'
         }`}
       >
-        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+        {isUser ? <User className="h-5 w-5" /> : <Bot className="h-5 w-5 text-primary" />}
       </div>
 
       {/* Message Content */}
       <div
-        className={`flex-1 rounded-lg p-4 ${
+        className={`flex-1 rounded-2xl p-4 shadow-sm ${
           isUser
-            ? 'bg-amber-900 text-white ml-12'
-            : 'bg-muted mr-12'
+            ? 'bg-gradient-to-br from-primary to-primary/90 text-white ml-12'
+            : 'bg-gradient-to-br from-muted to-muted/50 border border-border mr-12'
         }`}
       >
-        <div className="prose prose-sm max-w-none dark:prose-invert">
+        <div className={`prose prose-sm max-w-none ${isUser ? 'prose-invert' : 'dark:prose-invert'}`}>
           <MessageContent content={message.message} />
         </div>
       </div>
@@ -286,27 +301,80 @@ function MessageBubble({ message }: MessageBubbleProps) {
 // ============================================================================
 
 function MessageContent({ content }: { content: string }) {
-  // Formatar markdown básico
-  const formattedContent = content
-    .split('\n')
-    .map((line, idx) => {
-      // Lista com bullet points
-      if (line.trim().startsWith('- ')) {
-        return <li key={idx}>{line.substring(2)}</li>;
-      }
-      // Títulos
-      if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
-        return <strong key={idx}>{line.replace(/\*\*/g, '')}</strong>;
-      }
-      // Parágrafo normal
-      if (line.trim()) {
-        return <p key={idx}>{line}</p>;
-      }
-      return null;
-    })
-    .filter(Boolean);
+  // Processar markdown de forma mais robusta
+  const processLine = (line: string): JSX.Element | null => {
+    if (!line.trim()) return null;
 
-  return <>{formattedContent}</>;
+    // Lista com bullet points (- ou •)
+    if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
+      const text = line.substring(line.indexOf(' ') + 1);
+      return <li key={Math.random()}>{processInlineFormatting(text)}</li>;
+    }
+
+    // Parágrafo normal
+    return <p key={Math.random()}>{processInlineFormatting(line)}</p>;
+  };
+
+  // Processar formatação inline (negrito, itálico, etc)
+  const processInlineFormatting = (text: string): (string | JSX.Element)[] => {
+    const parts: (string | JSX.Element)[] = [];
+    let currentText = text;
+    let index = 0;
+
+    // Regex para encontrar **texto** (negrito)
+    const boldRegex = /\*\*(.+?)\*\*/g;
+    let match;
+    let lastIndex = 0;
+
+    while ((match = boldRegex.exec(currentText)) !== null) {
+      // Adicionar texto antes do negrito
+      if (match.index > lastIndex) {
+        parts.push(currentText.substring(lastIndex, match.index));
+      }
+      
+      // Adicionar texto em negrito
+      parts.push(<strong key={`bold-${index++}`}>{match[1]}</strong>);
+      
+      lastIndex = boldRegex.lastIndex;
+    }
+
+    // Adicionar resto do texto
+    if (lastIndex < currentText.length) {
+      parts.push(currentText.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : [text];
+  };
+
+  // Separar por linhas e processar
+  const lines = content.split('\n');
+  const elements: JSX.Element[] = [];
+  let listItems: JSX.Element[] = [];
+
+  lines.forEach((line, idx) => {
+    const element = processLine(line);
+    
+    if (element?.type === 'li') {
+      listItems.push(element);
+    } else {
+      // Se temos itens de lista acumulados, criar ul
+      if (listItems.length > 0) {
+        elements.push(<ul key={`list-${idx}`} className="list-disc list-inside space-y-1 my-2">{listItems}</ul>);
+        listItems = [];
+      }
+      
+      if (element) {
+        elements.push(element);
+      }
+    }
+  });
+
+  // Adicionar lista final se existir
+  if (listItems.length > 0) {
+    elements.push(<ul key="list-final" className="list-disc list-inside space-y-1 my-2">{listItems}</ul>);
+  }
+
+  return <div className="space-y-2">{elements}</div>;
 }
 
 // ============================================================================
