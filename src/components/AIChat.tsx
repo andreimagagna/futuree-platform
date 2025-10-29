@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * CHAT COM IA - COHERE AI ASSISTANT
+ * CHAT COM IA - ASSISTENTE INTELIGENTE
  * ============================================================================
  * Chat inteligente integrado ao CRM com análise de dados em tempo real
  * ============================================================================

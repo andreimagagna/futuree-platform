@@ -282,10 +282,6 @@ export function BusinessChat() {
             <CardTitle className="text-xl flex items-center gap-2">
               <Bot className="h-6 w-6 text-primary" />
               Chat com IA Business
-              <Badge variant="secondary" className="ml-2">
-                <Sparkles className="h-3 w-3 mr-1" />
-                Cohere AI
-              </Badge>
             </CardTitle>
             <div className="flex gap-2">
               <Button
@@ -363,7 +359,7 @@ export function BusinessChat() {
                           : 'bg-muted'
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                      <p className={`text-sm whitespace-pre-wrap ${msg.role === 'CHATBOT' ? 'font-bold' : ''}`}>{msg.message}</p>
                       <p className="text-xs opacity-70 mt-2">
                         {format(msg.timestamp, "HH:mm", { locale: ptBR })}
                       </p>

@@ -162,7 +162,7 @@ const Agent = () => {
                       <h4 className="font-semibold">Processa com IA</h4>
                     </div>
                     <p className="text-sm text-muted-foreground ml-10">
-                      Usa Cohere AI para entender e responder de forma natural
+                      Usa IA avançada para entender e responder de forma natural
                     </p>
                   </div>
 
