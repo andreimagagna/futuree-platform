@@ -249,18 +249,19 @@ export const KanbanBoard = () => {
       
       // Converter leads do Supabase para formato do Store Local
       const leadsForStore: Lead[] = (supabaseLeads || []).map((supabaseLead) => {
-        const customFields = (supabaseLead.custom_fields as any) || {};
+        let customFields = (supabaseLead.custom_fields as any) || {};
         
         // 🔍 Verificar funnel_id em AMBOS os locais (custom_fields E campo direto)
         const funnelIdFromCustomFields = customFields.funnel_id;
         const funnelIdFromRoot = (supabaseLead as any).funnel_id;
-        const finalFunnelId = funnelIdFromCustomFields || funnelIdFromRoot;
+        let finalFunnelId = funnelIdFromCustomFields || funnelIdFromRoot;
         
         console.log('[KanbanBoard] 🔍 Debug lead:', supabaseLead.name, {
           custom_fields: customFields,
           funnel_id_root: funnelIdFromRoot,
           funnel_id_custom: funnelIdFromCustomFields,
           final: finalFunnelId,
+          stage_id: customFields.stage_id,
           activeFunnelId: activeFunnelId
         });
         
@@ -268,22 +269,51 @@ export const KanbanBoard = () => {
         if (!finalFunnelId) {
           console.warn('[KanbanBoard] ⚠️ Lead sem funnel_id:', supabaseLead.name, '→ Atribuindo ao funil:', activeFunnelId);
           
-          // Atualizar no Supabase para persistir a mudança
-          const updatedCustomFields = {
+          // Atualizar customFields localmente
+          customFields = {
             ...customFields,
             funnel_id: activeFunnelId,
             stage_id: activeFunnel.stages[0]?.id || 'captured',
             stage_name: activeFunnel.stages[0]?.name || 'Capturado',
           };
+          finalFunnelId = activeFunnelId;
           
+          // Atualizar no Supabase de forma assíncrona
           updateSupabaseLead({
             id: supabaseLead.id,
             updates: {
-              custom_fields: updatedCustomFields
+              custom_fields: customFields
             }
           }).catch(err => console.error('[KanbanBoard] ❌ Erro ao atualizar funnel_id:', err));
         } else {
           console.log('[KanbanBoard] ✅ Lead com funnel_id:', supabaseLead.name, '→', finalFunnelId);
+          
+          // ✅ Se tem funnel_id mas NÃO tem stage_id, atribuir primeiro estágio
+          if (!customFields.stage_id) {
+            console.warn('[KanbanBoard] ⚠️ Lead sem stage_id:', supabaseLead.name, '→ Buscando funil:', finalFunnelId);
+            
+            // Buscar o funil correspondente
+            const leadFunnel = funnels.find(f => f.id === finalFunnelId);
+            if (leadFunnel && leadFunnel.stages && leadFunnel.stages.length > 0) {
+              const firstStage = leadFunnel.stages[0];
+              console.log('[KanbanBoard] ✅ Atribuindo stage:', firstStage.name, '→', firstStage.id);
+              
+              // Atualizar customFields localmente
+              customFields = {
+                ...customFields,
+                stage_id: firstStage.id,
+                stage_name: firstStage.name,
+              };
+              
+              // Atualizar no Supabase de forma assíncrona
+              updateSupabaseLead({
+                id: supabaseLead.id,
+                updates: {
+                  custom_fields: customFields
+                }
+              }).catch(err => console.error('[KanbanBoard] ❌ Erro ao atualizar stage_id:', err));
+            }
+          }
         }
         
         return {
@@ -294,9 +324,9 @@ export const KanbanBoard = () => {
           whatsapp: supabaseLead.whatsapp || supabaseLead.phone || '',
           source: supabaseLead.source || 'Website',
           owner: customFields.owner || 'Sem responsável',
-          stage: customFields.stage_id || activeFunnel.stages[0]?.id || 'captured',
-          customStageId: customFields.stage_id || activeFunnel.stages[0]?.id,
-          funnelId: finalFunnelId || activeFunnelId,
+          stage: customFields.stage_id || 'captured',
+          customStageId: customFields.stage_id,
+          funnelId: finalFunnelId,
           score: supabaseLead.score || 0,
           status: supabaseLead.status as any,
           tags: supabaseLead.tags || [],
