@@ -139,6 +139,54 @@ export const LeadDetailView = () => {
   } : null;
   
   const leadNotes = notes.filter((n) => n.leadId === id);
+  
+  // ✅ Converter notes do Supabase para formato de timeline (SOMENTE LEITURA)
+  const supabaseNotes = useMemo(() => {
+    if (!lead?.notes || typeof lead.notes !== 'string') return [];
+    
+    // Parse notes do formato: "[DD/MM/YYYY HH:MM] Texto da nota"
+    const noteBlocks = lead.notes.split('\n\n').filter(Boolean);
+    return noteBlocks.map((block, index) => {
+      const match = block.match(/^\[(.+?)\] (.+)$/s);
+      if (match) {
+        const [, timestamp, content] = match;
+        // Tentar parsear a data
+        try {
+          const [datePart, timePart] = timestamp.split(' ');
+          const [day, month, year] = datePart.split('/');
+          const [hour, minute] = timePart.split(':');
+          const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+          return {
+            id: `supabase-note-${id}-${index}`,
+            leadId: id,
+            content: content.trim(),
+            createdAt: date,
+          };
+        } catch {
+          return {
+            id: `supabase-note-${id}-${index}`,
+            leadId: id,
+            content: block,
+            createdAt: new Date(),
+          };
+        }
+      }
+      return {
+        id: `supabase-note-${id}-${index}`,
+        leadId: id,
+        content: block,
+        createdAt: new Date(),
+      };
+    });
+  }, [lead?.notes, id]);
+  
+  // ✅ Combinar notes do store local + notes do Supabase
+  const allLeadNotes = useMemo(() => {
+    return [...leadNotes, ...supabaseNotes].sort((a, b) => 
+      b.createdAt.getTime() - a.createdAt.getTime()
+    );
+  }, [leadNotes, supabaseNotes]);
+  
   // ✅ USAR ACTIVITIES DO SUPABASE ao invés do store local
   const leadActivities = supabaseActivities || [];
   const { toast } = useToast();
@@ -167,7 +215,7 @@ export const LeadDetailView = () => {
     return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [lead]);
 
-  const timelineItems = useMemo(() => buildTimeline(filters, leadNotes, leadActivities), [filters, leadNotes, leadActivities]);
+  const timelineItems = useMemo(() => buildTimeline(filters, allLeadNotes, leadActivities), [filters, allLeadNotes, leadActivities]);
 
   const followersCount = 3;
 
@@ -427,7 +475,7 @@ export const LeadDetailView = () => {
           onSaveNextAction: handleSaveNextAction,
           noteContent,
           setNoteContent,
-          leadNotes,
+          leadNotes: allLeadNotes,
           handleSaveNote,
         })}
 

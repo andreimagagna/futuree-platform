@@ -262,6 +262,7 @@ export const KanbanBoard = () => {
           funnel_id_custom: funnelIdFromCustomFields,
           final: finalFunnelId,
           stage_id: customFields.stage_id,
+          notes: supabaseLead.notes,  // 📝 Verificar se notes está vindo do DB
           activeFunnelId: activeFunnelId
         });
         
