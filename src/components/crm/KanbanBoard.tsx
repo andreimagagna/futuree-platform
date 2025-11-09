@@ -251,8 +251,21 @@ export const KanbanBoard = () => {
       const leadsForStore: Lead[] = (supabaseLeads || []).map((supabaseLead) => {
         const customFields = (supabaseLead.custom_fields as any) || {};
         
+        // 🔍 Verificar funnel_id em AMBOS os locais (custom_fields E campo direto)
+        const funnelIdFromCustomFields = customFields.funnel_id;
+        const funnelIdFromRoot = (supabaseLead as any).funnel_id;
+        const finalFunnelId = funnelIdFromCustomFields || funnelIdFromRoot;
+        
+        console.log('[KanbanBoard] 🔍 Debug lead:', supabaseLead.name, {
+          custom_fields: customFields,
+          funnel_id_root: funnelIdFromRoot,
+          funnel_id_custom: funnelIdFromCustomFields,
+          final: finalFunnelId,
+          activeFunnelId: activeFunnelId
+        });
+        
         // ✅ Detectar leads sem funnel_id e atribuir automaticamente ao funil ativo
-        if (!customFields.funnel_id) {
+        if (!finalFunnelId) {
           console.warn('[KanbanBoard] ⚠️ Lead sem funnel_id:', supabaseLead.name, '→ Atribuindo ao funil:', activeFunnelId);
           
           // Atualizar no Supabase para persistir a mudança
@@ -270,7 +283,7 @@ export const KanbanBoard = () => {
             }
           }).catch(err => console.error('[KanbanBoard] ❌ Erro ao atualizar funnel_id:', err));
         } else {
-          console.log('[KanbanBoard] ✅ Lead com funnel_id:', supabaseLead.name, '→', customFields.funnel_id);
+          console.log('[KanbanBoard] ✅ Lead com funnel_id:', supabaseLead.name, '→', finalFunnelId);
         }
         
         return {
@@ -283,7 +296,7 @@ export const KanbanBoard = () => {
           owner: customFields.owner || 'Sem responsável',
           stage: customFields.stage_id || activeFunnel.stages[0]?.id || 'captured',
           customStageId: customFields.stage_id || activeFunnel.stages[0]?.id,
-          funnelId: customFields.funnel_id || activeFunnelId,
+          funnelId: finalFunnelId || activeFunnelId,
           score: supabaseLead.score || 0,
           status: supabaseLead.status as any,
           tags: supabaseLead.tags || [],
