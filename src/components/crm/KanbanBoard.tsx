@@ -114,9 +114,7 @@ export const KanbanBoard = () => {
     deleteLead: deleteSupabaseLead,
     isLoading: isLoadingLeads,
   } = useSupabaseLeads({
-    filters: {
-      owner_id: user?.id, // Apenas leads do usuário logado
-    },
+    // ✅ SEM FILTRO owner_id para permitir leads do n8n
   });
 
   // ============================================================================
@@ -253,9 +251,24 @@ export const KanbanBoard = () => {
       const leadsForStore: Lead[] = (supabaseLeads || []).map((supabaseLead) => {
         const customFields = (supabaseLead.custom_fields as any) || {};
         
-        // 🐛 DEBUG - Verificar funnel_id
+        // ✅ Detectar leads sem funnel_id e atribuir automaticamente ao funil ativo
         if (!customFields.funnel_id) {
-          console.warn('[KanbanBoard] ⚠️ Lead sem funnel_id:', supabaseLead.name, 'custom_fields:', customFields);
+          console.warn('[KanbanBoard] ⚠️ Lead sem funnel_id:', supabaseLead.name, '→ Atribuindo ao funil:', activeFunnelId);
+          
+          // Atualizar no Supabase para persistir a mudança
+          const updatedCustomFields = {
+            ...customFields,
+            funnel_id: activeFunnelId,
+            stage_id: activeFunnel.stages[0]?.id || 'captured',
+            stage_name: activeFunnel.stages[0]?.name || 'Capturado',
+          };
+          
+          updateSupabaseLead({
+            id: supabaseLead.id,
+            updates: {
+              custom_fields: updatedCustomFields
+            }
+          }).catch(err => console.error('[KanbanBoard] ❌ Erro ao atualizar funnel_id:', err));
         } else {
           console.log('[KanbanBoard] ✅ Lead com funnel_id:', supabaseLead.name, '→', customFields.funnel_id);
         }
@@ -268,9 +281,9 @@ export const KanbanBoard = () => {
           whatsapp: supabaseLead.whatsapp || supabaseLead.phone || '',
           source: supabaseLead.source || 'Website',
           owner: customFields.owner || 'Sem responsável',
-          stage: customFields.stage_id || 'captured',
-          customStageId: customFields.stage_id,
-          funnelId: customFields.funnel_id || 'default',
+          stage: customFields.stage_id || activeFunnel.stages[0]?.id || 'captured',
+          customStageId: customFields.stage_id || activeFunnel.stages[0]?.id,
+          funnelId: customFields.funnel_id || activeFunnelId,
           score: supabaseLead.score || 0,
           status: supabaseLead.status as any,
           tags: supabaseLead.tags || [],
