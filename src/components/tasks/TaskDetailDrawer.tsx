@@ -7,16 +7,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Task, TaskStatus, Priority, Project, Lead, TaskActivity, TaskComment } from "@/store/useStore";
+import { Card, CardContent } from "@/components/ui/card";
+import { Task, TaskStatus, Priority, TaskActivity, TaskComment } from "@/store/useStore";
 import { useStore } from "@/store/useStore";
 import { 
-  CalendarDays, Mail, Phone, Video, Tag, CheckSquare, Clock, 
-  User, Paperclip, MessageSquare, Activity, Trash2, Plus, Eye,
-  Timer, Target
+  CalendarDays, CheckSquare, 
+  MessageSquare, Activity, Trash2, Plus,
+  Timer, Sparkles, Loader2, Copy, Phone, Mail, Video
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { v4 as uuid } from "uuid";
+import { assistTextWithAI } from "@/services/textAssistantAI";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaskDetailDrawerProps {
   open: boolean;
@@ -35,25 +38,83 @@ const activityIcons = {
 };
 
 export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDetailDrawerProps) {
-  const { 
-    availableTags, 
-    projects, 
-    leads,
-  } = useStore();
-  
+  const { toast } = useToast();
   const [newComment, setNewComment] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
-  const [activityType, setActivityType] = useState<"call" | "email" | "meeting">("call");
-  const [activityContent, setActivityContent] = useState("");
-  const [activityDuration, setActivityDuration] = useState("");
+  
+  // ✨ AI State
+  const [isAILoading, setIsAILoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState("");
 
-  const relatedLead = leads.find((l: Lead) => l.id === task.leadId);
-  const relatedProject = projects.find((p: Project) => p.id === task.projectId);
+  // ✨ AI Handler
+  const handleAIAssist = async () => {
+    if (!task.title.trim()) {
+      toast({
+        title: "⚠️ Título necessário",
+        description: "Adicione um título à tarefa antes de gerar a descrição com IA",
+      });
+      return;
+    }
 
-  const toggleTag = (tag: string) => {
-    const has = task.tags.includes(tag);
-    const next = has ? task.tags.filter((t) => t !== tag) : [...task.tags, tag];
-    onUpdate({ tags: next });
+    setIsAILoading(true);
+    setAiSuggestion("");
+
+    try {
+      const prompt = `Crie uma descrição detalhada e estruturada para esta tarefa: "${task.title}".
+${task.description ? `Descrição atual: ${task.description}` : ""}
+
+Formate a resposta com:
+- Objetivo principal
+- Passos sugeridos
+- Critérios de aceitação
+- Pontos de atenção (se relevante)`;
+
+      const suggestion = await assistTextWithAI(prompt, task.title, task.description || "");
+      setAiSuggestion(suggestion);
+      
+      toast({
+        title: "✨ Sugestão gerada!",
+        description: "Revise e insira a descrição sugerida",
+      });
+    } catch (error) {
+      console.error("Erro ao gerar sugestão:", error);
+      toast({
+        title: "❌ Erro",
+        description: "Não foi possível gerar a sugestão. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAILoading(false);
+    }
+  };
+
+  const handleInsertAISuggestion = () => {
+    onUpdate({ description: aiSuggestion });
+    setAiSuggestion("");
+    toast({
+      title: "✅ Inserido!",
+      description: "Descrição substituída pela sugestão da IA",
+    });
+  };
+
+  const handleAppendAISuggestion = () => {
+    const newDescription = task.description 
+      ? `${task.description}\n\n---\n\n${aiSuggestion}`
+      : aiSuggestion;
+    onUpdate({ description: newDescription });
+    setAiSuggestion("");
+    toast({
+      title: "✅ Adicionado!",
+      description: "Sugestão adicionada à descrição existente",
+    });
+  };
+
+  const handleCopyAISuggestion = () => {
+    navigator.clipboard.writeText(aiSuggestion);
+    toast({
+      title: "📋 Copiado!",
+      description: "Sugestão copiada para a área de transferência",
+    });
   };
 
   const handleAddComment = () => {
@@ -69,24 +130,6 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
     const updatedComments = [...task.comments, comment];
     onUpdate({ comments: updatedComments });
     setNewComment("");
-  };
-
-  const handleAddActivity = () => {
-    if (!activityContent.trim()) return;
-    const activity: TaskActivity = {
-      id: uuid(),
-      type: activityType,
-      content: activityContent,
-      createdAt: new Date(),
-      createdBy: "Você",
-      metadata: activityDuration ? { duration: parseInt(activityDuration) } : undefined,
-    };
-    
-    // ✅ Salvar no backend via onUpdate
-    const updatedActivities = [...task.activities, activity];
-    onUpdate({ activities: updatedActivities });
-    setActivityContent("");
-    setActivityDuration("");
   };
 
   const handleAddChecklistItem = () => {
@@ -105,7 +148,7 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl p-0 overflow-hidden">
+      <SheetContent side="right" className="w-full sm:max-w-4xl p-0 overflow-hidden">
         <div className="flex flex-col h-full">
           {/* Header */}
           <SheetHeader className="px-6 py-4 border-b">
@@ -138,7 +181,7 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
           <ScrollArea className="flex-1">
             <div className="px-6 py-4 space-y-6">
               {/* Quick Meta Grid */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Status</label>
                   <Select value={task.status} onValueChange={(v) => onUpdate({ status: v as TaskStatus })}>
@@ -173,52 +216,85 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
                     onChange={(e) => onUpdate({ dueDate: e.target.value ? new Date(e.target.value) : undefined })}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> Hora
-                  </label>
-                  <Input 
-                    type="time" 
-                    className="h-9"
-                    value={task.dueTime || ""} 
-                    onChange={(e) => onUpdate({ dueTime: e.target.value })} 
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                    <User className="h-3 w-3" /> Responsável
-                  </label>
-                  <Input 
-                    className="h-9"
-                    value={task.assignee} 
-                    onChange={(e) => onUpdate({ assignee: e.target.value })} 
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                    <Target className="h-3 w-3" /> Tempo estimado
-                  </label>
-                  <Input 
-                    type="number"
-                    className="h-9"
-                    placeholder="minutos"
-                    value={task.estimatedTime || ""} 
-                    onChange={(e) => onUpdate({ estimatedTime: e.target.value ? parseInt(e.target.value) : undefined })} 
-                  />
-                </div>
               </div>
 
               <Separator />
 
               {/* Description */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Descrição</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold">Descrição</label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAIAssist}
+                    disabled={isAILoading}
+                    className="gap-1.5 h-8"
+                  >
+                    {isAILoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                    {isAILoading ? "Gerando..." : "Gerar com IA"}
+                  </Button>
+                </div>
                 <Textarea 
-                  rows={4} 
+                  rows={12} 
                   value={task.description} 
                   onChange={(e) => onUpdate({ description: e.target.value })}
-                  placeholder="Adicione uma descrição detalhada..."
+                  placeholder="Adicione uma descrição detalhada da tarefa..."
+                  className="min-h-[300px] resize-y"
                 />
+                
+                {aiSuggestion && (
+                  <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-semibold">Sugestão da IA</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={handleInsertAISuggestion}
+                            className="h-7 gap-1.5"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Substituir
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAppendAISuggestion}
+                            className="h-7 gap-1.5"
+                          >
+                            <Plus className="h-3 w-3" />
+                            Adicionar
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCopyAISuggestion}
+                            className="h-7 gap-1.5"
+                          >
+                            <Copy className="h-3 w-3" />
+                            Copiar
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="text-sm whitespace-pre-wrap bg-background/50 p-4 rounded-md border max-h-[400px] overflow-y-auto">
+                        {aiSuggestion}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               <Separator />
@@ -230,54 +306,58 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
                     <CheckSquare className="h-4 w-4 text-muted-foreground" />
                     <h3 className="font-semibold text-sm">Checklist</h3>
                     {totalCount > 0 && (
-                      <span className="text-xs text-muted-foreground">
-                        {completedCount}/{totalCount} ({Math.round(progress)}%)
-                      </span>
+                      <Badge variant="outline" className="text-xs">
+                        {completedCount}/{totalCount} • {Math.round(progress)}%
+                      </Badge>
                     )}
                   </div>
                 </div>
                 
                 {totalCount > 0 && (
-                  <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden">
                     <div 
-                      className="bg-primary h-full transition-all" 
+                      className="bg-primary h-full transition-all duration-300" 
                       style={{ width: `${progress}%` }}
                     />
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  {task.checklist.map((c) => (
-                    <div key={c.id} className="flex items-center gap-2 group">
-                      <input 
-                        type="checkbox" 
-                        checked={c.done} 
-                        onChange={() => {
-                          // ✅ Toggle no backend
-                          const updatedChecklist = task.checklist.map(item =>
-                            item.id === c.id ? { ...item, done: !item.done } : item
-                          );
-                          onUpdate({ checklist: updatedChecklist });
-                        }}
-                        className="rounded"
-                      />
-                      <span className={`flex-1 text-sm ${c.done ? "line-through text-muted-foreground" : ""}`}>
-                        {c.text}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                        onClick={() => {
-                          // ✅ Deletar no backend
-                          const updatedChecklist = task.checklist.filter(item => item.id !== c.id);
-                          onUpdate({ checklist: updatedChecklist });
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
+                <div className="space-y-1.5">
+                  {task.checklist.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma subtarefa ainda</p>
+                  ) : (
+                    task.checklist.map((c) => (
+                      <div key={c.id} className="flex items-center gap-2.5 group p-2 rounded hover:bg-muted/50 transition-colors">
+                        <input 
+                          type="checkbox" 
+                          checked={c.done} 
+                          onChange={() => {
+                            // ✅ Toggle no backend
+                            const updatedChecklist = task.checklist.map(item =>
+                              item.id === c.id ? { ...item, done: !item.done } : item
+                            );
+                            onUpdate({ checklist: updatedChecklist });
+                          }}
+                          className="rounded w-4 h-4 cursor-pointer"
+                        />
+                        <span className={`flex-1 text-sm transition-all ${c.done ? "line-through text-muted-foreground" : "font-medium"}`}>
+                          {c.text}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => {
+                            // ✅ Deletar no backend
+                            const updatedChecklist = task.checklist.filter(item => item.id !== c.id);
+                            onUpdate({ checklist: updatedChecklist });
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 <div className="flex gap-2">
@@ -288,135 +368,9 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
                     onKeyPress={(e) => e.key === "Enter" && handleAddChecklistItem()}
                     className="h-9"
                   />
-                  <Button size="sm" onClick={handleAddChecklistItem}>
+                  <Button size="sm" onClick={handleAddChecklistItem} className="shrink-0">
                     <Plus className="h-4 w-4" />
                   </Button>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Tags */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-sm">Tags</h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {availableTags.map((t) => {
-                    const selected = task.tags.includes(t);
-                    return (
-                      <Button
-                        key={t}
-                        type="button"
-                        variant={selected ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => toggleTag(t)}
-                      >
-                        {t}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Related Items */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Projeto</label>
-                  <Select
-                    value={task.projectId || "none"}
-                    onValueChange={(v) => onUpdate({ projectId: v === "none" ? undefined : v })}
-                  >
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      {projects.map((p: Project) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {relatedProject && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      🎯 {relatedProject.name}
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Lead</label>
-                  <Select
-                    value={task.leadId || "none"}
-                    onValueChange={(v) => onUpdate({ leadId: v === "none" ? undefined : v })}
-                  >
-                    <SelectTrigger className="h-9"><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      {leads.map((l: Lead) => (
-                        <SelectItem key={l.id} value={l.id}>{l.name} - {l.company}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {relatedLead && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      👤 {relatedLead.name} ({relatedLead.company})
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Watchers */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-sm">Observadores</h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {task.watchers.map((w) => (
-                    <Badge key={w} variant="secondary">{w}</Badge>
-                  ))}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Quick Engagement */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  <Activity className="h-4 w-4" /> Registrar Atividade
-                </h3>
-                <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                  <Select value={activityType} onValueChange={(v) => setActivityType(v as any)}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="call">📞 Ligação</SelectItem>
-                      <SelectItem value="email">📧 E-mail</SelectItem>
-                      <SelectItem value="meeting">🎥 Reunião</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Textarea
-                    placeholder="Descreva a atividade..."
-                    value={activityContent}
-                    onChange={(e) => setActivityContent(e.target.value)}
-                    rows={2}
-                  />
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Duração (min)"
-                      value={activityDuration}
-                      onChange={(e) => setActivityDuration(e.target.value)}
-                      className="h-9"
-                    />
-                    <Button size="sm" onClick={handleAddActivity} className="gap-1">
-                      <Plus className="h-4 w-4" /> Adicionar
-                    </Button>
-                  </div>
                 </div>
               </div>
 
@@ -424,39 +378,46 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
 
               {/* Comments */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-sm">Comentários ({task.comments.length})</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="font-semibold text-sm">Comentários</h3>
+                    <Badge variant="secondary" className="text-xs">{task.comments.length}</Badge>
+                  </div>
                 </div>
                 
-                <div className="space-y-3">
-                  {task.comments.map((comment) => (
-                    <div key={comment.id} className="p-3 border rounded-lg group">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-sm">{comment.createdBy}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {format(comment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                            </span>
+                <div className="space-y-2">
+                  {task.comments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhum comentário ainda</p>
+                  ) : (
+                    task.comments.map((comment) => (
+                      <div key={comment.id} className="p-3 border rounded-lg bg-muted/30 group hover:bg-muted/50 transition-colors">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="font-medium text-sm">{comment.createdBy}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {format(comment.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </span>
+                            </div>
+                            <p className="text-sm leading-relaxed">{comment.content}</p>
                           </div>
-                          <p className="text-sm">{comment.content}</p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              // ✅ Deletar no backend
+                              const updatedComments = task.comments.filter(c => c.id !== comment.id);
+                              onUpdate({ comments: updatedComments });
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                          onClick={() => {
-                            // ✅ Deletar no backend
-                            const updatedComments = task.comments.filter(c => c.id !== comment.id);
-                            onUpdate({ comments: updatedComments });
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
 
                 <div className="flex gap-2">
@@ -464,53 +425,63 @@ export function TaskDetailDrawer({ open, onOpenChange, task, onUpdate }: TaskDet
                     placeholder="Adicionar comentário..."
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    rows={2}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && e.ctrlKey) {
+                        handleAddComment();
+                      }
+                    }}
+                    rows={3}
+                    className="resize-none"
                   />
-                  <Button size="sm" onClick={handleAddComment}>
+                  <Button size="sm" onClick={handleAddComment} className="shrink-0">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">Dica: Ctrl+Enter para adicionar</p>
               </div>
 
               <Separator />
 
               {/* Activity Timeline */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="font-semibold text-sm">Timeline de Atividades ({task.activities.length})</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="font-semibold text-sm">Timeline de Atividades</h3>
+                    <Badge variant="secondary" className="text-xs">{task.activities.length}</Badge>
+                  </div>
                 </div>
                 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {task.activities.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Nenhuma atividade registrada</p>
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma atividade registrada</p>
                   ) : (
                     task.activities.map((activity) => {
                       const Icon = activityIcons[activity.type];
                       return (
-                        <div key={activity.id} className="flex gap-3 p-3 border rounded-lg">
+                        <div key={activity.id} className="flex gap-3 p-3 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
                           <div className="mt-0.5">
-                            <Icon className="h-4 w-4 text-muted-foreground" />
+                            <Icon className="h-4 w-4 text-primary" />
                           </div>
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm capitalize">
-                                {activity.type === "call" && "Ligação"}
-                                {activity.type === "email" && "E-mail"}
-                                {activity.type === "meeting" && "Reunião"}
-                                {activity.type === "note" && "Nota"}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {format(activity.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            <div className="flex items-center flex-wrap gap-2 mb-1.5">
+                              <span className="font-medium text-sm">
+                                {activity.type === "call" && "📞 Ligação"}
+                                {activity.type === "email" && "📧 E-mail"}
+                                {activity.type === "meeting" && "🎥 Reunião"}
+                                {activity.type === "note" && "📝 Nota"}
                               </span>
                               {activity.metadata?.duration && (
                                 <Badge variant="outline" className="text-xs">
                                   {activity.metadata.duration}min
                                 </Badge>
                               )}
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                {format(activity.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                              </span>
                             </div>
-                            <p className="text-sm text-muted-foreground">{activity.content}</p>
-                            <p className="text-xs text-muted-foreground mt-1">por {activity.createdBy}</p>
+                            <p className="text-sm leading-relaxed mb-1">{activity.content}</p>
+                            <p className="text-xs text-muted-foreground">por {activity.createdBy}</p>
                           </div>
                         </div>
                       );

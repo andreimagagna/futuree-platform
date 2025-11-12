@@ -266,7 +266,10 @@ export const Financas = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Finanças</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Finanças</h1>
+          <p className="text-muted-foreground mt-1">Gerencie suas receitas e despesas</p>
+        </div>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="w-4 h-4 mr-2" />
           Nova Transação

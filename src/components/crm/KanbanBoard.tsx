@@ -452,22 +452,36 @@ export const KanbanBoard = () => {
     if (!draggedLead) return;
     
     try {
-      // ✅ SALVAR NO SUPABASE fazendo merge dos custom_fields existentes
-      const currentCustomFields = (draggedLead as any).custom_fields || (draggedLead as any).customFields || {};
+      console.log('[KanbanBoard] 🔄 Movendo lead:', draggedLead.name, draggedLead.id);
       
-      await updateSupabaseLead({
-        id: draggedLead.id,
-        updates: {
-          custom_fields: {
-            ...currentCustomFields, // ✅ Preserva todos os campos existentes (company, owner, etc)
-            stage_id: stageId,
-            stage_name: activeFunnel.stages.find(s => s.id === stageId)?.name || stageId,
-            funnel_id: activeFunnelId,
-          }
+      // ✅ BUSCAR lead atual do Supabase para garantir custom_fields completos
+      const currentLead = supabaseLeads?.find(l => l.id === draggedLead.id);
+      if (!currentLead) {
+        console.error('[KanbanBoard] ❌ Lead não encontrado no Supabase:', draggedLead.id);
+        return;
+      }
+      
+      const currentCustomFields = (currentLead.custom_fields as any) || {};
+      console.log('[KanbanBoard] 📦 custom_fields atuais do Supabase:', currentCustomFields);
+      console.log('[KanbanBoard] 🎯 Novo stage:', stageId);
+      
+      const updates = {
+        custom_fields: {
+          ...currentCustomFields, // ✅ Preserva TODOS os campos do Supabase
+          stage_id: stageId,
+          stage_name: activeFunnel.stages.find(s => s.id === stageId)?.name || stageId,
+          funnel_id: activeFunnelId,
         }
+      };
+      
+      console.log('[KanbanBoard] 📝 Updates a serem enviados:', updates);
+      
+      const result = await updateSupabaseLead({
+        id: draggedLead.id,
+        updates
       });
       
-      console.log('[KanbanBoard] ✅ Lead movido para stage:', stageId);
+      console.log('[KanbanBoard] ✅ Lead movido para stage:', stageId, 'Resultado:', result);
     } catch (error) {
       console.error('[KanbanBoard] ❌ Erro ao mover lead:', error);
     }

@@ -77,6 +77,9 @@ const priorityColors: Record<'P1' | 'P2' | 'P3', string> = {
   P3: 'bg-muted text-muted-foreground',
 };
 
+// Apenas 3 colunas: Backlog, Em Progresso, Concluído
+const ACTIVE_MARKETING_STATUSES: MarketingTaskStatus[] = ['backlog', 'in_progress', 'done'];
+
 const categoryIcons = {
   conteudo: Lightbulb,
   social_media: Megaphone,
@@ -473,7 +476,7 @@ export const MarketingTasksView = () => {
     });
   };
 
-  const statuses: MarketingTaskStatus[] = ['backlog', 'in_progress', 'review', 'done'];
+  const statuses: MarketingTaskStatus[] = ACTIVE_MARKETING_STATUSES;
 
   const filteredTasks: MarketingTask[] = useMemo(() => {
     return tasks.filter((t: MarketingTask) => {
@@ -556,7 +559,7 @@ export const MarketingTasksView = () => {
 
       {viewMode === "board" ? (
         <DndContext collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {statuses.map((status) => {
               const statusTasks = filteredTasks.filter((t) => t.status === status);
               const totalChecklist = statusTasks.reduce((sum, t) => sum + t.checklist.length, 0);

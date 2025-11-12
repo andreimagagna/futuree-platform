@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { DndContext, DragEndEvent, closestCorners } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, closestCorners, useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,9 @@ const priorityColors: Record<Priority, string> = {
   P2: 'bg-warning text-warning-foreground',
   P3: 'bg-muted text-muted-foreground',
 };
+
+// Apenas 3 colunas: Backlog, Em Progresso, Concluído
+const ACTIVE_STATUSES: TaskStatus[] = ['backlog', 'in_progress', 'done'];
 
 interface TaskCardProps {
   task: Task;
@@ -140,6 +143,17 @@ const TaskCard = ({ task, onOpen }: TaskCardProps) => {
   );
 };
 
+// Droppable Column Component
+const DroppableColumn = ({ status, children }: { status: TaskStatus; children: React.ReactNode }) => {
+  const { setNodeRef } = useDroppable({ id: status });
+  
+  return (
+    <div ref={setNodeRef} className="space-y-3 min-h-[400px] p-3 rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/5">
+      {children}
+    </div>
+  );
+};
+
 export const TasksView = () => {
   const { data: tasks = [] } = useTasks();
   const { mutate: createTask } = useCreateTask();
@@ -154,7 +168,7 @@ export const TasksView = () => {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-  const statuses: TaskStatus[] = ['backlog', 'in_progress', 'review', 'done'];
+  const statuses: TaskStatus[] = ACTIVE_STATUSES;
 
   const filteredTasks: Task[] = useMemo(() => {
     return tasks.filter((t: Task) => {
@@ -174,7 +188,35 @@ export const TasksView = () => {
     if (!over) return;
 
     const taskId = active.id as string;
-    const newStatus = over.id as TaskStatus;
+    const task = tasks.find((t: Task) => t.id === taskId);
+    if (!task) return;
+
+    // over.id pode ser tanto um status (coluna) quanto um taskId (dentro da lista)
+    // Vamos verificar se é um status válido primeiro
+    let newStatus: TaskStatus;
+    
+    if (statuses.includes(over.id as TaskStatus)) {
+      // Arrastou diretamente para a coluna
+      newStatus = over.id as TaskStatus;
+      console.log(`✅ Dropped on column: ${over.id}`);
+    } else {
+      // Arrastou sobre outra tarefa - encontrar o status dessa tarefa
+      const overTask = tasks.find((t: Task) => t.id === over.id);
+      if (!overTask) {
+        console.log(`❌ Could not find task with id: ${over.id}`);
+        return;
+      }
+      newStatus = overTask.status;
+      console.log(`✅ Dropped on task in column: ${newStatus}`);
+    }
+
+    // Não fazer nada se o status não mudou
+    if (task.status === newStatus) {
+      console.log(`⚠️ Status unchanged: ${newStatus}`);
+      return;
+    }
+
+    console.log(`🚀 Moving task "${task.title}" from ${task.status} to ${newStatus}`);
 
     // ✅ ATUALIZAR STATUS NO BACKEND
     updateTask({ id: taskId, updates: { status: newStatus } });
@@ -245,7 +287,7 @@ export const TasksView = () => {
 
       {viewMode === "board" ? (
         <DndContext collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {statuses.map((status) => {
               const statusTasks = filteredTasks.filter((t) => t.status === status);
               const totalChecklist = statusTasks.reduce((sum, t) => sum + t.checklist.length, 0);
@@ -280,12 +322,12 @@ export const TasksView = () => {
                     </CardContent>
                   </Card>
                   
-                  <SortableContext
-                    id={status}
-                    items={statusTasks.map((t) => t.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-3 min-h-[400px] p-3 rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/5">
+                  <DroppableColumn status={status}>
+                    <SortableContext
+                      id={status}
+                      items={statusTasks.map((t) => t.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
                       {statusTasks.length === 0 ? (
                         <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
                           Arraste tarefas aqui
@@ -302,8 +344,8 @@ export const TasksView = () => {
                           />
                         ))
                       )}
-                    </div>
-                  </SortableContext>
+                    </SortableContext>
+                  </DroppableColumn>
                 </div>
               );
             })}

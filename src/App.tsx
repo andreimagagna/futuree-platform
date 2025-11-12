@@ -12,6 +12,7 @@ import Tasks from "./pages/Tasks";
 import Funnel from "./pages/Funnel";
 import Reports from "./pages/Reports";
 import Agent from "./pages/Agent";
+import AI from "./pages/AI";
 import Guide from "./pages/Guide";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
@@ -107,6 +108,7 @@ const App = () => (
           <Route path="/reports" element={<ProtectedRoute><AppLayout currentView="reports"><Reports /></AppLayout></ProtectedRoute>} />
           <Route path="/automations" element={<ProtectedRoute><AppLayout currentView="automations"><Automations /></AppLayout></ProtectedRoute>} />
           <Route path="/agent" element={<ProtectedRoute><Agent /></ProtectedRoute>} />
+          <Route path="/ai" element={<ProtectedRoute><AppLayout currentView="ai"><AI /></AppLayout></ProtectedRoute>} />
           <Route path="/guide" element={<ProtectedRoute><Guide /></ProtectedRoute>} />
           
           {/* ============================================ */}

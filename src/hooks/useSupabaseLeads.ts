@@ -148,6 +148,15 @@ export function useSupabaseLeads(options: UseSupabaseLeadsOptions = {}) {
     mutationFn: async ({ id, updates }: { id: string; updates: LeadUpdate }) => {
       console.log('[useSupabaseLeads] 📝 Atualizando lead:', id, updates);
       
+      // Buscar lead atual antes de atualizar
+      const { data: currentLead } = await (supabase as any)
+        .from('leads')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      console.log('[useSupabaseLeads] 📋 Lead antes da atualização:', currentLead);
+      
       const { data, error } = await (supabase as any)
         .from('leads')
         .update(updates)
@@ -156,16 +165,23 @@ export function useSupabaseLeads(options: UseSupabaseLeadsOptions = {}) {
         .maybeSingle();
 
       if (error) {
-        console.error('[useSupabaseLeads] Erro ao atualizar lead:', error);
+        console.error('[useSupabaseLeads] ❌ Erro ao atualizar lead:', error);
         throw new Error(error.message);
       }
 
       if (!data) {
-        console.error('[useSupabaseLeads] Lead não encontrado');
-        throw new Error('Lead não encontrado');
+        console.error('[useSupabaseLeads] ⚠️ Lead não encontrado após atualização');
+        // Verificar se o lead ainda existe
+        const { data: checkLead } = await (supabase as any)
+          .from('leads')
+          .select('*')
+          .eq('id', id)
+          .single();
+        console.log('[useSupabaseLeads] 🔍 Verificação do lead:', checkLead);
+        throw new Error('Lead não encontrado após atualização');
       }
 
-      console.log('[useSupabaseLeads] ✅ Lead atualizado:', data);
+      console.log('[useSupabaseLeads] ✅ Lead atualizado com sucesso:', data);
       return data as Lead;
     },
     onSuccess: (updatedLead) => {
