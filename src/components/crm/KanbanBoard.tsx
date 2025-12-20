@@ -501,10 +501,27 @@ export const KanbanBoard = () => {
 
   const getLeadsForStage = (stageId: string) => {
     let stageLeads: Lead[];
+    
+    // Identificar o primeiro estágio visualmente (menor ordem)
+    // Para exibir leads "órfãos" (sem stage definido) na primeira coluna
+    const sortedStages = [...activeFunnel.stages].sort((a, b) => a.order - b.order);
+    const firstStageId = sortedStages.length > 0 ? sortedStages[0].id : null;
+    const isFirstStage = firstStageId === stageId;
+
     if (activeFunnel.isDefault) {
-      stageLeads = filteredLeads.filter((l) => l.stage === stageId);
+      stageLeads = filteredLeads.filter((l) => {
+        if (l.stage === stageId) return true;
+        // Fallback para leads sem stage no funil padrão
+        if (isFirstStage && !l.stage) return true;
+        return false;
+      });
     } else {
-      stageLeads = filteredLeads.filter((l) => l.customStageId === stageId);
+      stageLeads = filteredLeads.filter((l) => {
+        if (l.customStageId === stageId) return true;
+        // Fallback: se é o primeiro estágio e o lead está neste funil mas sem customStageId
+        if (isFirstStage && !l.customStageId) return true;
+        return false;
+      });
     }
     
     // Apply sorting
@@ -907,7 +924,8 @@ export const KanbanBoard = () => {
               {funnels.map((funnel) => {
                 // Contar leads neste funil
                 const leadsCount = leads.filter(lead => 
-                  !lead.funnelId ? funnel.id === 'default' : lead.funnelId === funnel.id
+                  (!lead.funnelId ? funnel.id === 'default' : lead.funnelId === funnel.id) &&
+                  (lead.status as any) !== 'arquivado' && lead.status !== 'archived'
                 ).length;
                 
                 return (
