@@ -1748,7 +1748,7 @@ export const KanbanBoard = () => {
                               )}
                             </div>
                             <span>
-                              {formatDistanceToNow(lead.lastContact, {
+                              {formatDistanceToNow(new Date((lead as any).created_at || lead.createdAt || new Date()), {
                                 addSuffix: true,
                                 locale: ptBR,
                               })}

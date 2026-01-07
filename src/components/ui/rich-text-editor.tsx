@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Button } from './button';
 import { cn } from '@/lib/utils';
+import { useEffect } from 'react';
 
 interface RichTextEditorProps {
   content: string;
@@ -52,7 +53,7 @@ export function RichTextEditor({
         placeholder,
       }),
     ],
-    content,
+    content, // Set initial content
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
@@ -67,6 +68,13 @@ export function RichTextEditor({
       },
     },
   });
+
+  // Sync content updates from parent (e.g. valid for clearing the form)
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [content, editor]);
 
   if (!editor) {
     return null;

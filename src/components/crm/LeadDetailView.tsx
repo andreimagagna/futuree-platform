@@ -53,7 +53,11 @@ import {
   Minus,
   Package,
   ArrowLeft,
+  Pencil,
+  X,
+  Check,
 } from "lucide-react";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -144,41 +148,68 @@ export const LeadDetailView = () => {
   const supabaseNotes = useMemo(() => {
     if (!lead?.notes || typeof lead.notes !== 'string') return [];
     
-    // Parse notes do formato: "[DD/MM/YYYY HH:MM] Texto da nota"
-    const noteBlocks = lead.notes.split('\n\n').filter(Boolean);
-    return noteBlocks.map((block, index) => {
-      const match = block.match(/^\[(.+?)\] (.+)$/s);
-      if (match) {
-        const [, timestamp, content] = match;
-        // Tentar parsear a data
-        try {
-          const [datePart, timePart] = timestamp.split(' ');
-          const [day, month, year] = datePart.split('/');
-          const [hour, minute] = timePart.split(':');
-          const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
-          return {
-            id: `supabase-note-${id}-${index}`,
-            leadId: id,
-            content: content.trim(),
-            createdAt: date,
+    const notesList: Note[] = [];
+    const lines = lead.notes.split('\n');
+    let currentNote: Partial<Note> | null = null;
+    let noteIndex = 0;
+    
+    const timestampRegex = /^\[(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})\] (.*)$/;
+
+    for (const line of lines) {
+       const match = line.match(timestampRegex);
+       if (match) {
+          // Se já existe uma nota sendo processada, finaliza ela e adiciona à lista
+          if (currentNote) {
+             currentNote.content = currentNote.content?.trim();
+             notesList.push(currentNote as Note);
+             noteIndex++;
+          }
+          
+          const [, timestamp, content] = match;
+          
+          // Parse da data
+          let date;
+          try {
+              const [datePart, timePart] = timestamp.split(' ');
+              const [day, month, year] = datePart.split('/');
+              const [hour, minute] = timePart.split(':');
+              date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+          } catch {
+              date = new Date();
+          }
+           
+          currentNote = {
+             id: `supabase-note-${id}-${noteIndex}`,
+             leadId: id,
+             content: content,
+             createdAt: date,
+             createdBy: 'Nota'
           };
-        } catch {
-          return {
-            id: `supabase-note-${id}-${index}`,
-            leadId: id,
-            content: block,
-            createdAt: new Date(),
-          };
-        }
-      }
-      return {
-        id: `supabase-note-${id}-${index}`,
-        leadId: id,
-        content: block,
-        createdAt: new Date(),
-      };
-    });
-  }, [lead?.notes, id]);
+       } else {
+          // Adiciona conteúdo à nota atual (preservando quebras de linha)
+          if (currentNote) {
+             currentNote.content += '\n' + line;
+          } else if (line.trim()) {
+             // Caso onde o texto começa sem timestamp (legado ou erro)
+             currentNote = {
+                id: `supabase-note-${id}-${noteIndex}`,
+                leadId: id,
+                content: line,
+                createdAt: lead.created_at ? new Date(lead.created_at) : new Date(), // Fallback para data de criação do lead
+                createdBy: 'Nota'
+             };
+          }
+       }
+    }
+    
+    // Adicionar a última nota processada
+    if (currentNote) {
+       currentNote.content = currentNote.content?.trim();
+       notesList.push(currentNote as Note);
+    }
+    
+    return notesList;
+  }, [lead?.notes, id, lead?.created_at]);
   
   // ✅ Combinar notes do store local + notes do Supabase
   const allLeadNotes = useMemo(() => {
@@ -204,6 +235,8 @@ export const LeadDetailView = () => {
   
   // States for notes
   const [noteContent, setNoteContent] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteContent, setEditNoteContent] = useState("");
 
   const nextActionMissing = !nextActionText || !nextActionDate || !nextActionTime;
 
@@ -429,6 +462,140 @@ export const LeadDetailView = () => {
     });
   };
 
+  // ============================================================================
+  // FUNÇÕES HELPER PARA PARSEAR E SERIALIZAR NOTAS (REUTILIZÁVEL)
+  // ============================================================================
+  const parseNotesString = (notesStr: string, leadId: string): Note[] => {
+      if (!notesStr || typeof notesStr !== 'string') return [];
+      
+      const notesList: Note[] = [];
+      const lines = notesStr.split('\n');
+      let currentNote: Partial<Note> | null = null;
+      let noteIndex = 0;
+      
+      const timestampRegex = /^\[(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2})\] (.*)$/;
+  
+      for (const line of lines) {
+         const match = line.match(timestampRegex);
+         if (match) {
+            // Se já existe uma nota sendo processada, finaliza ela e adiciona à lista
+            if (currentNote) {
+               currentNote.content = currentNote.content?.trim();
+               notesList.push(currentNote as Note);
+               noteIndex++;
+            }
+            
+            const [, timestamp, content] = match;
+            
+            // Parse da data
+            let date;
+            try {
+                const [datePart, timePart] = timestamp.split(' ');
+                const [day, month, year] = datePart.split('/');
+                const [hour, minute] = timePart.split(':');
+                date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+            } catch {
+                date = new Date();
+            }
+             
+            currentNote = {
+               id: `supabase-note-${leadId}-${noteIndex}`,
+               leadId: leadId,
+               content: content,
+               createdAt: date,
+               createdBy: 'Nota'
+            };
+         } else {
+            // Adiciona conteúdo à nota atual (preservando quebras de linha)
+            if (currentNote) {
+               currentNote.content += '\n' + line;
+            } else if (line.trim()) {
+               // Caso onde o texto começa sem timestamp (legado ou erro)
+               currentNote = {
+                  id: `supabase-note-${leadId}-${noteIndex}`,
+                  leadId: leadId,
+                  content: line,
+                  createdAt: new Date(), // Sem data conhecida
+                  createdBy: 'Nota'
+               };
+            }
+         }
+      }
+      
+      // Adicionar a última nota processada
+      if (currentNote) {
+         currentNote.content = currentNote.content?.trim();
+         notesList.push(currentNote as Note);
+      }
+      
+      return notesList;
+  };
+
+  const serializeNotesString = (notes: Note[]): string => {
+      return notes.map(note => {
+          const timestamp = format(note.createdAt, "dd/MM/yyyy HH:mm");
+          // Remover timestamp repetido se o content já o contiver por algum motivo (evita duplicação ao editar)
+          // Mas aqui o 'content' deve ser o texto puro.
+          return `[${timestamp}] ${note.content}`;
+      }).join('\n\n');
+  };
+
+  const handleDeleteNote = async (noteIdToDelete: string) => {
+    if (!lead || !supabaseLead) return;
+
+    const currentNotesStr = (lead as any).notes || '';
+    const parsedNotes = parseNotesString(currentNotesStr, lead.id);
+    
+    // Filtrar a nota a ser removida
+    const remainingNotes = parsedNotes.filter(n => n.id !== noteIdToDelete);
+    
+    // Serializar de volta para string
+    const newNotesStr = serializeNotesString(remainingNotes);
+    
+    await handleUpdateLead(lead.id, {
+      notes: newNotesStr
+    });
+    
+    toast({
+      title: "Nota excluída",
+      description: "A nota foi removida com sucesso"
+    });
+  };
+
+  const handleUpdateNoteContent = async () => {
+    if (!lead || !editingNoteId || !editNoteContent.trim()) return;
+    
+    const currentNotesStr = (lead as any).notes || '';
+    const parsedNotes = parseNotesString(currentNotesStr, lead.id);
+    
+    // Atualizar a nota específica
+    const updatedParsedNotes = parsedNotes.map(n => {
+        if (n.id === editingNoteId) {
+            return {
+                ...n,
+                content: editNoteContent
+            };
+        }
+        return n;
+    });
+    
+    // Serializar
+    const newNotesStr = serializeNotesString(updatedParsedNotes);
+    
+    await handleUpdateLead(lead.id, {
+      notes: newNotesStr
+    });
+    
+    setEditingNoteId(null);
+    setEditNoteContent("");
+    
+    toast({
+      title: "Nota atualizada",
+      description: "As alterações foram salvas com sucesso"
+    });
+  };
+
+
   if (!lead) {
     return <div className="text-muted-foreground">Lead não encontrado.</div>;
   }
@@ -477,6 +644,12 @@ export const LeadDetailView = () => {
           setNoteContent,
           leadNotes: allLeadNotes,
           handleSaveNote,
+          editingNoteId,
+          setEditingNoteId,
+          editNoteContent,
+          setEditNoteContent,
+          onUpdateNote: handleUpdateNoteContent,
+          onDeleteNote: handleDeleteNote,
         })}
 
         {renderSummaryColumn({ 
@@ -684,8 +857,8 @@ function renderProfileColumn(
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Idade do negócio</Label>
               <p className="text-sm font-semibold">
-                {lead.createdAt 
-                  ? `${Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24))} dias`
+                {(lead.createdAt || (lead as any).created_at)
+                  ? `${Math.floor((Date.now() - new Date(lead.createdAt || (lead as any).created_at).getTime()) / (1000 * 60 * 60 * 24))} dias`
                   : '0 dias'}
               </p>
             </div>
@@ -708,8 +881,8 @@ function renderProfileColumn(
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Criado em</Label>
               <p className="text-sm font-semibold">
-                {lead.createdAt 
-                  ? format(new Date(lead.createdAt), "dd/MM/yyyy", { locale: ptBR })
+                {(lead.createdAt || (lead as any).created_at)
+                  ? format(new Date(lead.createdAt || (lead as any).created_at), "dd/MM/yyyy", { locale: ptBR })
                   : format(new Date(), "dd/MM/yyyy", { locale: ptBR })}
               </p>
             </div>
@@ -838,6 +1011,13 @@ function renderCentralColumn(params: {
   setNoteContent: (value: string) => void;
   leadNotes: Note[];
   handleSaveNote: () => void;
+  // Edit logic
+  editingNoteId: string | null;
+  setEditingNoteId: (id: string | null) => void;
+  editNoteContent: string;
+  setEditNoteContent: (content: string) => void;
+  onUpdateNote: () => void;
+  onDeleteNote: (id: string) => void;
 }) {
   const {
     lead,
@@ -865,6 +1045,13 @@ function renderCentralColumn(params: {
     setNoteContent,
     leadNotes,
     handleSaveNote,
+    // Edit props
+    editingNoteId,
+    setEditingNoteId,
+    editNoteContent,
+    setEditNoteContent,
+    onUpdateNote,
+    onDeleteNote
   } = params;
 
   return (
@@ -885,17 +1072,145 @@ function renderCentralColumn(params: {
 
         {/* ABA FOCO - Próxima Ação + Notas */}
         <TabsContent value="focus" className="space-y-4">
-          {/* Próxima Ação */}
-          <Card className="border-2 border-primary/20">
-            <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-transparent">
+          
+          {/* Notas */}
+          <Card>
+            <CardHeader className="pb-3 border-b mb-3">
+              <CardTitle className="text-lg">Notas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 pt-0">
+              {/* List of notes - AGORA NO TOPO */}
+              <div className="space-y-3 mb-6">
+                {leadNotes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4 bg-muted/20 rounded-lg border border-dashed">
+                    Nenhuma nota registrada
+                  </p>
+                ) : (
+                  leadNotes
+                    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+                    .map((note) => {
+                      // Detectar se é HTML
+                      const isHtml = /<[a-z][\s\S]*>/i.test(note.content);
+                      
+                      return (
+                        <div key={note.id} className="rounded-lg border bg-card p-4 shadow-sm group hover:border-primary/30 transition-colors">
+                          {editingNoteId === note.id ? (
+                            <div className="space-y-2">
+                                <RichTextEditor 
+                                  content={editNoteContent}
+                                  onChange={setEditNoteContent}
+                                  className="min-h-[150px]"
+                                />
+                                <div className="flex gap-2 justify-end">
+                                    <Button size="sm" variant="ghost" onClick={() => setEditingNoteId(null)}>
+                                        <X className="h-4 w-4 mr-2" />
+                                        Cancelar
+                                    </Button>
+                                    <Button size="sm" onClick={onUpdateNote}>
+                                        <Check className="h-4 w-4 mr-2" />
+                                        Salvar
+                                    </Button>
+                                </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-start justify-between gap-2 mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {note.createdBy}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(note.createdAt, "dd/MM/yyyy 'às' HH:mm")}
+                                  </span>
+                                </div>
+                                {/* Actions */}
+                                <div className="hidden group-hover:flex items-center gap-1 opacity-100 transition-opacity">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-7 w-7"
+                                      onClick={() => {
+                                          setEditingNoteId(note.id);
+                                          setEditNoteContent(note.content);
+                                      }}
+                                    >
+                                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-7 w-7 text-destructive hover:text-destructive"
+                                      onClick={() => onDeleteNote(note.id)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                              </div>
+                              {isHtml ? (
+                                <div 
+                                  className="text-sm prose prose-sm max-w-none dark:prose-invert"
+                                  dangerouslySetInnerHTML={{ __html: note.content }}
+                                />
+                              ) : (
+                                <div 
+                                  className="text-sm whitespace-pre-wrap text-foreground"
+                                  style={{ 
+                                    whiteSpace: 'pre-wrap',
+                                    wordWrap: 'break-word',
+                                    overflowWrap: 'break-word',
+                                    lineHeight: '1.6'
+                                  }}
+                                >
+                                  {note.content}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+
+              {/* Create/Input Note - AGORA ABAIXO DA LISTA */}
+              <div className="space-y-2 border-t pt-4">
+                <p className="text-xs font-semibold text-muted-foreground mb-2 px-1">
+                  Adicionar nova nota
+                </p>
+                <RichTextEditor 
+                  placeholder="Escreva ou cole uma nota..."
+                  content={noteContent}
+                  onChange={(content) => setNoteContent(content)}
+                  className="min-h-[120px]"
+                />
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => setNoteContent('')}
+                    disabled={!noteContent.trim() || noteContent === '<p></p>'}
+                  >
+                    Limpar
+                  </Button>
+                  <Button size="sm" onClick={handleSaveNote} disabled={!noteContent.trim() || noteContent === '<p></p>'}>
+                    Salvar Nota
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Próxima Ação - AGORA POR ÚLTIMO */}
+          <Card className={`${nextActionMissing ? "border-dashed border-2" : "border-primary/20 border-2"}`}>
+            <CardHeader className="pb-3 bg-gradient-to-r from-muted/5 to-transparent">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Target className="h-5 w-5 text-primary" />
+                <div className={`p-2 rounded-lg ${nextActionMissing ? "bg-muted" : "bg-primary/10"}`}>
+                  <Target className={`h-5 w-5 ${nextActionMissing ? "text-muted-foreground" : "text-primary"}`} />
                 </div>
                 <div>
                   <CardTitle className="text-xl font-bold">Próxima Ação</CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Agende e acompanhe o próximo passo com este lead
+                    {nextActionMissing ? "Nenhuma ação agendada" : "Ação agendada com este lead"}
                   </p>
                 </div>
               </div>
@@ -998,82 +1313,6 @@ function renderCentralColumn(params: {
                   </span>
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Notas */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Notas</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Cole seu texto abaixo. A formatação será preservada automaticamente.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4 p-4">
-              <div className="space-y-2">
-                <Textarea 
-                  placeholder="Escreva ou cole uma nota..."
-                  value={noteContent}
-                  onChange={(e) => setNoteContent(e.target.value)}
-                  rows={6}
-                  className="font-mono text-sm whitespace-pre-wrap"
-                  style={{ 
-                    whiteSpace: 'pre-wrap',
-                    wordWrap: 'break-word',
-                    overflowWrap: 'break-word'
-                  }}
-                />
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={handleSaveNote} disabled={!noteContent.trim()}>
-                    Salvar Nota
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => setNoteContent('')}
-                    disabled={!noteContent.trim()}
-                  >
-                    Limpar
-                  </Button>
-                </div>
-              </div>
-
-              {/* List of notes */}
-              <div className="space-y-3 pt-2">
-                {leadNotes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Nenhuma nota ainda. Adicione a primeira nota acima.
-                  </p>
-                ) : (
-                  leadNotes
-                    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-                    .map((note) => (
-                      <div key={note.id} className="rounded-lg border bg-card p-4 shadow-sm">
-                        <div className="flex items-start justify-between gap-2 mb-3">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs">
-                              {note.createdBy}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {format(note.createdAt, "dd/MM/yyyy 'às' HH:mm")}
-                            </span>
-                          </div>
-                        </div>
-                        <div 
-                          className="text-sm whitespace-pre-wrap font-mono bg-muted/30 p-3 rounded-md"
-                          style={{ 
-                            whiteSpace: 'pre-wrap',
-                            wordWrap: 'break-word',
-                            overflowWrap: 'break-word',
-                            lineHeight: '1.6'
-                          }}
-                        >
-                          {note.content}
-                        </div>
-                      </div>
-                    ))
-                )}
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

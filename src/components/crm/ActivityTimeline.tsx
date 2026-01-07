@@ -229,10 +229,20 @@ export function ActivityTimeline({ activities, onMarkComplete, onMarkIncomplete 
                   </p>
                 )}
                 
+
                 {activity.description && (
-                  <p className="text-sm text-muted-foreground">
-                    {activity.description}
-                  </p>
+                  <>
+                    {/<[a-z][\s\S]*>/i.test(activity.description) ? (
+                      <div 
+                        className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert [&>p]:mb-1 [&>p:last-child]:mb-0"
+                        dangerouslySetInnerHTML={{ __html: activity.description }}
+                      />
+                    ) : (
+                      <div className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+                        {activity.description}
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* Data e hora */}
