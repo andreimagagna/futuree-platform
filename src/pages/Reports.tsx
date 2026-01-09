@@ -17,7 +17,11 @@ import {
   CheckCircle2,
   Settings as SettingsIcon,
   Loader2,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useStore } from "@/store/useStore";
 import SalesChart from "@/components/reports/SalesChart";
 import QualificationChart from "@/components/reports/QualificationChart";
@@ -39,7 +43,7 @@ import {
   filterTasksByPeriod,
 } from "@/utils/reportHelpers";
 import { toast } from "sonner";
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -129,6 +133,12 @@ const Reports = () => {
     return saved ? Number(saved) : 100000; // Meta padrão: R$ 100k
   });
   const [isEditingTarget, setIsEditingTarget] = useState(false);
+
+  // State for manual goal editing
+  const [editingGoalKey, setEditingGoalKey] = useState<string | null>(null);
+  const [tempGoalValue, setTempGoalValue] = useState<string>("");
+  const [isUpdatingGoal, setIsUpdatingGoal] = useState(false);
+  const queryClient = useQueryClient();
 
   // Salvar meta no localStorage quando mudar
   useEffect(() => {
@@ -254,7 +264,7 @@ const Reports = () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('company_goals')
-        .select('id, title, target, unit, owner_id') // Apenas campos necessários
+        .select('id, title, target, current, unit, owner_id') // Apenas campos necessários
         .eq('owner_id', user.id);
       if (error) throw error;
       return (data || []) as CompanyGoal[];
@@ -349,6 +359,36 @@ const Reports = () => {
     refetchOnWindowFocus: false, // Não refetch ao voltar para a janela
     refetchOnMount: false, // Não refetch ao montar se já tem cache válido
   });
+
+  const handleUpdateGoalCurrent = async (title: string, newValue: number) => {
+    try {
+      setIsUpdatingGoal(true);
+      
+      // Find existing goal
+      const goal = companyGoals.find(g => g.title === title);
+      
+      if (!goal) {
+        toast.error("Meta não encontrada. Configure-a em Configurações primeiro.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('company_goals')
+        .update({ current: newValue, updated_at: new Date().toISOString() })
+        .eq('id', goal.id);
+
+      if (error) throw error;
+
+      toast.success("Valor atualizado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ['companyGoals'] });
+      setEditingGoalKey(null);
+    } catch (error) {
+      console.error('Erro ao atualizar meta:', error);
+      toast.error("Erro ao atualizar valor.");
+    } finally {
+      setIsUpdatingGoal(false);
+    }
+  };
 
   // ✅ USAR TODOS OS DADOS (TEMPO REAL) - Não filtrar por período
   const filteredLeads = leads; // Todos os leads
@@ -642,11 +682,21 @@ const Reports = () => {
                 const targetValue = goal?.target || 0;
                 
                 // Buscar valor real do CRM
-                const currentValue = crmMetrics?.[predefined.key as keyof typeof crmMetrics] || 0;
+                let currentValue = crmMetrics?.[predefined.key as keyof typeof crmMetrics] || 0;
+
+                // OVERRIDE: Para Reuniões do Mês, permitir controle manual
+                const isManualControl = predefined.key === 'reunioes_mes';
+                if (isManualControl && goal) {
+                   // Se houver controle manual, usamos o valor salvo na meta (current)
+                   // Fallback para 0 se undefined
+                   currentValue = goal.current || 0;
+                }
                 
                 // Calcular progresso
                 const progress = targetValue > 0 ? (currentValue / targetValue) * 100 : 0;
                 const progressColor = progress >= 100 ? 'text-success' : progress >= 70 ? 'text-warning' : 'text-destructive';
+
+                const isEditing = editingGoalKey === predefined.key;
 
                 return (
                   <Card 
@@ -663,10 +713,58 @@ const Reports = () => {
                             {predefined.description}
                           </p>
                         </div>
+                        {isManualControl && (
+                           <Button
+                             variant="ghost"
+                             size="icon"
+                             className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                             onClick={() => {
+                               if (isEditing) {
+                                 setEditingGoalKey(null);
+                               } else {
+                                 setEditingGoalKey(predefined.key);
+                                 setTempGoalValue(currentValue.toString());
+                               }
+                             }}
+                             title="Alterar valor manualmente"
+                           >
+                             <Pencil className="h-3 w-3" />
+                           </Button>
+                        )}
                       </div>
 
                       <div className="space-y-2">
                         <div className="flex items-baseline justify-between">
+                          {isEditing ? (
+                            <div className="flex items-center gap-1">
+                                <Input 
+                                    className="h-8 w-20 px-2 py-1 text-sm bg-background" 
+                                    type="number" 
+                                    value={tempGoalValue} 
+                                    onChange={(e) => setTempGoalValue(e.target.value)}
+                                    autoFocus
+                                />
+                                <div className="flex">
+                                    <Button 
+                                        size="icon" 
+                                        variant="ghost"
+                                        className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100" 
+                                        disabled={isUpdatingGoal}
+                                        onClick={() => handleUpdateGoalCurrent(predefined.title, Number(tempGoalValue))}
+                                    >
+                                        <Check className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                        size="icon" 
+                                        variant="ghost" 
+                                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                        onClick={() => setEditingGoalKey(null)}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                          ) : (
                           <span className="text-3xl font-bold">
                             {predefined.unit === 'R$' 
                               ? currentValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -674,6 +772,7 @@ const Reports = () => {
                               ? `${Math.round(currentValue)}%`
                               : currentValue.toLocaleString('pt-BR')}
                           </span>
+                          )}
                           <span className="text-sm text-muted-foreground">
                             {predefined.unit !== 'R$' && predefined.unit !== '%' && predefined.unit}
                           </span>
