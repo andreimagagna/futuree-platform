@@ -5,7 +5,7 @@ export type TaskStatus = 'backlog' | 'in_progress' | 'review' | 'done';
 export type Priority = 'P1' | 'P2' | 'P3';
 export type DateRange = 'today' | 'this_week' | 'this_month' | 'custom';
 
-export type FunnelCategory = 'topo' | 'meio' | 'fundo' | 'vendas';
+export type FunnelCategory = 'topo' | 'meio' | 'fundo' | 'vendas' | 'perdido';
 
 export interface FunnelStage {
   id: string;

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useStore } from "@/store/useStore";
+import { useSyncCRMFunnelsToStore } from "@/hooks/useCRMFunnels";
 import SalesChart from "@/components/reports/SalesChart";
 import QualificationChart from "@/components/reports/QualificationChart";
 import MeetingsChart from "@/components/reports/MeetingsChart";
@@ -122,6 +123,8 @@ const PREDEFINED_GOALS = [
 
 const Reports = () => {
   const { user } = useAuthContext();
+  useSyncCRMFunnelsToStore(); // Garante que funis estejam sincronizados
+  const { funnels } = useStore();
   const navigate = useNavigate();
   const [period, setPeriod] = useState<PeriodType>('30days');
   const [comparison, setComparison] = useState<'none' | 'previous' | 'lastYear'>('none');
@@ -159,7 +162,7 @@ const Reports = () => {
       
       const { data, error } = await supabase
         .from('leads')
-        .select('id, name, status, funnel_stage, estimated_value, created_at, updated_at, score, email, phone, whatsapp, source, tags, notes, company_id')
+        .select('id, name, status, funnel_stage, estimated_value, created_at, updated_at, score, email, phone, whatsapp, source, tags, notes, company_id, custom_fields')
         .eq('owner_id', user?.id)
         .order('created_at', { ascending: false });
       
@@ -171,28 +174,35 @@ const Reports = () => {
       console.log('✅ Reports - Leads encontrados:', data?.length, 'primeiro lead:', data?.[0]);
       
       // Mapear para formato do frontend completo
-      return (data || []).map((lead: any) => ({
-        id: lead.id,
-        name: lead.name,
-        company: '', // company_id é UUID, não nome
-        email: lead.email || '',
-        whatsapp: lead.phone || lead.whatsapp || '',
-        status: lead.status || 'novo',
-        stage: lead.funnel_stage || 'novo',
-        dealValue: lead.estimated_value || 0,
-        lastContact: lead.updated_at,
-        createdAt: new Date(lead.created_at),
-        score: lead.score || 0,
-        owner: user?.email || '',
-        budget: 0,
-        authority: false,
-        need: false,
-        timing: '',
-        fonte: lead.source || '',
-        source: lead.source || '',
-        tags: lead.tags || [],
-        notes: lead.notes || '',
-      }));
+      return (data || []).map((lead: any) => {
+        const customFields = lead.custom_fields || {};
+        
+        return {
+          id: lead.id,
+          name: lead.name,
+          company: '', // company_id é UUID, não nome
+          email: lead.email || '',
+          whatsapp: lead.phone || lead.whatsapp || '',
+          status: lead.status || 'novo',
+          stage: lead.funnel_stage || 'novo',
+          // Mapear propriedades para usar na função categorizeLead
+          funnelId: customFields.funnel_id || customFields.funnelId,
+          customStageId: customFields.stage_id || customFields.stageId,
+          dealValue: lead.estimated_value || 0,
+          lastContact: lead.updated_at,
+          createdAt: new Date(lead.created_at),
+          score: lead.score || 0,
+          owner: user?.email || '',
+          budget: 0,
+          authority: false,
+          need: false,
+          timing: '',
+          fonte: lead.source || '',
+          source: lead.source || '',
+          tags: lead.tags || [],
+          notes: lead.notes || '',
+        };
+      });
     },
     enabled: !!user?.id,
     staleTime: 1 * 60 * 1000, // Cache por 1 minuto (tempo real)
@@ -402,8 +412,8 @@ const Reports = () => {
   
   const qualificationData = useMemo(() => {
     console.log('📊 Reports - Gerando qualificationData com:', { totalLeads: leads.length });
-    return generateQualificationData(leads, 6);
-  }, [leads]);
+    return generateQualificationData(leads, 6, funnels);
+  }, [leads, funnels]);
   
   const meetingsData = useMemo(() => {
     console.log('📊 Reports - Gerando meetingsData com:', { totalTasks: tasks.length });
@@ -415,13 +425,13 @@ const Reports = () => {
     // Buscar meta de "Receita Mensal" das metas da empresa
     const receitaMensalGoal = companyGoals.find(g => g.title === 'Receita Mensal');
     const monthlyTarget = receitaMensalGoal?.target || customSalesTarget;
-    return generateForecastData(leads, 6, monthlyTarget);
-  }, [leads, companyGoals, customSalesTarget]);
+    return generateForecastData(leads, 6, monthlyTarget, funnels);
+  }, [leads, companyGoals, customSalesTarget, funnels]);
   
   const conversionFunnelData = useMemo(() => {
     console.log('📊 Reports - Gerando conversionFunnelData com:', { totalLeads: leads.length });
-    return generateConversionFunnelData(leads);
-  }, [leads]);
+    return generateConversionFunnelData(leads, funnels);
+  }, [leads, funnels]);
   
   const performanceData = useMemo(() => {
     console.log('📊 Reports - Gerando performanceData com:', { 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useStore, type Lead, type Funnel, type FunnelStage, type BANTMethodology } from "@/store/useStore";
+import { useStore, type Lead, type Funnel, type FunnelStage, type BANTMethodology, type FunnelCategory } from "@/store/useStore";
 import { useSupabaseLeads } from "@/hooks/useSupabaseLeads";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
@@ -170,11 +170,13 @@ export const KanbanBoard = () => {
   const [newFunnelName, setNewFunnelName] = useState('');
   const [newStageName, setNewStageName] = useState('');
   const [newStageColor, setNewStageColor] = useState('#3B82F6');
+  const [newStageCategory, setNewStageCategory] = useState<FunnelCategory>('topo');
   const [editingFunnel, setEditingFunnel] = useState<string | null>(null);
   const [editingFunnelName, setEditingFunnelName] = useState('');
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingStageName, setEditingStageName] = useState('');
   const [editingStageColor, setEditingStageColor] = useState('');
+  const [editingStageCategory, setEditingStageCategory] = useState<FunnelCategory>('topo');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'funnel' | 'stage' | 'tag', id: string, funnelId?: string } | null>(null);
   const [editingLeadTags, setEditingLeadTags] = useState<string | null>(null);
@@ -320,11 +322,15 @@ export const KanbanBoard = () => {
         return {
           id: supabaseLead.id,
           name: supabaseLead.name || 'Lead sem nome',
-          company: customFields.company || 'Empresa não informada',
+          company: customFields.company || (supabaseLead as any).company || 'Empresa não informada',
           email: supabaseLead.email || '',
           whatsapp: supabaseLead.whatsapp || supabaseLead.phone || '',
           source: supabaseLead.source || 'Website',
-          owner: customFields.owner || 'Sem responsável',
+          owner: (customFields.owner && customFields.owner !== 'Sem responsável') 
+            ? customFields.owner 
+            : ((supabaseLead as any).owner && (supabaseLead as any).owner !== 'Sem responsável') 
+              ? (supabaseLead as any).owner 
+              : '',
           stage: customFields.stage_id || 'captured',
           customStageId: customFields.stage_id,
           funnelId: finalFunnelId,
@@ -350,7 +356,7 @@ export const KanbanBoard = () => {
   // Get all unique values for filters
   const allTags = Array.from(new Set(leads.flatMap(l => l.tags)));
   const allSources = Array.from(new Set(leads.map(l => l.source)));
-  const allOwners = Array.from(new Set(leads.map(l => l.owner)));
+  const allOwners = Array.from(new Set(leads.map(l => l.owner))).filter(Boolean);
   
   // Sort function
   const sortLeads = (leadsToSort: Lead[]): Lead[] => {
@@ -554,11 +560,13 @@ export const KanbanBoard = () => {
         funnel_id: activeFunnelId,
         name: newStageName,
         color: newStageColor,
+        category: newStageCategory,
         order_index: activeFunnel.stages.length,
       });
       
       setNewStageName('');
       setNewStageColor('#3B82F6');
+      setNewStageCategory('topo');
       console.log('✅ Estágio criado com sucesso');
     } catch (error) {
       console.error('❌ Erro ao criar estágio:', error);
@@ -595,6 +603,7 @@ export const KanbanBoard = () => {
     setEditingStage(stageId);
     setEditingStageName(stage.name);
     setEditingStageColor(stage.color);
+    setEditingStageCategory(stage.category || 'topo');
   };
 
   const handleSaveStageEdit = async () => {
@@ -606,12 +615,14 @@ export const KanbanBoard = () => {
         updates: {
           name: editingStageName,
           color: editingStageColor,
+          category: editingStageCategory,
         },
       });
       
       setEditingStage(null);
       setEditingStageName('');
       setEditingStageColor('');
+      setEditingStageCategory('topo');
       console.log('✅ Estágio atualizado com sucesso');
     } catch (error) {
       console.error('❌ Erro ao atualizar estágio:', error);
@@ -1356,12 +1367,28 @@ export const KanbanBoard = () => {
                 {activeFunnel && (
                   <div className="space-y-2">
                     <h3 className="font-semibold">Adicionar Estágio ao {activeFunnel.name}</h3>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       <Input
                         placeholder="Nome do estágio"
                         value={newStageName}
                         onChange={(e) => setNewStageName(e.target.value)}
+                        className="flex-1"
                       />
+                      <Select 
+                        value={newStageCategory} 
+                        onValueChange={(val: FunnelCategory) => setNewStageCategory(val)}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="Categoria" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="topo">Topo</SelectItem>
+                          <SelectItem value="meio">Meio</SelectItem>
+                          <SelectItem value="fundo">Fundo</SelectItem>
+                          <SelectItem value="vendas">Vendas</SelectItem>
+                          <SelectItem value="perdido">Perdidos</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <div className="flex items-center gap-2">
                         <Label htmlFor="stage-color" className="sr-only">Cor</Label>
                         <Input
@@ -1369,7 +1396,7 @@ export const KanbanBoard = () => {
                           type="color"
                           value={newStageColor}
                           onChange={(e) => setNewStageColor(e.target.value)}
-                          className="w-20"
+                          className="w-12 h-10 p-1 cursor-pointer"
                         />
                       </div>
                       <Button onClick={handleAddStage}>
@@ -1397,11 +1424,26 @@ export const KanbanBoard = () => {
                               className="flex-1"
                               autoFocus
                             />
+                            <Select 
+                              value={editingStageCategory} 
+                              onValueChange={(val: FunnelCategory) => setEditingStageCategory(val)}
+                            >
+                              <SelectTrigger className="w-[100px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="topo">Topo</SelectItem>
+                                <SelectItem value="meio">Meio</SelectItem>
+                                <SelectItem value="fundo">Fundo</SelectItem>
+                                <SelectItem value="vendas">Vendas</SelectItem>
+                                <SelectItem value="perdido">Perdidos</SelectItem>
+                              </SelectContent>
+                            </Select>
                             <Input
                               type="color"
                               value={editingStageColor}
                               onChange={(e) => setEditingStageColor(e.target.value)}
-                              className="w-20"
+                              className="w-12 p-1 cursor-pointer"
                             />
                             <Button size="sm" onClick={handleSaveStageEdit}>
                               Salvar
@@ -1425,7 +1467,19 @@ export const KanbanBoard = () => {
                               className="w-4 h-4 rounded-full"
                               style={{ backgroundColor: stage.color }}
                             />
-                            <span className="flex-1">{stage.name}</span>
+                            <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                                <span>{stage.name}</span>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-medium w-fit ${
+                                  stage.category === 'topo' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                  stage.category === 'meio' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                                  stage.category === 'fundo' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                                  stage.category === 'vendas' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                  stage.category === 'perdido' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                  'bg-muted text-muted-foreground'
+                                }`}>
+                                    {stage.category || 'Topo'}
+                                </span>
+                            </div>
                             <Badge variant="secondary">
                               {getLeadsForStage(stage.id).length} leads
                             </Badge>
@@ -1737,7 +1791,7 @@ export const KanbanBoard = () => {
                             onClick={() => navigate(`/crm/${lead.id}`)}
                           >
                             <div className="flex items-center gap-2">
-                              <span>{lead.owner}</span>
+                              {lead.owner && <span>{lead.owner}</span>}
                               {lead.dealValue && lead.dealValue > 0 && (
                                 <>
                                   <span className="text-muted-foreground/50">•</span>
@@ -1747,14 +1801,9 @@ export const KanbanBoard = () => {
                                 </>
                               )}
                             </div>
-                            <span>
-                              {formatDistanceToNow(new Date((lead as any).created_at || lead.createdAt || new Date()), {
-                                addSuffix: true,
-                                locale: ptBR,
-                              })}
-                            </span>
                           </div>
                         </div>
+
                       </CardContent>
                     </Card>
                   ))}

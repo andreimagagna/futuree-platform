@@ -40,7 +40,7 @@ interface CRMFunnelStage {
   name: string;
   color: string;
   order_index: number;
-  category?: 'topo' | 'meio' | 'fundo' | 'vendas';
+  category?: 'topo' | 'meio' | 'fundo' | 'vendas' | 'perdido';
   settings: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -56,7 +56,7 @@ interface CreateStageInput {
   name: string;
   color: string;
   order_index: number;
-  category?: 'topo' | 'meio' | 'fundo' | 'vendas';
+  category?: 'topo' | 'meio' | 'fundo' | 'vendas' | 'perdido';
 }
 
 // ============================================================================

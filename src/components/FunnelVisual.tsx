@@ -5,6 +5,23 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useStore, FunnelCategory } from "@/store/useStore";
+import { useSyncCRMFunnelsToStore, useUpdateCRMStage } from "@/hooks/useCRMFunnels";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { 
   ArrowRight,
   TrendingUp, 
@@ -29,6 +46,7 @@ import {
   Activity,
   AlertTriangle,
   Sparkles,
+  Settings2,
 } from "lucide-react";
 import { useState } from "react";
 import { Lead } from "@/store/useStore";
@@ -196,9 +214,23 @@ const inferStageCategory = (stageName: string, order: number, totalStages: numbe
 };
 
 export const FunnelVisual = () => {
+  useSyncCRMFunnelsToStore(); // Garante sincronização com DB
   const { leads, funnels } = useStore();
   const navigate = useNavigate();
   const [expandedCategory, setExpandedCategory] = useState<FunnelCategory | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
+  const updateStageMutation = useUpdateCRMStage();
+
+  const handleUpdateStageCategory = async (stageId: string, category: FunnelCategory) => {
+    try {
+      await updateStageMutation.mutateAsync({
+        id: stageId,
+        updates: { category }
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar categoria do estágio:', error);
+    }
+  };
   
   // Agregar TODOS os leads de TODOS os funis
   const allStages = funnels.flatMap(funnel => 
@@ -967,10 +999,84 @@ export const FunnelVisual = () => {
 
       {/* Main Funnel Categories */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Layers className="h-5 w-5" />
-          Categorias do Funil
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Layers className="h-5 w-5" />
+            Categorias do Funil
+          </h3>
+          <Dialog open={configOpen} onOpenChange={setConfigOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Settings2 className="h-4 w-4" />
+                Configurar Etapas
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Configuração de Categorias do Funil</DialogTitle>
+                <DialogDescription>
+                  Defina em qual categoria cada etapa dos seus funis deve ser contabilizada.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                {funnels.map(funnel => (
+                  <div key={funnel.id} className="space-y-3">
+                    <h4 className="font-medium text-sm flex items-center gap-2 border-b pb-1">
+                      {funnel.name}
+                      {funnel.isDefault && <Badge variant="secondary" className="text-[10px]">Padrão</Badge>}
+                    </h4>
+                    
+                    <div className="grid gap-3">
+                      {funnel.stages.map(stage => {
+                         // Determinar categoria atual (prioridade: definida no banco > inferida)
+                         const currentCategory = stage.category || inferStageCategory(stage.name, stage.order, funnel.stages.length);
+                         const isAuto = !stage.category; // Se não tem category definida, é automático
+
+                         return (
+                          <div key={stage.id} className="flex items-center justify-between p-2 rounded-md border bg-muted/20">
+                            <div className="flex items-center gap-3">
+                              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: stage.color }} />
+                              <span className="text-sm font-medium">{stage.name}</span>
+                              {isAuto && (
+                                <Badge variant="outline" className="text-[10px] h-5 bg-muted/50 text-muted-foreground border-dashed">
+                                  Auto
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            <Select 
+                              value={currentCategory} 
+                              onValueChange={(val: FunnelCategory) => handleUpdateStageCategory(stage.id, val)}
+                              disabled={updateStageMutation.isPending}
+                            >
+                              <SelectTrigger className="w-[140px] h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="topo">Topo do Funil</SelectItem>
+                                <SelectItem value="meio">Meio do Funil</SelectItem>
+                                <SelectItem value="fundo">Fundo do Funil</SelectItem>
+                                <SelectItem value="vendas">Vendas</SelectItem>
+                                <SelectItem value="perdido">Perdidos (Oculto)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                {funnels.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    Nenhum funil encontrado para configurar.
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
 
         {categoryMetrics.map((metric, index) => {
           const isExpanded = expandedCategory === metric.category;

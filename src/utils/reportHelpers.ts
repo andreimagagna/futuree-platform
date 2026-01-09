@@ -1,32 +1,87 @@
-import type { Lead, Task } from '@/store/useStore';
+import type { Lead, Task, Funnel } from '@/store/useStore';
 import { startOfMonth, endOfMonth, subMonths, format, startOfWeek, endOfWeek, subWeeks, subDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export type PeriodType = '7days' | '30days' | '90days' | '6months' | '1year' | 'custom';
 
-// ✅ FUNÇÃO HELPER: Categoriza lead por estágio (mesma lógica do FunnelVisual)
-export const categorizeLead = (lead: Lead): 'topo' | 'meio' | 'fundo' | 'vendas' | 'perdido' | null => {
+// Função inteligente para categorizar etapas automaticamente (Shared)
+export const inferStageCategory = (stageName: string, order: number, totalStages: number): 'topo' | 'meio' | 'fundo' | 'vendas' => {
+  const lowerName = stageName.toLowerCase();
+  
+  const scores = { topo: 0, meio: 0, fundo: 0, vendas: 0 };
+  
+  const vendasKeywords = ['fechamento', 'closing', 'fechado', 'closed', 'won', 'ganho', 'negociação', 'negotiation', 'proposta', 'proposal', 'contrato', 'contract', 'assinatura', 'signature', 'aprovação', 'approval', 'venda', 'sale'];
+  if (vendasKeywords.some(kw => lowerName.includes(kw))) scores.vendas += 10;
+  
+  const topoKeywords = ['capturado', 'captured', 'lead', 'novo', 'new', 'prospect', 'primeiro', 'first', 'entrada', 'entry', 'inicial', 'initial', 'origem', 'source', 'inbound'];
+  if (topoKeywords.some(kw => lowerName.includes(kw))) scores.topo += 10;
+  
+  const meioKeywords = ['qualif', 'discovery', 'demo', 'apresentação', 'presentation', 'análise', 'analysis', 'pesquisa', 'research', 'exploração', 'exploration', 'diagnóstico', 'diagnostic', 'reunião', 'meeting', 'call'];
+  if (meioKeywords.some(kw => lowerName.includes(kw))) scores.meio += 10;
+  
+  const fundoKeywords = ['contato', 'contact', 'poc', 'prova', 'trial', 'teste', 'avaliação', 'evaluation', 'validação', 'validation', 'piloto', 'pilot', 'experimento', 'experiment'];
+  if (fundoKeywords.some(kw => lowerName.includes(kw))) scores.fundo += 10;
+
+  const numberMatch = lowerName.match(/\d+/);
+  if (numberMatch) {
+    const number = parseInt(numberMatch[0]);
+    if (number === 1) scores.topo += 3;
+    else if (number === 2 || number === 3) scores.meio += 3;
+    else if (number === 4 || number === 5) scores.fundo += 3;
+    else if (number >= 6) scores.vendas += 3;
+  }
+  
+  const position = totalStages > 1 ? order / (totalStages - 1) : 0;
+  if (position < 0.2) scores.topo += 5;
+  else if (position < 0.45) scores.meio += 5;
+  else if (position < 0.7) scores.fundo += 5;
+  else scores.vendas += 5;
+
+  const maxScore = Math.max(scores.topo, scores.meio, scores.fundo, scores.vendas);
+  
+  if (maxScore < 5) {
+    if (position < 0.25) return 'topo';
+    if (position < 0.5) return 'meio';
+    if (position < 0.75) return 'fundo';
+    return 'vendas';
+  }
+  
+  if (scores.vendas === maxScore) return 'vendas';
+  if (scores.fundo === maxScore) return 'fundo';
+  if (scores.meio === maxScore) return 'meio';
+  return 'topo';
+};
+
+// ✅ FUNÇÃO HELPER: Categoriza lead por estágio, respeitando configuração de funis
+export const categorizeLead = (lead: Lead, funnels: Funnel[] = []): 'topo' | 'meio' | 'fundo' | 'vendas' | 'perdido' | null => {
   const statusStr = String((lead as any).status || '').toLowerCase();
+  
+  // Status global tem prioridade (Ganho/Perdido)
+  if (['ganho', 'won'].includes(statusStr)) return 'vendas';
+  if (['perdido', 'lost', 'arquivado', 'archived'].includes(statusStr)) return 'perdido';
+  
+  // Tentar identificar pelo ID do Funil e Estágio (Configuração do usuário)
+  if (lead.funnelId && lead.customStageId && funnels.length > 0) {
+    const funnel = funnels.find(f => f.id === lead.funnelId);
+    if (funnel) {
+      const stage = funnel.stages.find(s => s.id === lead.customStageId);
+      if (stage) {
+        // 1. Usa categoria explicitamente definida pelo usuário
+        if (stage.category) return stage.category;
+        
+        // 2. Infere categoria baseado no nome e posição
+        return inferStageCategory(stage.name, stage.order, funnel.stages.length);
+      }
+    }
+  }
+
+  // Fallback: Lógica baseada em string (para leads antigos ou sem config)
   const stageStr = String((lead as any).stage || (lead as any).funnel_stage || '').toLowerCase();
   
-  // Status sobrepõe tudo
-  if (statusStr === 'ganho' || statusStr === 'won') return 'vendas';
-  if (statusStr === 'perdido' || statusStr === 'lost') return 'perdido';
+  if (['novo', 'new', 'captured', 'lead', 'contatado', 'contact', 'contacted', 'open', ''].includes(stageStr)) return 'topo';
+  if (['qualificado', 'qualified', 'qualify', 'qualification', 'proposta', 'proposal', 'apresentacao', 'presentation'].includes(stageStr)) return 'meio';
+  if (['negociacao', 'negotiation', 'closing', 'fechamento', 'contrato', 'contract'].includes(stageStr)) return 'fundo';
   
-  // Categorizar por estágio
-  if (['novo', 'new', 'captured', 'lead', 'contatado', 'contact', 'contacted', 'open', ''].includes(stageStr)) {
-    return 'topo';
-  }
-  
-  if (['qualificado', 'qualified', 'qualify', 'qualification', 'proposta', 'proposal', 'apresentacao', 'presentation'].includes(stageStr)) {
-    return 'meio';
-  }
-  
-  if (['negociacao', 'negotiation', 'closing', 'fechamento', 'contrato', 'contract'].includes(stageStr)) {
-    return 'fundo';
-  }
-  
-  // Padrão: topo
   return 'topo';
 };
 
@@ -177,8 +232,8 @@ export const generateSalesData = (leads: Lead[], monthsBack: number = 6): SalesD
 };
 
 // Gera dados de qualificação por mês
-export const generateQualificationData = (leads: Lead[], monthsBack: number = 6): QualificationData[] => {
-  console.log('📊 generateQualificationData - Início:', { totalLeads: leads.length });
+export const generateQualificationData = (leads: Lead[], monthsBack: number = 6, funnels: Funnel[] = []): QualificationData[] => {
+  console.log('📊 generateQualificationData - Início:', { totalLeads: leads.length, hasFunnels: funnels.length > 0 });
   const data: QualificationData[] = [];
   
   for (let i = monthsBack - 1; i >= 0; i--) {
@@ -195,12 +250,15 @@ export const generateQualificationData = (leads: Lead[], monthsBack: number = 6)
     
     const contacted = monthLeads.length;
     
-    // ✅ Qualificados: leads com score > 0 ou em estágios avançados
+    // ✅ Qualificados: leads com score > 0 ou em estágios avançados (Meio/Fundo/Vendas)
     const qualified = monthLeads.filter(lead => {
-      const stage = (lead as any).stage;
+      const category = categorizeLead(lead, funnels);
       const status = (lead as any).status;
+      
+      const isAdvancedStage = ['meio', 'fundo', 'vendas'].includes(category || '');
+      
       const isQualified = lead.score > 0 || 
-                         ['proposta', 'negociacao', 'proposal', 'closing'].includes(stage) ||
+                         isAdvancedStage ||
                          status === 'ganho' || status === 'won';
       return isQualified;
     }).length;
@@ -281,8 +339,8 @@ export const generateMeetingsData = (tasks: Task[], weeksBack: number = 8): Meet
 };
 
 // Gera dados de previsão de vendas
-export const generateForecastData = (leads: Lead[], monthsAhead: number = 6, monthlyTarget?: number): ForecastData[] => {
-  console.log('📊 generateForecastData - Início:', { totalLeads: leads.length, monthlyTarget });
+export const generateForecastData = (leads: Lead[], monthsAhead: number = 6, monthlyTarget?: number, funnels: Funnel[] = []): ForecastData[] => {
+  console.log('📊 generateForecastData - Início:', { totalLeads: leads.length, monthlyTarget, hasFunnels: funnels.length > 0 });
   const data: ForecastData[] = [];
   const now = new Date();
   
@@ -308,27 +366,29 @@ export const generateForecastData = (leads: Lead[], monthsAhead: number = 6, mon
     
     // ✅ Pipeline com data de fechamento esperada
     const pipelineLeads = leads.filter(lead => {
-      const stage = (lead as any).stage;
+      const category = categorizeLead(lead, funnels);
       const status = (lead as any).status;
       const isActive = !['won', 'ganho', 'lost', 'perdido'].includes(status);
-      const expectedCloseDate = (lead as any).expected_close_date ? new Date((lead as any).expected_close_date) : null;
+      const expectedCloseDate = (lead as any).expected_close_date || lead.expectedCloseDate ? new Date((lead as any).expected_close_date || lead.expectedCloseDate) : null;
       
       // Considera leads que têm data esperada neste mês OU estão em estágios avançados
       const isInMonth = expectedCloseDate && expectedCloseDate >= monthStart && expectedCloseDate <= monthEnd;
-      const isAdvancedStage = ['proposta', 'negociacao', 'proposal', 'closing'].includes(stage);
+      const isAdvancedStage = ['meio', 'fundo'].includes(category || '');
       
       return isActive && (isInMonth || (!expectedCloseDate && isAdvancedStage && !isPastMonth));
     });
     
-    // ✅ Forecast ponderado por estágio + probabilidade da data
+    // ✅ Forecast ponderado por estágio (categoria) + probabilidade da data
     const forecast = pipelineLeads.reduce((sum, lead) => {
-      const stage = (lead as any).stage;
-      const expectedCloseDate = (lead as any).expected_close_date ? new Date((lead as any).expected_close_date) : null;
+      const category = categorizeLead(lead, funnels);
+      const expectedCloseDate = (lead as any).expected_close_date || lead.expectedCloseDate ? new Date((lead as any).expected_close_date || lead.expectedCloseDate) : null;
       
-      // Probabilidade baseada no estágio
-      let stageProbability = 0.3;
-      if (stage === 'closing' || stage === 'negociacao') stageProbability = 0.7;
-      else if (stage === 'proposal' || stage === 'proposta') stageProbability = 0.5;
+      // Probabilidade baseada na categoria
+      let stageProbability = 0.3; // Topo ou desconhecido
+      
+      if (category === 'fundo') stageProbability = 0.7;
+      else if (category === 'meio') stageProbability = 0.5;
+      else if (category === 'vendas') stageProbability = 1.0;
       
       // Aumenta probabilidade se tem data de fechamento definida
       if (expectedCloseDate) stageProbability = Math.min(stageProbability + 0.2, 0.9);
@@ -356,8 +416,8 @@ export const generateForecastData = (leads: Lead[], monthsAhead: number = 6, mon
 };
 
 // Gera dados de funil de conversão
-export const generateConversionFunnelData = (leads: Lead[]): ConversionFunnelData[] => {
-  console.log('📊 generateConversionFunnelData - Início:', { totalLeads: leads.length });
+export const generateConversionFunnelData = (leads: Lead[], funnels: Funnel[] = []): ConversionFunnelData[] => {
+  console.log('📊 generateConversionFunnelData - Início:', { totalLeads: leads.length, hasFunnels: funnels.length > 0 });
   
   const totalLeads = leads.length;
   
@@ -371,7 +431,7 @@ export const generateConversionFunnelData = (leads: Lead[]): ConversionFunnelDat
   };
   
   leads.forEach(lead => {
-    const category = categorizeLead(lead);
+    const category = categorizeLead(lead, funnels);
     if (category && category !== 'perdido') {
       categories[category].push(lead);
     } else if (category === 'perdido') {
